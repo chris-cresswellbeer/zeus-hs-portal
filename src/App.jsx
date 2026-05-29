@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 
-// ─── Supabase Configuration ────add───────────────────────────────────────────────
+// ─── Supabase Configuration ───────────────────────────────────────────────────
 // Replace these two values with your own from:
 // Supabase Dashboard → Project Settings → API
 const SUPABASE_URL  = "https://aoahugfyswgcisfiosyn.supabase.co";
@@ -77,7 +77,7 @@ function useWindowWidth() {
 // cols: number of columns on desktop, collapses to 1 on mobile
 function rGrid(cols, gap = 14, mobileGap = 10) {
   const w = window.innerWidth;
-  const isMobile = w <= 768;
+  const isMobile = w <= 1024;
   const colMap = {
     2: "1fr 1fr",
     3: "1fr 1fr 1fr",
@@ -7862,7 +7862,7 @@ const COSHH_DATA = [
   { code:"CHEM000017", name:"SUMA NOVA L6L 2X5L GB,IRL",                               supplier:"Diversey",           msdsDate:"03/08/2024", un:"1824 — Sodium hydroxide Solution",                                classification:"Skin Corr. 1A; H314 · Eye Dam. 1; H318 · Met. Corr. 1; H290" },
   { code:"CHEM000019", name:"SHIELD LIMESCALE REMOVER 12X1L GB,IRL",                   supplier:"Diversey",           msdsDate:"20/06/2021", un:"1805 — Phosphoric Acid Solution",                                  classification:"Eye Irrit. 2; H319 · Met. Corr. 1; H290" },
   { code:"CHEM000020", name:"MS1003493_GB02_BE_",                                       supplier:"Diversey",           msdsDate:"02/08/2024", un:"Non Dangerous Goods",                                             classification:"Not classified (CLP)" },
-  { code:"CHEM000023", name:"SUMA BAC D10 SANITIZER 2X1.4L GB,IRL",                    supplier:"Diversey",           msdsDate:"28/11/2022", un:"3267 — Corrosive Liquid, basic, organic, n.o.s",                  classification:"Skin Irrit. 2; H315 · Eye Dam. 1; H318 · Aquatic Acute 1; H400 · Met. Corr. 1; H290" },
+  { code:"CHEM000023", name:"SUMA BAC D10 SANITIZER 2X1.4L GB,IRL",                    supplier:"Diversey",           msdsDate:"28/11/2022", un:"3267 - Corrosive Liquid, basic, organic, n.o.s",                  classification:"Skin Irrit. 2; H315 · Eye Dam. 1; H318 · Aquatic Acute 1; H400 · Met. Corr. 1; H290" },
   { code:"CHEM000024", name:"SUMA MULTIPURPOSE CL.D2.3 2X1.4L W2498",                  supplier:"Diversey",           msdsDate:"09/08/2024", un:"Non Dangerous Goods",                                             classification:"Eye Dam. 1; H318 · Aquatic Chronic 3; H412" },
   { code:"CHEM000026", name:"TASKI JONTEC 300 PUR-ECO SD 1.4L W73",                    supplier:"Diversey",           msdsDate:"07/08/2024", un:"Non Dangerous Goods",                                             classification:"Not classified (CLP)" },
   { code:"CHEM000052", name:"SUMA RAPID D6L 6X0.75L W102",                              supplier:"Diversey",           msdsDate:"08/08/2024", un:"Non Dangerous Goods",                                             classification:"Not classified (CLP)" },
@@ -7879,7 +7879,7 @@ const COSHH_DATA = [
   { code:"CHEM000064", name:"SUMA RINSE A5 2X5L W1886+ (2)",                           supplier:"Diversey",           msdsDate:"27/06/2025", un:"Non Dangerous Goods",                                             classification:"Not classified (CLP)" },
   { code:"CHEM000065", name:"BACTOSOL CABINET DETERGENT 2X5L GB,IRL",                  supplier:"Diversey",           msdsDate:"16/12/2024", un:"Non Dangerous Goods",                                             classification:"Not classified (CLP)" },
   { code:"CHEM000066", name:"SUMA BREAK UP D3.5 2X5L W1605+",                          supplier:"Diversey",           msdsDate:"26/09/2022", un:"Non Dangerous Goods",                                             classification:"Skin Irrit. 2; H315 · Eye Dam. 1; H318" },
-  { code:"CHEM000067", name:"SUMA BAC CONC D10 4X1.5L W2237 X",                        supplier:"Diversey",           msdsDate:"05/12/2024", un:"3267 — Corrosive Liquid, basic, organic, n.o.s",                  classification:"Skin Corr. 1B; H314 · Acute Tox. 4; H302 · Eye Dam. 1; H318 · Aquatic Acute 1; H400 · Aquatic Chronic 2; H411" },
+  { code:"CHEM000067", name:"SUMA BAC CONC D10 4X1.5L W2237 X",                        supplier:"Diversey",           msdsDate:"05/12/2024", un:"3267 - Corrosive Liquid, basic, organic, n.o.s",                  classification:"Skin Corr. 1B; H314 · Acute Tox. 4; H302 · Eye Dam. 1; H318 · Aquatic Acute 1; H400 · Aquatic Chronic 2; H411" },
   { code:"CHEM000068", name:"SUMA CHLORSAN D10.4 2X5L W1303",                          supplier:"Diversey",           msdsDate:"31/10/2021", un:"1719 — Caustic Alkali Liquid n.o.s",                               classification:"Skin Corr. 1B; H314 · Eye Dam. 1; H318 · Aquatic Acute 1; H400 · Met. Corr. 1; H290" },
   { code:"CHEM000069", name:"SURE ANTIBAC HAND WASH FREE 6X0.5L W406",                 supplier:"Diversey",           msdsDate:"02/08/2023", un:"Non Dangerous Goods",                                             classification:"Not classified (CLP)" },
   { code:"CHEM000070", name:"SOFT CARE PLUS H41 6X0.8L W1714 (2)",                     supplier:"Diversey",           msdsDate:"02/08/2024", un:"Non Dangerous Goods",                                             classification:"Not classified (CLP)" },
@@ -7906,7 +7906,7 @@ const COSHH_DATA = [
   { code:"CHEM000106", name:"SURE WASHROOM CLEANER & DESC. SD 1.4L",                   supplier:"Diversey",           msdsDate:"02/08/2024", un:"Non Dangerous Goods",                                             classification:"Eye Irrit. 2; H319" },
   { code:"CHEM000110", name:"SURE ANTIBAC HANDW.FREE IC 4X1.3L W17",                   supplier:"Diversey",           msdsDate:"02/08/2023", un:"Non Dangerous Goods",                                             classification:"Not classified (CLP)" },
   { code:"CHEM000112", name:"SOFT CARE MED H5 10X0.5L GB",                             supplier:"Diversey",           msdsDate:"04/07/2021", un:"1987 — Alcohols n.o.s",                                           classification:"Flam. Liq. 2; H225 · STOT SE 3; H336 · Eye Irrit. 2; H319" },
-  { code:"CHEM000162", name:"SUMA BAC CONC D10 CONC 3X2L W2237",                       supplier:"Diversey",           msdsDate:"05/12/2024", un:"3267 — Corrosive Liquid, basic, organic, n.o.s",                  classification:"Skin Corr. 1B; H314 · Acute Tox. 4; H302 · Eye Dam. 1; H318 · Aquatic Acute 1; H400 · Aquatic Chronic 2; H411" },
+  { code:"CHEM000162", name:"SUMA BAC CONC D10 CONC 3X2L W2237",                       supplier:"Diversey",           msdsDate:"05/12/2024", un:"3267 - Corrosive Liquid, basic, organic, n.o.s",                  classification:"Skin Corr. 1B; H314 · Acute Tox. 4; H302 · Eye Dam. 1; H318 · Aquatic Acute 1; H400 · Aquatic Chronic 2; H411" },
   { code:"CHEM000198", name:"SUMA MULTI CONC D2 CONC 3X2L W3047",                      supplier:"Diversey",           msdsDate:"04/08/2024", un:"Non Dangerous Goods",                                             classification:"Acute Tox. 4; H302 · Skin Irrit. 2; H315 · Eye Dam. 1; H318" },
   { code:"CHEM000199", name:"PERSIL PF. NON BIO TABS 3X56PC GB,IRL",                   supplier:"Diversey",           msdsDate:"04/08/2024", un:"Non Dangerous Goods",                                             classification:"Eye Dam. 1; H318" },
   { code:"CHEM000051", name:"Glade Air Freshener Clean Linen 500ml",                   supplier:"Lyreco",             msdsDate:"13/11/2024", un:"1950 — Aerosols",                                                 classification:"Aerosols Cat.2; H223 — flammable" },
@@ -9665,7 +9665,7 @@ export default function App() {
 
   const font = "'Barlow','Trebuchet MS',system-ui,sans-serif";
   const winW = useWindowWidth();
-  const isMobile = winW <= 768;
+  const isMobile = winW <= 1024;
   const isSmall = winW <= 480;
 
   // ── Ensure correct viewport meta tag for mobile ─────────────────────────────
@@ -10327,24 +10327,21 @@ export default function App() {
         <CertModal/>
         <PreviewModal doc={previewDoc} onClose={()=>setPreviewDoc(null)} Z={T} font={font}/>
         {/* Nav */}
-        <div style={{background:`linear-gradient(90deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:isMobile?"0 12px":"0 28px",display:"flex",alignItems:"center",overflowX:"auto",WebkitOverflowScrolling:"touch"}} className="admin-nav-bar">
-          <div style={{marginRight:32,padding:"12px 0"}}><ZeusLogo darkMode={darkMode}/></div>
-          <div style={{width:1,height:28,background:T.headerBgMd,marginRight:8}}/>
-          {/* Desktop nav tabs */}
-          <div style={{display:"flex",alignItems:"center",flex:1,overflowX:"auto"}} className="staff-nav-tabs">
+        <div style={{background:`linear-gradient(90deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:"0 24px",display:"flex",alignItems:"center",position:"relative"}}>
+          <div style={{marginRight:20,padding:"10px 0",flexShrink:0}}><ZeusLogo darkMode={darkMode}/></div>
+          <div style={{display:"flex",alignItems:"center",gap:2,flex:1,overflowX:"auto"}} className="staff-nav-tabs">
             {["dashboard","training","history","documents","incidents","dse",...(isWarehouseWorker(user)?["machinery"]:[]),"actions"].map(t=>(
-              <button key={t} onClick={()=>{setStab(t);setMobileMenuOpen(false);}} style={navBtn(stab===t)}>
+              <button key={t} onClick={()=>setStab(t)}
+                style={{background:"none",border:"none",borderBottom:stab===t?`2px solid ${T.accent}`:"2px solid transparent",color:stab===t?T.white:T.muted,fontWeight:stab===t?700:400,fontSize:13,cursor:"pointer",padding:"14px 14px 12px",fontFamily:font,whiteSpace:"nowrap",letterSpacing:.3,transition:"color .15s"}}>
                 {{dashboard:"Dashboard",training:"My Training",history:"History",documents:"Documents",incidents:"Report Incident",dse:"My DSE",machinery:"My Machinery",actions:"My Actions"}[t]}
               </button>
             ))}
           </div>
-          {/* Mobile hamburger */}
-          <button onClick={()=>setMobileMenuOpen(o=>!o)}
-            style={{display:"none",background:"none",border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"6px 10px",color:T.white,cursor:"pointer",fontFamily:font,fontSize:16,marginLeft:8}}
-            className="mobile-ham">
+          <button className="mobile-ham" style={{display:"none",background:"none",border:`1px solid ${T.borderMd}`,borderRadius:8,color:T.white,fontSize:20,cursor:"pointer",padding:"4px 10px",lineHeight:1,fontFamily:font,flexShrink:0}}
+            onClick={()=>setMobileMenuOpen(m=>!m)}>
             {mobileMenuOpen?"✕":"☰"}
           </button>
-          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:10}}>
+          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:isMobile?6:10}}>
             {(()=>{
               const notifications = [];
               const myIds = assigns[user.id]||[];
@@ -10752,13 +10749,13 @@ export default function App() {
           button { transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease, filter 0.15s ease, opacity 0.15s ease; }
 
           /* ── Mobile responsive nav ── */
-          @media (max-width: 768px) {
+          @media (max-width: 1024px) {
             .staff-nav-tabs { display: none !important; }
             .mobile-ham { display: block !important; }
           }
 
           /* ── Global mobile responsive rules ── */
-          @media (max-width: 768px) {
+          @media (max-width: 1024px) {
 
             /* Collapse all fixed multi-column grids to single column */
             [style*="gridTemplateColumns: \"1fr 1fr\""],
@@ -10975,97 +10972,40 @@ export default function App() {
           />
         )}
         {/* Nav */}
-        <div style={{background:`linear-gradient(90deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:"0 28px",display:"flex",alignItems:"center"}}>
-          <div style={{marginRight:28,padding:"12px 0"}}><ZeusLogo darkMode={darkMode}/></div>
-          <div style={{width:1,height:28,background:T.headerBgMd,marginRight:8}}/>
-          <Pill label="ADMIN" col="navy"/>
-          <div style={{width:1,height:20,background:T.headerBgMd,margin:"0 12px"}}/>
-          {/* Nav items — Training has a hover dropdown */}
-          {(()=>{
-            const TRAINING_TABS = ["assign","modules","create","reports"];
-            const trainingActive = TRAINING_TABS.includes(atab);
-            const ME_TABS = ["machinery","equipment"];
-            const meActive = ME_TABS.includes(atab);
-            return (
-              <>
-                {/* Staff — first tab */}
-                <button onClick={()=>setAtab("users")} style={navBtn(atab==="users",T.gold)}>Staff</button>
-
-                {/* Training dropdown — second tab */}
-                <div style={{position:"relative",display:"inline-block"}}
-                  onMouseEnter={e=>e.currentTarget.querySelector(".training-dd").style.display="block"}
-                  onMouseLeave={e=>e.currentTarget.querySelector(".training-dd").style.display="none"}>
-                  <button style={{...navBtn(trainingActive,T.gold),display:"flex",alignItems:"center",gap:5}}>
-                    Training
-                    <span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span>
-                  </button>
-                  <div className="training-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:160,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
-                    {[["assign","Assign Training"],["modules","Training Library"],["create","Create Module"],["reports","Reports"]].map(([id,label])=>(
-                      <button key={id} onClick={()=>setAtab(id)}
-                        style={{display:"block",width:"100%",textAlign:"left",padding:"10px 18px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",color:atab===id?T.gold:T.white,fontWeight:atab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:font,transition:"background .15s",letterSpacing:.3}}>
-                        {label}
-                      </button>
-                    ))}
+        <div style={{background:`linear-gradient(90deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:isMobile?"0 12px":"0 28px",display:"flex",alignItems:"center",position:"relative"}}>
+          <div style={{marginRight:isMobile?8:28,padding:"12px 0",flexShrink:0}}><ZeusLogo darkMode={darkMode}/></div>
+          {!isMobile && <><div style={{width:1,height:28,background:T.headerBgMd,marginRight:8}}/><Pill label="ADMIN" col="navy"/><div style={{width:1,height:20,background:T.headerBgMd,margin:"0 12px"}}/></>}
+          {!isMobile && (()=>{
+            const TRAINING_TABS=["assign","modules","create","reports"]; const trainingActive=TRAINING_TABS.includes(atab);
+            const ME_TABS=["machinery","equipment"]; const meActive=ME_TABS.includes(atab);
+            return (<>
+              <button onClick={()=>setAtab("users")} style={navBtn(atab==="users",T.gold)}>Staff</button>
+              <div style={{position:"relative",display:"inline-block"}} onMouseEnter={e=>e.currentTarget.querySelector(".training-dd").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".training-dd").style.display="none"}>
+                <button style={{...navBtn(trainingActive,T.gold),display:"flex",alignItems:"center",gap:5}}>Training<span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span></button>
+                <div className="training-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:160,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
+                  {[["assign","Assign Training"],["modules","Training Library"],["create","Create Module"],["reports","Reports"]].map(([id,label])=>(<button key={id} onClick={()=>setAtab(id)} style={{display:"block",width:"100%",textAlign:"left",padding:"10px 18px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",color:atab===id?T.gold:T.white,fontWeight:atab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:font,transition:"background .15s",letterSpacing:.3}}>{label}</button>))}
+                </div>
+              </div>
+              {(()=>{ const DOC_TABS=["documents","coshh"]; const docActive=DOC_TABS.includes(atab); return (
+                <div style={{position:"relative",display:"inline-block"}} onMouseEnter={e=>e.currentTarget.querySelector(".doc-dd").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".doc-dd").style.display="none"}>
+                  <button style={{...navBtn(docActive,T.gold),display:"flex",alignItems:"center",gap:5}}>Documents<span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span></button>
+                  <div className="doc-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:180,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
+                    {[["documents","H&S Documents"],["coshh","COSHH Register"]].map(([id,label])=>(<button key={id} onClick={()=>setAtab(id)} style={{display:"block",width:"100%",textAlign:"left",padding:"10px 18px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",color:atab===id?T.gold:T.white,fontWeight:atab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:font,transition:"background .15s",letterSpacing:.3}}>{label}</button>))}
                   </div>
                 </div>
-
-                {/* Documents dropdown */}
-                {(()=>{
-                  const DOC_TABS = ["documents","coshh"];
-                  const docActive = DOC_TABS.includes(atab);
-                  return (
-                    <div style={{position:"relative",display:"inline-block"}}
-                      onMouseEnter={e=>e.currentTarget.querySelector(".doc-dd").style.display="block"}
-                      onMouseLeave={e=>e.currentTarget.querySelector(".doc-dd").style.display="none"}>
-                      <button style={{...navBtn(docActive,T.gold),display:"flex",alignItems:"center",gap:5}}>
-                        Documents
-                        <span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span>
-                      </button>
-                      <div className="doc-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:180,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
-                        {[["documents","H&S Documents"],["coshh","COSHH Register"]].map(([id,label])=>(
-                          <button key={id} onClick={()=>setAtab(id)}
-                            style={{display:"block",width:"100%",textAlign:"left",padding:"10px 18px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",color:atab===id?T.gold:T.white,fontWeight:atab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:font,transition:"background .15s",letterSpacing:.3}}>
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Remaining mid tabs */}
-                {["incidents","ra"].map(t=>(
-                  <button key={t} onClick={()=>setAtab(t)} style={navBtn(atab===t,T.gold)}>
-                    {{incidents:"Incidents",ra:"Risk Assessments"}[t]}
-                  </button>
-                ))}
-
-                {/* Site Inspections tab */}
-                <button onClick={()=>setAtab("inspections")} style={navBtn(atab==="inspections",T.gold)}>
-                  Inspections
-                </button>
-
-                {/* Machinery & Equipment dropdown */}
-                <div style={{position:"relative",display:"inline-block"}}
-                  onMouseEnter={e=>e.currentTarget.querySelector(".me-dd").style.display="block"}
-                  onMouseLeave={e=>e.currentTarget.querySelector(".me-dd").style.display="none"}>
-                  <button style={{...navBtn(meActive,T.gold),display:"flex",alignItems:"center",gap:5}}>
-                    Machinery &amp; Equipment
-                    <span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span>
-                  </button>
-                  <div className="me-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:180,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
-                    {[["machinery","Machinery Competence"],["equipment","Equipment Register"]].map(([id,label])=>(
-                      <button key={id} onClick={()=>setAtab(id)}
-                        style={{display:"block",width:"100%",textAlign:"left",padding:"10px 18px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",color:atab===id?T.gold:T.white,fontWeight:atab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:font,transition:"background .15s",letterSpacing:.3}}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+              ); })()}
+              {["incidents","ra"].map(t=>(<button key={t} onClick={()=>setAtab(t)} style={navBtn(atab===t,T.gold)}>{{incidents:"Incidents",ra:"Risk Assessments"}[t]}</button>))}
+              <button onClick={()=>setAtab("inspections")} style={navBtn(atab==="inspections",T.gold)}>Inspections</button>
+              <div style={{position:"relative",display:"inline-block"}} onMouseEnter={e=>e.currentTarget.querySelector(".me-dd").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".me-dd").style.display="none"}>
+                <button style={{...navBtn(meActive,T.gold),display:"flex",alignItems:"center",gap:5}}>Machinery &amp; Equipment<span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span></button>
+                <div className="me-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:180,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
+                  {[["machinery","Machinery Competence"],["equipment","Equipment Register"]].map(([id,label])=>(<button key={id} onClick={()=>setAtab(id)} style={{display:"block",width:"100%",textAlign:"left",padding:"10px 18px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",color:atab===id?T.gold:T.white,fontWeight:atab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:font,transition:"background .15s",letterSpacing:.3}}>{label}</button>))}
                 </div>
-              </>
-            );
+              </div>
+            </>);
           })()}
-          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:10}}>
+          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:isMobile?6:10}}>
+            {isMobile && (<button onClick={()=>setMobileMenuOpen(m=>!m)} style={{background:"none",border:`1px solid ${T.borderMd}`,borderRadius:8,color:T.white,fontSize:20,cursor:"pointer",padding:"4px 10px",lineHeight:1,fontFamily:font,flexShrink:0}}>{mobileMenuOpen?"✕":"☰"}</button>)}
             {(()=>{
               const notifications = [];
               // Staff with overdue mandatory modules
@@ -11125,6 +11065,32 @@ export default function App() {
             <button onClick={logout} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,fontFamily:font}}>Sign Out</button>
           </div>
         </div>
+
+        {/* Mobile nav drawer */}
+        {isMobile && mobileMenuOpen && (
+          <div style={{background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:"8px 0",zIndex:300,position:"relative"}}>
+            {[
+              ["users","👥 Staff"],
+              ["assign","📋 Assign Training"],
+              ["modules","📚 Training Library"],
+              ["create","➕ Create Module"],
+              ["reports","📊 Reports"],
+              ["documents","📄 H&S Documents"],
+              ["coshh","🧪 COSHH Register"],
+              ["incidents","⚠️ Incidents"],
+              ["ra","🔍 Risk Assessments"],
+              ["inspections","🏗️ Inspections"],
+              ["machinery","🔧 Machinery Competence"],
+              ["equipment","📦 Equipment Register"],
+              ["account","👤 My Account"],
+            ].map(([id,label])=>(
+              <button key={id} onClick={()=>{setAtab(id);setMobileMenuOpen(false);}}
+                style={{display:"block",width:"100%",textAlign:"left",padding:"13px 20px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,color:atab===id?T.gold:T.white,fontWeight:atab===id?700:400,fontSize:14,cursor:"pointer",fontFamily:font}}>
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div style={{maxWidth:1100,margin:"0 auto",padding:isMobile?"16px 12px":"36px 28px"}}>
 
