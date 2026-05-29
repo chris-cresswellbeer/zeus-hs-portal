@@ -9668,6 +9668,13 @@ export default function App() {
   const isMobile = winW <= 768;
   const isSmall = winW <= 480;
 
+  // ── Ensure correct viewport meta tag for mobile ─────────────────────────────
+  useEffect(() => {
+    let meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) { meta = document.createElement('meta'); meta.name = 'viewport'; document.head.appendChild(meta); }
+    meta.content = 'width=device-width, initial-scale=1, maximum-scale=1';
+  }, []);
+
   // ── Load all persisted data from Supabase on mount ───────────────────────────
   useEffect(() => {
     async function loadAll() {
@@ -10110,7 +10117,7 @@ export default function App() {
     }
 
     return (
-      <div style={{minHeight:"100vh",background:T.bg,fontFamily:font,color:T.white}}>
+      <div style={{minHeight:"100vh",background:T.bg,fontFamily:font,color:T.white,overflowX:"hidden"}}>
         {/* Header */}
         <div style={{background:`linear-gradient(90deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:"12px 24px",display:"flex",alignItems:"center",gap:16}}>
           <ZeusLogo darkMode={darkMode}/>
@@ -10835,7 +10842,11 @@ export default function App() {
           /* Admin nav bar — hide scrollbar but keep scrollable on mobile */
           .admin-nav-bar { scrollbar-width: none; -ms-overflow-style: none; }
           .admin-nav-bar::-webkit-scrollbar { display: none; }
-          .admin-nav-bar * { flex-shrink: 0; white-space: nowrap; }
+          .admin-nav-bar button { flex-shrink: 0 !important; white-space: nowrap !important; }
+          .admin-nav-bar > * { flex-shrink: 0 !important; }
+          @media (max-width: 1024px) {
+            .admin-nav-bar button { font-size: 11px !important; padding: 4px 10px !important; }
+          }
 
           /* Extra small screens (phones < 480px) */
           @media (max-width: 480px) {
@@ -10952,7 +10963,7 @@ export default function App() {
     };
 
     return (
-      <div style={{minHeight:"100vh",background:T.bg,fontFamily:font,color:T.white}}>
+      <div style={{minHeight:"100vh",background:T.bg,fontFamily:font,color:T.white,overflowX:"hidden"}}>
         <PreviewModal doc={previewDoc} onClose={()=>setPreviewDoc(null)} Z={T} font={font}/>
         {editingStaff && (
           <EditStaffModal
@@ -11117,7 +11128,7 @@ export default function App() {
 
         <div style={{maxWidth:1100,margin:"0 auto",padding:isMobile?"16px 12px":"36px 28px"}}>
 
-          {atab==="users" && (
+          {atab==="users" && (<div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
             <div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
                 <div>
@@ -11307,7 +11318,7 @@ export default function App() {
                 );
               })()}
             </div>
-          )}
+          </div>)}
 
           {atab==="assign" && (
             <div>
