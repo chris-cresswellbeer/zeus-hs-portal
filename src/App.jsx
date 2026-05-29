@@ -8670,6 +8670,7 @@ function CreateModuleTab({ onSave, Z, font }) {
 }
 
 function SiteInspectionsTab({ inspections, setInspections, staff, Z, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const [view, setView] = useState("list"); // "list"|"new"|"detail"|"report"
   const [activeId, setActiveId] = useState(null);
   const [filterType, setFilterType] = useState("all");
