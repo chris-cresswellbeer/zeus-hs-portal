@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 
-// ─── Supabase Configuration ───────────────────────────────────────────────────
+// ─── Supabase Configuration ────add───────────────────────────────────────────────
 // Replace these two values with your own from:
 // Supabase Dashboard → Project Settings → API
 const SUPABASE_URL  = "https://aoahugfyswgcisfiosyn.supabase.co";
