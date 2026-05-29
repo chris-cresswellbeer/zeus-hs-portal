@@ -63,7 +63,7 @@ const sb = (() => {
   return { from, storage };
 })();
 
-// ─── File accept type constants (avoids /* in JSX which breaks some parsers) ─────
+// ─── File accept type constants (avoids wildcard slash-star in JSX string attributes) ─────
 const ACCEPT_IMAGES = ["image/jpeg","image/png","image/gif","image/webp"].join(",");
 const ACCEPT_VIDEO  = ["video/mp4","video/webm","video/ogg","video/quicktime"].join(",");
 const ACCEPT_IMG_DOCS = ACCEPT_IMAGES + ",.pdf,.doc,.docx";
@@ -2290,6 +2290,7 @@ function ManagerRow({ mgr, assigns, comps, Z, font, modules }) {
 
 // ─── Edit Staff Modal ─────────────────────────────────────────────────────────
 function EditStaffModal({ staffUser, allUsers, setAllUsers, passwords, setPasswords, onClose, Z, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const [name,              setName]             = useState(staffUser.name);
   const [email,             setEmail]            = useState(staffUser.email);
   const [jobTitle,          setJobTitle]         = useState(staffUser.jobTitle||"");
@@ -2579,6 +2580,7 @@ function StaffDSETab({ user, dseReports, adminResponses, setDseAnswers, setDseCo
 
 // ─── Account Tab Component ───────────────────────────────────────────────────
 function AccountTab({ user, passwords, setPasswords, darkMode, setDarkMode, Z, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const [oldPw,    setOldPw]    = useState("");
   const [newPw,    setNewPw]    = useState("");
   const [confirmPw,setConfirmPw]= useState("");
@@ -3528,6 +3530,7 @@ function generateRAHtml(ra) {
 }
 
 function RiskAssessmentTab({ docs, setDocs, setAtab, Z, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const [view, setView]     = useState("list");  // "list" | "new" | "edit"
   const [editId, setEditId] = useState(null);
   const [ras, setRas]       = useState(INIT_RAS);
@@ -4356,6 +4359,7 @@ function MachineryCompetenceTab({ user, machineComps, setMachineComps, Z, font }
 
 // ─── Admin Machinery Tab ──────────────────────────────────────────────────────
 function AdminMachineryTab({ allStaff, machineComps, setMachineComps, Z, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const warehouseStaff = allStaff.filter(u=>u.role!=="admin"&&isWarehouseWorker(u));
   const [selectedUser, setSelectedUser] = useState(warehouseStaff[0]?.id||null);
   const [editingId, setEditingId] = useState(null);  // comp id being edited, or "new"
@@ -4632,6 +4636,7 @@ function SectionHeader({ icon, label, Z }) {
 }
 
 function IncidentForm({ form, setF, err, saved, onSubmit, onCancel, isEdit, Z, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const selStyle = {width:"100%",background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:10,padding:"10px 14px",color:Z.white,fontSize:13,outline:"none",fontFamily:font,cursor:"pointer",boxSizing:"border-box"};
   const inputStyle = {...selStyle,cursor:"text"};
   const labelStyle = {color:Z.muted,fontSize:11,fontWeight:700,letterSpacing:.5,display:"block",marginBottom:6};
@@ -5238,6 +5243,7 @@ function InvestigationDashboard({ incidents, investigations, onOpen, Z, font }) 
 }
 
 function InvestigationTab({ incidents, setIncidents, staff, investigations, setInvestigations, focusedId, setFocusedId, onBack, Z, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const [view, setView] = useState(focusedId ? "detail" : "dashboard"); // "dashboard" | "list" | "detail"
   const [activeId, setActiveId] = useState(focusedId || null);
   const [invForm, setInvForm] = useState(null);
@@ -8336,6 +8342,7 @@ function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustom
 
 // ─── Create Training Module Tab ───────────────────────────────────────────────
 function CreateModuleTab({ onSave, Z, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const ICONS = ["📋","🔥","💪","🧠","⚡","🏥","🦺","🧯","☢️","🌿","🔧","📊","🚧","👁","🩺","🎓","⚠️","🔐","🚨","📡"];
   const CATEGORIES = ["Fire Safety","Physical Safety","Mental Health","Hazardous Substances","Electrical Safety","First Aid","Environmental","Equipment Safety","Manual Handling","General H&S","Food Safety","Compliance","Custom"];
   const LEVELS = ["Mandatory","Recommended","Optional"];
