@@ -8310,15 +8310,30 @@ function CreateModuleTab({ onSave, Z, font }) {
     setStep(to);
   }
 
-  function saveModule() {
+  async function saveModule() {
+    // Wait for any in-progress video uploads before saving
+    const anyUploading = slides.some(s => s.video && s.video.uploading);
+    if (anyUploading) {
+      setErr("Please wait — video is still uploading.");
+      return;
+    }
+    // Strip out any video entries that failed (no url and no data)
+    const cleanSlides = slides.map(s => ({
+      ...s,
+      video: s.video && (s.video.url || s.video.data)
+        ? { name: s.video.name, type: s.video.type, url: s.video.url || s.video.data, data: s.video.url || s.video.data }
+        : null,
+    }));
     const newModule = {
       id: `custom_${Date.now()}`,
       ...details,
       renewalMonths: Number(details.renewalMonths)||12,
-      content: slides,
+      content: cleanSlides,
       quiz: quiz.map(q=>({...q, answer:Number(q.answer)})),
       _custom: true,
     };
+    // Save directly to Supabase before updating state
+    await sb.from("custom_modules").upsert({ id: newModule.id, data: newModule }, { onConflict: "id" });
     onSave(newModule);
   }
 
@@ -8425,7 +8440,7 @@ function CreateModuleTab({ onSave, Z, font }) {
                     <span style={{fontSize:20}}>🎬</span>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:12,fontWeight:700,color:Z.white,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.video.name}</div>
-                      <div style={{fontSize:10,color:Z.muted,marginTop:2}}>{(s.video.data.length * 0.75 / 1048576).toFixed(1)} MB</div>
+                      <div style={{fontSize:10,color:Z.muted,marginTop:2}}>{s.video.uploading ? "Uploading…" : (s.video.url || s.video.data) ? "✓ Uploaded" : ""}</div>
                     </div>
                     <button onClick={()=>updateSlide(i,"video",null)} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.25)",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>Remove</button>
                   </div>
@@ -8433,11 +8448,15 @@ function CreateModuleTab({ onSave, Z, font }) {
                   <>
                     <input ref={el=>videoInputRefs.current[i]=el} type="file" accept="video/*"
                       style={{display:"none"}}
-                      onChange={e=>{
+                      onChange={async e=>{
                         const file=e.target.files[0]; if(!file) return;
-                        const reader=new FileReader();
-                        reader.onload=ev=>updateSlide(i,"video",{name:file.name,type:file.type,data:ev.target.result});
-                        reader.readAsDataURL(file);
+                        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+                        const path = `video_${Date.now()}_${safeName}`;
+                        updateSlide(i,"video",{name:file.name,type:file.type,data:null,uploading:true});
+                        const { error } = await sb.storage.upload("documents", path, file);
+                        if (error) { alert("Video upload failed: " + error); updateSlide(i,"video",null); return; }
+                        const url = sb.storage.getPublicUrl("documents", path);
+                        updateSlide(i,"video",{name:file.name,type:file.type,data:url,url});
                         e.target.value="";
                       }}/>
                     <div onClick={()=>videoInputRefs.current[i]&&videoInputRefs.current[i].click()}
@@ -9861,10 +9880,12 @@ export default function App() {
   }
 
   async function dbSaveDoc(doc, file) {
-    // Upload raw file to Storage bucket
+    // Upload raw file to Storage bucket — flat path, no subfolders
     if (file) {
-      const path = `${doc.id}/${doc.fileName}`;
-      await sb.storage.upload("documents", path, file);
+      const safeName = doc.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `doc_${doc.id}_${safeName}`;
+      const { error } = await sb.storage.upload("documents", path, file);
+      if (error) { console.error("Doc upload failed:", error); alert("Upload failed: " + error); return; }
       doc.fileUrl = sb.storage.getPublicUrl("documents", path);
     }
     await sb.from("documents").upsert({
@@ -9874,7 +9895,10 @@ export default function App() {
   }
 
   async function dbDeleteDoc(id, fileName) {
-    if (fileName) await sb.storage.remove("documents", [`${id}/${fileName}`]);
+    if (fileName) {
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+      await sb.storage.remove("documents", [`doc_${id}_${safeName}`]);
+    }
     await sb.from("documents").delete().eq("id", id);
     await sb.from("doc_assignments").delete().eq("doc_id", id);
     await sb.from("doc_acknowledgements").delete().eq("doc_id", id);
@@ -10103,7 +10127,10 @@ export default function App() {
                 )}
                 {slide.video && (
                   <div style={{marginBottom:20,borderRadius:12,overflow:"hidden",background:"#000",border:`1px solid ${T.borderMd}`}}>
-                    <video src={slide.video.data} controls style={{width:"100%",maxHeight:360,display:"block"}}/>
+                    {slide.video.uploading
+                      ? <div style={{padding:32,textAlign:"center",color:"#aaa",fontSize:13}}>⏳ Uploading video…</div>
+                      : <video src={slide.video.url||slide.video.data} controls style={{width:"100%",maxHeight:360,display:"block"}}/>
+                    }
                   </div>
                 )}
                 {slide.text && (
