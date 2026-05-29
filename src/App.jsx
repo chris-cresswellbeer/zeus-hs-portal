@@ -63,6 +63,33 @@ const sb = (() => {
   return { from, storage };
 })();
 
+// ─── Responsive hook ────────────────────────────────────────────────────────────
+function useWindowWidth() {
+  const [w, setW] = React.useState(window.innerWidth);
+  React.useEffect(() => {
+    const handler = () => setW(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return w;
+}
+// Convenience: returns responsive grid style
+// cols: number of columns on desktop, collapses to 1 on mobile
+function rGrid(cols, gap = 14, mobileGap = 10) {
+  const w = window.innerWidth;
+  const isMobile = w <= 768;
+  const colMap = {
+    2: "1fr 1fr",
+    3: "1fr 1fr 1fr",
+    4: "1fr 1fr 1fr 1fr",
+  };
+  return {
+    display: "grid",
+    gridTemplateColumns: isMobile ? "1fr" : (colMap[cols] || `repeat(${cols},1fr)`),
+    gap: isMobile ? mobileGap : gap,
+  };
+}
+
 // ─── Zeus Brand Tokens ────────────────────────────────────────────────────────
 const Z = {
   navy:    "#0d1f5c",
@@ -2274,7 +2301,7 @@ function EditStaffModal({ staffUser, allUsers, setAllUsers, passwords, setPasswo
         </div>
 
         {/* Fields */}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
           <div>
             <label style={labelStyle}>FULL NAME *</label>
             <input value={name} onChange={e=>{setName(e.target.value);setErr("");setSaved(false);}} style={inputStyle} placeholder="Full name"/>
@@ -2558,7 +2585,7 @@ function AccountTab({ user, passwords, setPasswords, darkMode, setDarkMode, Z, f
   return (
     <div>
       <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:24,color:Z.white}}>My Account</h2>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20,maxWidth:800}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20,maxWidth:800}}>
 
         {/* Profile */}
         <div style={card}>
@@ -3661,7 +3688,7 @@ function RiskAssessmentTab({ docs, setDocs, setAtab, Z, font }) {
       <StepBar/>
       <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:16,padding:28,border:`1px solid ${Z.border}`}}>
         <h3 style={{margin:"0 0 20px",fontSize:13,fontWeight:700,letterSpacing:.5,color:Z.muted,textTransform:"uppercase"}}>Assessment Details</h3>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16,marginBottom:16}}>
           <div style={{gridColumn:"1/-1"}}>
             <label style={labelStyle}>TITLE / ACTIVITY BEING ASSESSED *</label>
             <input value={form.title} onChange={e=>setF("title",e.target.value)} placeholder="e.g. Manual Handling of Warehouse Goods" style={inputStyle}/>
@@ -3757,7 +3784,7 @@ function RiskAssessmentTab({ docs, setDocs, setAtab, Z, font }) {
               )}
             </div>
 
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:18}}>
               <div style={{gridColumn:"1/-1"}}>
                 <label style={labelStyle}>HAZARD DESCRIPTION *</label>
                 <input value={h.hazard} onChange={e=>updateHazard(idx,"hazard",e.target.value)} placeholder="e.g. Manual handling of heavy pallets causing musculoskeletal injury" style={inputStyle}/>
@@ -3782,7 +3809,7 @@ function RiskAssessmentTab({ docs, setDocs, setAtab, Z, font }) {
               </div>
             </div>
 
-            <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:14,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1fr 1fr",gap:14,marginBottom:14}}>
               <div>
                 <label style={labelStyle}>FURTHER CONTROLS REQUIRED</label>
                 <textarea value={h.furtherControls} onChange={e=>updateHazard(idx,"furtherControls",e.target.value)} placeholder="Additional measures needed to reduce residual risk further..." rows={2} style={{...inputStyle,resize:"vertical",lineHeight:1.6}}/>
@@ -4438,13 +4465,13 @@ function AdminMachineryTab({ allStaff, machineComps, setMachineComps, Z, font })
               </div>
 
               {/* Trainer */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
                 <div><label style={labelStyle}>TRAINER NAME</label><input value={form.trainerName} onChange={e=>setF("trainerName",e.target.value)} placeholder="e.g. Mark Davies" style={inputStyle}/></div>
                 <div><label style={labelStyle}>TRAINER QUALIFICATION</label><input value={form.trainerQual} onChange={e=>setF("trainerQual",e.target.value)} placeholder="e.g. RTITB Instructor" style={inputStyle}/></div>
               </div>
 
               {/* Dates */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14}}>
                 <div><label style={labelStyle}>THEORY / INDUCTION DATE</label><input type="date" value={form.theoryDate} onChange={e=>setF("theoryDate",e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>PRACTICAL ASSESSMENT DATE</label><input type="date" value={form.assessmentDate} onChange={e=>setF("assessmentDate",e.target.value)} style={inputStyle}/></div>
                 <div><label style={labelStyle}>LICENCE EXPIRY DATE</label><input type="date" value={form.licenceExpiry} onChange={e=>setF("licenceExpiry",e.target.value)} style={inputStyle}/></div>
@@ -4612,7 +4639,7 @@ function IncidentForm({ form, setF, err, saved, onSubmit, onCancel, isEdit, Z, f
         </div>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14}}>
         <div><label style={labelStyle}>DATE OF INCIDENT *</label><input type="date" value={form.date} onChange={e=>setF("date",e.target.value)} style={inputStyle}/></div>
         <div><label style={labelStyle}>TIME OF INCIDENT</label><input type="time" value={form.time} onChange={e=>setF("time",e.target.value)} style={inputStyle}/></div>
         <div><label style={labelStyle}>LOCATION *</label><input value={form.location} onChange={e=>setF("location",e.target.value)} placeholder="e.g. Warehouse Bay 3" style={inputStyle}/></div>
@@ -4625,7 +4652,7 @@ function IncidentForm({ form, setF, err, saved, onSubmit, onCancel, isEdit, Z, f
           rows={4} style={{...inputStyle,resize:"vertical",lineHeight:1.6}}/>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
         <div>
           <label style={labelStyle}>ACCIDENT CODE *</label>
           <select value={form.accidentCode} onChange={e=>setF("accidentCode",e.target.value)} style={selStyle}>
@@ -4652,7 +4679,7 @@ function IncidentForm({ form, setF, err, saved, onSubmit, onCancel, isEdit, Z, f
       </div>
 
       <SectionHeader icon="👤" label="Person Involved" Z={Z}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
         <div><label style={labelStyle}>FULL NAME</label><input value={form.personName} onChange={e=>setF("personName",e.target.value)} placeholder="e.g. John Smith" style={inputStyle}/></div>
         <div><label style={labelStyle}>DATE OF BIRTH</label><input type="date" value={form.personDob} onChange={e=>setF("personDob",e.target.value)} style={inputStyle}/></div>
         <div><label style={labelStyle}>HOME ADDRESS</label><input value={form.personAddress} onChange={e=>setF("personAddress",e.target.value)} placeholder="e.g. 12 Oak Street, Dublin" style={inputStyle}/></div>
@@ -4660,7 +4687,7 @@ function IncidentForm({ form, setF, err, saved, onSubmit, onCancel, isEdit, Z, f
       </div>
 
       <SectionHeader icon="👁" label="Witness Details" Z={Z}/>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
         <div><label style={labelStyle}>WITNESS 1 — NAME</label><input value={form.witness1Name} onChange={e=>setF("witness1Name",e.target.value)} placeholder="Full name" style={inputStyle}/></div>
         <div><label style={labelStyle}>WITNESS 1 — CONTACT / DEPT</label><input value={form.witness1Contact} onChange={e=>setF("witness1Contact",e.target.value)} placeholder="e.g. Ext 204 / Warehouse" style={inputStyle}/></div>
         <div><label style={labelStyle}>WITNESS 2 — NAME</label><input value={form.witness2Name} onChange={e=>setF("witness2Name",e.target.value)} placeholder="Full name" style={inputStyle}/></div>
@@ -4682,7 +4709,7 @@ function IncidentForm({ form, setF, err, saved, onSubmit, onCancel, isEdit, Z, f
         </div>
       </div>
       {form.firstAidProvided!=="No" && (
-        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14,marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1fr",gap:14,marginBottom:14}}>
           <div><label style={labelStyle}>FIRST AID TREATMENT GIVEN</label><textarea value={form.firstAidDetails} onChange={e=>setF("firstAidDetails",e.target.value)} placeholder="Describe treatment given..." rows={2} style={{...inputStyle,resize:"vertical",lineHeight:1.6}}/></div>
           <div><label style={labelStyle}>FIRST AIDER NAME</label><input value={form.firstAidBy} onChange={e=>setF("firstAidBy",e.target.value)} placeholder="Name of first aider" style={inputStyle}/></div>
         </div>
@@ -4706,7 +4733,7 @@ function IncidentForm({ form, setF, err, saved, onSubmit, onCancel, isEdit, Z, f
         <textarea value={form.immediateMeasures} onChange={e=>setF("immediateMeasures",e.target.value)}
           placeholder="Describe any immediate steps taken to address the hazard..." rows={3} style={{...inputStyle,resize:"vertical",lineHeight:1.6}}/>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:14,marginBottom:14}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1fr",gap:14,marginBottom:14}}>
         <div><label style={labelStyle}>CORRECTIVE ACTIONS TO PREVENT RECURRENCE</label><textarea value={form.correctiveActions} onChange={e=>setF("correctiveActions",e.target.value)} placeholder="Longer-term actions planned or implemented..." rows={3} style={{...inputStyle,resize:"vertical",lineHeight:1.6}}/></div>
         <div><label style={labelStyle}>ACTIONED BY</label><input value={form.correctiveActionsBy} onChange={e=>setF("correctiveActionsBy",e.target.value)} placeholder="Name / role" style={inputStyle}/></div>
       </div>
@@ -5482,7 +5509,7 @@ function InvestigationTab({ incidents, setIncidents, staff, investigations, setI
             </div>
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16,marginBottom:16}}>
             <div>
               <label style={labelStyle}>Lead Investigator</label>
               <input value={invForm.investigator} onChange={e=>setInvForm(p=>({...p,investigator:e.target.value}))}
@@ -7236,7 +7263,7 @@ function EquipmentTrackerTab({ equipment, setEquipment, staff, Z, font }) {
       <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:16,padding:28,border:`1px solid ${Z.borderMd}`}}>
         {saved&&<div style={{marginBottom:14,padding:"8px 14px",background:"rgba(239,68,68,0.1)",borderRadius:8,color:"#f87171",fontSize:13}}>{saved}</div>}
 
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
           <div><label style={labelSt}>ASSET NUMBER *</label><input value={form.assetNo} onChange={e=>setF("assetNo",e.target.value)} placeholder="e.g. FLT-004" style={inputSt}/></div>
           <div>
             <label style={labelSt}>CATEGORY *</label>
@@ -7246,12 +7273,12 @@ function EquipmentTrackerTab({ equipment, setEquipment, staff, Z, font }) {
           </div>
         </div>
         <div style={{marginBottom:14}}><label style={labelSt}>EQUIPMENT NAME *</label><input value={form.name} onChange={e=>setF("name",e.target.value)} placeholder="e.g. Counterbalance Forklift — Bay 4" style={inputSt}/></div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14}}>
           <div><label style={labelSt}>MAKE</label><input value={form.make} onChange={e=>setF("make",e.target.value)} placeholder="e.g. Toyota" style={inputSt}/></div>
           <div><label style={labelSt}>MODEL</label><input value={form.model} onChange={e=>setF("model",e.target.value)} placeholder="e.g. 8FBE15" style={inputSt}/></div>
           <div><label style={labelSt}>SERIAL NUMBER</label><input value={form.serial} onChange={e=>setF("serial",e.target.value)} placeholder="e.g. T8F-2024-0001" style={inputSt}/></div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14}}>
           <div><label style={labelSt}>YEAR</label><input type="number" value={form.year} onChange={e=>setF("year",parseInt(e.target.value))} style={inputSt}/></div>
           <div><label style={labelSt}>LOCATION</label><input value={form.location} onChange={e=>setF("location",e.target.value)} placeholder="e.g. Warehouse Bay 2" style={inputSt}/></div>
           <div>
@@ -8072,7 +8099,7 @@ function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustom
       {showAddForm && (
         <div ref={addFormRef} style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:16,padding:22,marginBottom:20,border:`1px solid rgba(37,99,235,0.4)`}}>
           <h4 style={{margin:"0 0 18px",fontSize:12,fontWeight:700,letterSpacing:1,color:Z.muted,textTransform:"uppercase"}}>New Chemical Entry</h4>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
             <div>
               <label style={{fontSize:11,fontWeight:700,color:Z.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:5}}>Zeus Code *</label>
               <input value={addForm.code} onChange={e=>setAddForm(p=>({...p,code:e.target.value}))} placeholder="e.g. CHEM000200" style={inp}/>
@@ -8086,7 +8113,7 @@ function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustom
             <label style={{fontSize:11,fontWeight:700,color:Z.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:5}}>Product Name *</label>
             <input value={addForm.name} onChange={e=>setAddForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Heavy Duty Floor Cleaner" style={inp}/>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
             <div>
               <label style={{fontSize:11,fontWeight:700,color:Z.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:5}}>Date on MSDS</label>
               <input type="date" value={addForm.msdsDate} onChange={e=>setAddForm(p=>({...p,msdsDate:e.target.value}))} style={inp}/>
@@ -8370,7 +8397,7 @@ function CreateModuleTab({ onSave, Z, font }) {
               <label style={lbl}>Module Title *</label>
               <input value={details.title} onChange={e=>setDetails(p=>({...p,title:e.target.value}))} placeholder="e.g. Working at Height Safety" style={inp}/>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
               <div>
                 <label style={lbl}>Category</label>
                 <select value={details.category} onChange={e=>setDetails(p=>({...p,category:e.target.value}))} style={{...inp,cursor:"pointer"}}>
@@ -8384,7 +8411,7 @@ function CreateModuleTab({ onSave, Z, font }) {
                 </select>
               </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:18}}>
               <div>
                 <label style={lbl}>Est. Duration</label>
                 <input value={details.duration} onChange={e=>setDetails(p=>({...p,duration:e.target.value}))} placeholder="e.g. 30 min" style={inp}/>
@@ -8947,7 +8974,7 @@ function SiteInspectionsTab({ inspections, setInspections, staff, Z, font }) {
 
         {/* Inspection type, date, inspector, location */}
         <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:14,padding:"18px 20px",marginBottom:18,border:`1px solid ${Z.borderMd}`}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
             <div>
               <label style={lbl}>Inspection Type *</label>
               <select value={form.type} onChange={e=>{setForm(p=>({...BLANK_FORM,type:e.target.value,date:p.date,inspector:p.inspector,location:p.location}));setFormSection(0);}} style={{...inp,cursor:"pointer"}}>
@@ -9637,6 +9664,9 @@ export default function App() {
   const [dbReady, setDbReady] = useState(false); // true once initial Supabase load is complete
 
   const font = "'Barlow','Trebuchet MS',system-ui,sans-serif";
+  const winW = useWindowWidth();
+  const isMobile = winW <= 768;
+  const isSmall = winW <= 480;
 
   // ── Load all persisted data from Supabase on mount ───────────────────────────
   useEffect(() => {
@@ -10009,7 +10039,7 @@ export default function App() {
       <div style={{position:"absolute",inset:0,backgroundImage:"linear-gradient(T.border 1px,transparent 1px),linear-gradient(90deg,T.border 1px,transparent 1px)",backgroundSize:"40px 40px",pointerEvents:"none"}}/>
       <div style={{position:"absolute",top:"-30%",right:"-10%",width:600,height:600,borderRadius:"50%",background:`radial-gradient(circle,${Z.blue}22,transparent 70%)`,pointerEvents:"none"}}/>
 
-      <div style={{background:`linear-gradient(160deg,${Z.navyMd},${Z.navy})`,borderRadius:24,padding:"48px 44px",width:"100%",maxWidth:440,boxShadow:"0 30px 80px rgba(0,0,0,.6)",border:`1px solid ${T.border}`,position:"relative",zIndex:1}}>
+      <div style={{background:`linear-gradient(160deg,${Z.navyMd},${Z.navy})`,borderRadius:isMobile?16:24,padding:isMobile?"28px 20px":"48px 44px",width:"100%",maxWidth:440,boxShadow:"0 30px 80px rgba(0,0,0,.6)",border:`1px solid ${T.border}`,position:"relative",zIndex:1}}>
         {/* Logo */}
         <div style={{marginBottom:32,paddingBottom:24,borderBottom:`1px solid ${T.borderMd}`}}>
           <ZeusProtectLogo/>
@@ -10290,7 +10320,7 @@ export default function App() {
         <CertModal/>
         <PreviewModal doc={previewDoc} onClose={()=>setPreviewDoc(null)} Z={T} font={font}/>
         {/* Nav */}
-        <div style={{background:`linear-gradient(90deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:"0 28px",display:"flex",alignItems:"center"}}>
+        <div style={{background:`linear-gradient(90deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:isMobile?"0 12px":"0 28px",display:"flex",alignItems:"center",overflowX:"auto",WebkitOverflowScrolling:"touch"}} className="admin-nav-bar">
           <div style={{marginRight:32,padding:"12px 0"}}><ZeusLogo darkMode={darkMode}/></div>
           <div style={{width:1,height:28,background:T.headerBgMd,marginRight:8}}/>
           {/* Desktop nav tabs */}
@@ -10366,7 +10396,7 @@ export default function App() {
             ))}
           </div>
         )}
-        <div style={{maxWidth:1100,margin:"0 auto",padding:"36px 28px"}}>
+        <div style={{maxWidth:1100,margin:"0 auto",padding:isMobile?"16px 12px":"36px 28px"}}>
 
           {stab==="dashboard" && (
             <div>
@@ -10719,6 +10749,105 @@ export default function App() {
             .staff-nav-tabs { display: none !important; }
             .mobile-ham { display: block !important; }
           }
+
+          /* ── Global mobile responsive rules ── */
+          @media (max-width: 768px) {
+
+            /* Collapse all fixed multi-column grids to single column */
+            [style*="gridTemplateColumns: \"1fr 1fr\""],
+            [style*="gridTemplateColumns:\"1fr 1fr\""],
+            [style*='gridTemplateColumns:"1fr 1fr"'],
+            [style*="grid-template-columns: 1fr 1fr"] {
+              grid-template-columns: 1fr !important;
+            }
+
+            /* Collapse 3-column grids */
+            [style*="gridTemplateColumns: \"1fr 1fr 1fr\""],
+            [style*='gridTemplateColumns:"1fr 1fr 1fr"'] {
+              grid-template-columns: 1fr !important;
+            }
+
+            /* Collapse complex multi-column grids (2fr 1fr etc) */
+            [style*="gridTemplateColumns: \"2fr 1fr\""],
+            [style*="gridTemplateColumns: \"2fr 1fr 1fr\""],
+            [style*="gridTemplateColumns: \"2fr 2fr 1fr 2fr\""],
+            [style*="gridTemplateColumns: \"2fr 1fr 1fr 1fr 2fr auto\""],
+            [style*="gridTemplateColumns: \"2fr 1fr 1fr 2fr auto\""],
+            [style*="gridTemplateColumns: \"30px 3fr 1fr 1fr 1fr\""] {
+              grid-template-columns: 1fr !important;
+            }
+
+            /* Reduce horizontal padding on main content areas */
+            [style*="padding: 32px"],
+            [style*="padding:32px"] {
+              padding: 16px !important;
+            }
+
+            /* Make stat cards scroll horizontally rather than overflow */
+            .stat-row { overflow-x: auto; }
+
+            /* Reduce font sizes for headings on mobile */
+            h2 { font-size: 18px !important; }
+            h3 { font-size: 15px !important; }
+
+            /* Full width buttons in forms */
+            [style*="whiteSpace:\"nowrap\""] {
+              white-space: normal !important;
+            }
+
+            /* Prevent wide fixed-width tables from breaking layout */
+            table { width: 100% !important; display: block; overflow-x: auto; }
+
+            /* Login card full width on mobile */
+            [style*="maxWidth: 420"] {
+              max-width: 100% !important;
+              margin: 16px !important;
+            }
+
+            /* Module quiz answers stack vertically */
+            [style*="gridTemplateColumns: \"1fr 1fr\""] > * {
+              min-width: 0 !important;
+            }
+
+            /* Admin tab bar — allow horizontal scroll */
+            .admin-tabs { overflow-x: auto; white-space: nowrap; }
+
+            /* Reduce page-level padding */
+            .page-content { padding: 12px !important; }
+
+            /* Stack header actions vertically */
+            .header-actions { flex-direction: column !important; align-items: stretch !important; }
+
+            /* Make modals full screen on mobile */
+            [style*="maxWidth: 900"],
+            [style*="maxWidth: 800"],
+            [style*="maxWidth: 700"],
+            [style*="maxWidth: 600"] {
+              max-width: 100% !important;
+              margin: 0 !important;
+              border-radius: 0 !important;
+            }
+
+            /* Ensure text doesn't overflow cards */
+            * { word-break: break-word; }
+          }
+
+          /* Admin nav bar — hide scrollbar but keep scrollable on mobile */
+          .admin-nav-bar { scrollbar-width: none; -ms-overflow-style: none; }
+          .admin-nav-bar::-webkit-scrollbar { display: none; }
+          .admin-nav-bar * { flex-shrink: 0; white-space: nowrap; }
+
+          /* Extra small screens (phones < 480px) */
+          @media (max-width: 480px) {
+            /* Hide non-essential table columns */
+            .hide-mobile { display: none !important; }
+
+            /* Larger touch targets for buttons */
+            button { min-height: 40px; }
+
+            /* Stack nav header items */
+            .nav-header-inner { flex-wrap: wrap !important; gap: 8px !important; }
+          }
           .mobile-nav-drawer {
             position: absolute; top: 100%; left: 0; right: 0; z-index: 300;
             background: linear-gradient(135deg, #091548, #0d1f5c);
@@ -10986,7 +11115,7 @@ export default function App() {
           </div>
         </div>
 
-        <div style={{maxWidth:1100,margin:"0 auto",padding:"36px 28px"}}>
+        <div style={{maxWidth:1100,margin:"0 auto",padding:isMobile?"16px 12px":"36px 28px"}}>
 
           {atab==="users" && (
             <div>
@@ -11011,7 +11140,7 @@ export default function App() {
               {showAddStaff && (
                 <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,marginBottom:20,border:`1px solid ${T.accent}44`}}>
                   <h3 style={{margin:"0 0 18px",fontSize:14,fontWeight:700,letterSpacing:.5,color:T.muted}}>NEW STAFF MEMBER</h3>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:14,marginBottom:14}}>
                     <div>
                       <label style={{color:T.muted,fontSize:11,fontWeight:700,letterSpacing:.5,display:"block",marginBottom:6}}>FULL NAME *</label>
                       <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="e.g. Jane Doe"
