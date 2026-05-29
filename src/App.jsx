@@ -63,6 +63,11 @@ const sb = (() => {
   return { from, storage };
 })();
 
+// ─── File accept type constants (avoids /* in JSX which breaks some parsers) ─────
+const ACCEPT_IMAGES = ["image/jpeg","image/png","image/gif","image/webp"].join(",");
+const ACCEPT_VIDEO  = ["video/mp4","video/webm","video/ogg","video/quicktime"].join(",");
+const ACCEPT_IMG_DOCS = ACCEPT_IMAGES + ",.pdf,.doc,.docx";
+
 // ─── Responsive hook ────────────────────────────────────────────────────────────
 function useWindowWidth() {
   const [w, setW] = React.useState(window.innerWidth);
@@ -88,6 +93,30 @@ function rGrid(cols, gap = 14, mobileGap = 10) {
     gridTemplateColumns: isMobile ? "1fr" : (colMap[cols] || `repeat(${cols},1fr)`),
     gap: isMobile ? mobileGap : gap,
   };
+}
+
+// ─── Mobile card helper ─────────────────────────────────────────────────────────
+// Renders a key-value card for mobile table rows
+function MobileCard({ children, style }) {
+  const s = Object.assign({
+    background:"rgba(255,255,255,0.04)",
+    border:"1px solid rgba(255,255,255,0.08)",
+    borderRadius:12,
+    padding:"14px 16px",
+    marginBottom:10,
+    display:"flex",
+    flexDirection:"column",
+    gap:8,
+  }, style||{});
+  return <div style={s}>{children}</div>;
+}
+function MobileCardRow({ label, value }) {
+  return (
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+      <span style={{fontSize:11,fontWeight:700,letterSpacing:.5,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",flexShrink:0}}>{label}</span>
+      <span style={{fontSize:13,color:"rgba(255,255,255,0.9)",textAlign:"right",minWidth:0,wordBreak:"break-word"}}>{value}</span>
+    </div>
+  );
 }
 
 // ─── Zeus Brand Tokens ────────────────────────────────────────────────────────
@@ -1583,6 +1612,7 @@ function AdminDSETab({ staff, dseReports, adminResponses, setAdminResponses, dar
 
 // ─── Reports Tab Component ────────────────────────────────────────────────────
 function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledgements, reportView, setReportView, dseReports, adminResponses, setAdminResponses, darkMode, Z, font, modules, machineComps, lastLoginMap }) {
+  const isMobile = useWindowWidth() <= 1024;
   const allModules = modules || TRAINING_MODULES;
   const [expandedStaff, setExpandedStaff] = useState(null);
   const [expandedModule, setExpandedModule] = useState(null);
@@ -4896,6 +4926,7 @@ function formToInc(form, existing) {
 }
 
 function IncidentTracker({ user, incidents, setIncidents, equipment, setEquipment, Z, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const BLANK_FORM = {
     type:"near_miss", date:new Date().toISOString().slice(0,10), time:"",
     location:"", description:"", accidentCode:"", numberCode:"",
@@ -5556,7 +5587,7 @@ function InvestigationTab({ incidents, setIncidents, staff, investigations, setI
             <div style={{fontSize:12,fontWeight:700,letterSpacing:.5,color:Z.muted,textTransform:"uppercase",marginBottom:12}}>📸 Investigation Photos</div>
             <label style={{display:"inline-flex",alignItems:"center",gap:8,background:`linear-gradient(135deg,${Z.accent},${Z.blue})`,color:Z.white,borderRadius:10,padding:"9px 18px",cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700,marginBottom:12,boxShadow:"0 4px 14px rgba(37,99,235,0.3)"}}>
               📎 Upload Photos
-              <input type="file" accept="image/*" multiple onChange={handlePhotoUpload} style={{display:"none"}}/>
+              <input type="file" accept={ACCEPT_IMAGES} multiple onChange={handlePhotoUpload} style={{display:"none"}}/>
             </label>
             {photoError && <p style={{color:"#f87171",fontSize:12,margin:"0 0 10px"}}>{photoError}</p>}
             {(invForm.photos||[]).length > 0 ? (
@@ -5729,6 +5760,7 @@ function InvestigationTab({ incidents, setIncidents, staff, investigations, setI
 
 // ─── Admin Incident Tab ───────────────────────────────────────────────────────
 function AdminIncidentTab({ incidents, setIncidents, staff, investigations, setInvestigations, onOpenInvestigation, equipment, setEquipment, Z, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const [filterType, setFilterType]     = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRiddor, setFilterRiddor] = useState(false);
@@ -6872,6 +6904,7 @@ const INIT_EQUIPMENT = [
 
 // ─── Equipment Tracker Tab ────────────────────────────────────────────────────
 function EquipmentTrackerTab({ equipment, setEquipment, staff, Z, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const [view, setView] = useState("dashboard");     // dashboard | list | detail | form
   const [catFilter, setCatFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -7948,6 +7981,7 @@ function coshhHazardLevel(classification) {
 }
 
 function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustomChemicals }) {
+  const isMobile = useWindowWidth() <= 1024;
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [hazardFilter, setHazardFilter] = useState("all");
@@ -8167,15 +8201,17 @@ function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustom
         {hazardFilter!=="all" && <span style={{marginLeft:8,color:hazardConfig[hazardFilter].color}}>· {hazardConfig[hazardFilter].label} filter active</span>}
       </div>
 
-      {/* Table header */}
-      <div style={{background:Z.overlay,borderRadius:"10px 10px 0 0",border:`1px solid ${Z.borderMd}`,borderBottom:"none",padding:"10px 16px",display:"grid",gridTemplateColumns:"130px 1fr 140px 110px 90px 60px",gap:12,alignItems:"center"}}>
-        {["Zeus Code","Product Name","Supplier","MSDS Date","Hazard","MSDS"].map(h=>(
-          <div key={h} style={{fontSize:10,fontWeight:700,letterSpacing:1,color:Z.muted,textTransform:"uppercase"}}>{h}</div>
-        ))}
-      </div>
+      {/* Table header - desktop only */}
+      {!isMobile && (
+        <div style={{background:Z.overlay,borderRadius:"10px 10px 0 0",border:`1px solid ${Z.borderMd}`,borderBottom:"none",padding:"10px 16px",display:"grid",gridTemplateColumns:"130px 1fr 140px 110px 90px 60px",gap:12,alignItems:"center"}}>
+          {["Zeus Code","Product Name","Supplier","MSDS Date","Hazard","MSDS"].map(h=>(
+            <div key={h} style={{fontSize:10,fontWeight:700,letterSpacing:1,color:Z.muted,textTransform:"uppercase"}}>{h}</div>
+          ))}
+        </div>
+      )}
 
       {/* Rows */}
-      <div style={{borderRadius:"0 0 14px 14px",overflow:"hidden",border:`1px solid ${Z.borderMd}`}}>
+      <div style={{borderRadius:isMobile?"14px":"0 0 14px 14px",overflow:"hidden",border:`1px solid ${Z.borderMd}`}}>
         {filtered.length===0 ? (
           <div style={{padding:32,textAlign:"center",color:Z.muted,fontSize:14,background:Z.overlay}}>No products match your search.</div>
         ) : filtered.map((c,i)=>{
@@ -8187,7 +8223,24 @@ function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustom
           return (
             <div key={c.code} style={{borderTop:i===0?"none":`1px solid ${Z.border}`,background:isExpanded?`linear-gradient(135deg,${Z.navyMd},${Z.navy})`:i%2===0?Z.overlaySm:Z.overlay}}>
 
-              {/* Row */}
+              {/* Row — card on mobile, grid on desktop */}
+              {isMobile ? (
+                <div onClick={()=>setExpandedCode(isExpanded?null:c.code)} style={{padding:"12px 14px",cursor:"pointer",display:"flex",flexDirection:"column",gap:6}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                    <span style={{fontSize:11,fontWeight:700,color:c._custom?Z.gold:Z.accentLt,fontFamily:"monospace"}}>{c.code}{c._custom&&<span style={{fontSize:9,marginLeft:4,color:Z.gold}}> NEW</span>}</span>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <span style={{fontSize:11,fontWeight:700,color:hc.color,background:hc.bg,border:`1px solid ${hc.border}`,borderRadius:6,padding:"2px 8px"}}>{hc.icon}</span>
+                      {msds ? <span style={{fontSize:14}}>📎</span> : <span style={{fontSize:10,color:Z.border}}>—</span>}
+                    </div>
+                  </div>
+                  <div style={{fontSize:13,fontWeight:600,color:Z.white}}>{c.name}</div>
+                  <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                    <span style={{fontSize:11,color:Z.muted}}>{c.supplier}</span>
+                    <span style={{fontSize:11,color:Z.muted}}>MSDS: {c.msdsDate||"—"}</span>
+                    {isDangerous&&<span style={{fontSize:10,color:"#f59e0b",fontWeight:700}}>⚠ UN Classified</span>}
+                  </div>
+                </div>
+              ) : (
               <div style={{padding:"12px 16px",display:"grid",gridTemplateColumns:"130px 1fr 140px 110px 90px 60px",gap:12,alignItems:"center"}}>
                 <div onClick={()=>setExpandedCode(isExpanded?null:c.code)} style={{fontSize:11,fontWeight:700,color:c._custom?Z.gold:Z.accentLt,fontFamily:"monospace",letterSpacing:.3,cursor:"pointer"}}>
                   {c.code}{c._custom && <span style={{fontSize:9,marginLeft:4,color:Z.gold,fontWeight:700,letterSpacing:.5,verticalAlign:"middle"}}>NEW</span>}
@@ -8199,14 +8252,11 @@ function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustom
                   <span style={{fontSize:11,fontWeight:700,color:hc.color,background:hc.bg,border:`1px solid ${hc.border}`,borderRadius:6,padding:"2px 8px",whiteSpace:"nowrap"}}>{hc.icon}</span>
                   {isDangerous && <span style={{fontSize:9,color:"#f59e0b",fontWeight:700,letterSpacing:.5}}>UN</span>}
                 </div>
-                {/* MSDS file indicator */}
                 <div style={{display:"flex",justifyContent:"center"}}>
-                  {msds
-                    ? <span style={{fontSize:16,cursor:"pointer"}} title={`MSDS uploaded: ${msds.fileName}`} onClick={()=>setExpandedCode(isExpanded?null:c.code)}>📎</span>
-                    : <span style={{fontSize:11,color:Z.border,cursor:"pointer"}} title="No MSDS uploaded" onClick={()=>setExpandedCode(isExpanded?null:c.code)}>—</span>
-                  }
+                  {msds ? <span style={{fontSize:16,cursor:"pointer"}} title={`MSDS uploaded: ${msds.fileName}`} onClick={()=>setExpandedCode(isExpanded?null:c.code)}>📎</span>
+                        : <span style={{fontSize:11,color:Z.border,cursor:"pointer"}} title="No MSDS uploaded" onClick={()=>setExpandedCode(isExpanded?null:c.code)}>—</span>}
                 </div>
-              </div>
+              </div>)}
 
               {/* Expanded panel */}
               {isExpanded && (
@@ -8473,7 +8523,7 @@ function CreateModuleTab({ onSave, Z, font }) {
                   </div>
                 ) : (
                   <>
-                    <input ref={el=>videoInputRefs.current[i]=el} type="file" accept="video/*"
+                    <input ref={el=>videoInputRefs.current[i]=el} type="file" accept={ACCEPT_VIDEO}
                       style={{display:"none"}}
                       onChange={async e=>{
                         const file=e.target.files[0]; if(!file) return;
@@ -8917,7 +8967,7 @@ function SiteInspectionsTab({ inspections, setInspections, staff, Z, font }) {
                         <label style={lbl}>Photos ({(nc.photos||[]).length})</label>
                         <label style={{background:`linear-gradient(135deg,${Z.accent},${Z.blue})`,color:"#fff",borderRadius:7,padding:"4px 12px",cursor:"pointer",fontFamily:font,fontSize:11,fontWeight:700}}>
                           📎 Add Photos
-                          <input type="file" accept="image/*" multiple onChange={e=>handlePhotoUpload(e,i)} style={{display:"none"}}/>
+                          <input type="file" accept={ACCEPT_IMAGES} multiple onChange={e=>handlePhotoUpload(e,i)} style={{display:"none"}}/>
                         </label>
                       </div>
                       {(nc.photos||[]).length>0 ? (
@@ -9094,7 +9144,7 @@ function SiteInspectionsTab({ inspections, setInspections, staff, Z, font }) {
                     <label style={lbl}>Photos</label>
                     <label style={{display:"inline-flex",alignItems:"center",gap:6,background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"7px 14px",cursor:"pointer",fontFamily:font,fontSize:12,color:Z.muted,fontWeight:600}}>
                       📎 Upload Photos
-                      <input type="file" accept="image/*" multiple onChange={e=>handlePhotoUpload(e,null)} style={{display:"none"}}/>
+                      <input type="file" accept={ACCEPT_IMAGES} multiple onChange={e=>handlePhotoUpload(e,null)} style={{display:"none"}}/>
                     </label>
                     {(ncForm.photos||[]).length>0 && (
                       <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
@@ -9461,7 +9511,7 @@ function StaffActionsTab({ user, incidents, investigations, setInvestigations, a
                 </div>
                 <div>
                   <div style={{fontSize:11,fontWeight:700,color:Z.muted,letterSpacing:.5,textTransform:"uppercase",marginBottom:6}}>Upload Evidence</div>
-                  <input ref={el=>fileRefs.current[k]=el} type="file" accept="image/*,.pdf,.doc,.docx" style={{display:"none"}}
+                  <input ref={el=>fileRefs.current[k]=el} type="file" accept={ACCEPT_IMG_DOCS} style={{display:"none"}}
                     onChange={e=>{ if(e.target.files[0]) handleFileUpload(a, e.target.files[0]); e.target.value=""; }}/>
                   <div onClick={()=>fileRefs.current[k]?.click()}
                     style={{border:`2px dashed ${Z.borderMd}`,borderRadius:10,padding:"14px",cursor:"pointer",textAlign:"center",transition:"border-color .2s"}}
@@ -10554,30 +10604,40 @@ export default function App() {
               {!Object.keys(myC).length
                 ? <p style={{color:T.muted}}>No completed training yet.</p>
                 : (
+                  <div>{isMobile ? (
+                    <div>
+                      {allModules.filter(m=>myC[m.id]).map((m)=>(
+                        <MobileCard key={m.id}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                            <span style={{fontSize:20}}>{m.icon}</span>
+                            <span style={{fontWeight:700,fontSize:14,color:T.white}}>{m.title}</span>
+                          </div>
+                          <MobileCardRow label="Date" value={myC[m.id].date}/>
+                          <MobileCardRow label="Score" value={<span style={{color:myC[m.id].score>=70?T.green:T.amber,fontWeight:800}}>{myC[m.id].score}%</span>}/>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:4}}>
+                            <Pill label={myC[m.id].score>=70?"Passed":"Failed"} col={myC[m.id].score>=70?"green":"red"}/>
+                            {myC[m.id].score>=70 && <button onClick={()=>setCert({module:m,score:myC[m.id].score,date:myC[m.id].date,certId:myC[m.id].certId||null})} style={{background:"rgba(245,158,11,0.1)",border:`1px solid rgba(245,158,11,0.3)`,color:T.gold,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font}}>🏅 Certificate</button>}
+                          </div>
+                        </MobileCard>
+                      ))}
+                    </div>
+                  ) : (
                   <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,overflow:"hidden",border:`1px solid ${T.border}`}}>
                     <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",padding:"12px 20px",background:T.headerBg,fontSize:11,fontWeight:700,letterSpacing:1,color:T.muted,textTransform:"uppercase"}}>
                       <span>Module</span><span>Date</span><span>Score</span><span>Status</span>
                     </div>
                     {allModules.filter(m=>myC[m.id]).map((m,i)=>(
                       <div key={m.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",padding:"16px 20px",borderTop:i>0?`1px solid ${T.border}`:"none",alignItems:"center"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:10}}>
-                          <span>{m.icon}</span>
-                          <span style={{fontSize:14,fontWeight:700}}>{m.title}</span>
-                        </div>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}><span>{m.icon}</span><span style={{fontSize:14,fontWeight:700}}>{m.title}</span></div>
                         <span style={{color:T.muted,fontSize:13}}>{myC[m.id].date}</span>
                         <span style={{color:myC[m.id].score>=70?T.green:T.amber,fontWeight:800,fontSize:15}}>{myC[m.id].score}%</span>
                         <div style={{display:"flex",gap:8,alignItems:"center"}}>
                           <Pill label={myC[m.id].score>=70?"Passed":"Failed"} col={myC[m.id].score>=70?"green":"red"}/>
-                          {myC[m.id].score>=70 && (
-                            <button onClick={()=>setCert({module:m,score:myC[m.id].score,date:myC[m.id].date,certId:myC[m.id].certId||null})}
-                              style={{background:"rgba(245,158,11,0.1)",border:`1px solid rgba(245,158,11,0.3)`,color:T.gold,borderRadius:8,padding:"3px 10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>
-                              🏅 Cert
-                            </button>
-                          )}
+                          {myC[m.id].score>=70&&<button onClick={()=>setCert({module:m,score:myC[m.id].score,date:myC[m.id].date,certId:myC[m.id].certId||null})} style={{background:"rgba(245,158,11,0.1)",border:`1px solid rgba(245,158,11,0.3)`,color:T.gold,borderRadius:8,padding:"3px 10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>🏅 Cert</button>}
                         </div>
                       </div>
                     ))}
-                  </div>
+                  </div>)}</div>
                 )}
             </div>
           )}
@@ -11227,59 +11287,62 @@ export default function App() {
                     </div>
 
                     {/* Staff Table */}
+                    {isMobile ? (
+                      <div>
+                        {filteredStaff.length===0 && <div style={{padding:"32px 20px",textAlign:"center",color:T.muted,fontSize:14}}>{staff.length===0?"No staff members yet.":"No staff match filters."}</div>}
+                        {filteredStaff.map((u)=>{
+                          const a=(assigns[u.id]||[]).length, d=Object.keys(comps[u.id]||{}).length;
+                          const pct=a?Math.round(d/a*100):0;
+                          const barColor=pct===100?T.green:pct>=50?T.accent:"#ef4444";
+                          const lastActive=lastLoginMap[u.id];
+                          return (
+                            <MobileCard key={u.id}>
+                              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+                                <Avatar name={u.name} size={36}/>
+                                <div>
+                                  <div style={{fontWeight:700,fontSize:15,color:T.white}}>{u.name}</div>
+                                  <div style={{fontSize:12,color:T.muted}}>{u.email}</div>
+                                </div>
+                              </div>
+                              {u.jobTitle && <MobileCardRow label="Job Title" value={<span>{u.jobTitle}{u.isWarehouseWorker&&" 🏗"}</span>}/>}
+                              {u.manager && <MobileCardRow label="Manager" value={u.manager}/>}
+                              <MobileCardRow label="Progress" value={<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontWeight:700,color:barColor}}>{d}/{a}</span><Bar pct={pct} color={barColor}/></div>}/>
+                              <MobileCardRow label="Last Active" value={<span style={{color:lastActive?T.muted:"#f87171"}}>{lastActive?lastActive.slice(0,10):"Never"}</span>}/>
+                              <div style={{display:"flex",gap:8,marginTop:4}}>
+                                <button onClick={()=>setEditingStaff(u)} style={{flex:1,background:"rgba(37,99,235,0.15)",color:T.accentLt,border:`1px solid ${T.accent}44`,borderRadius:8,padding:"10px",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:font}}>✏ Edit</button>
+                                <button onClick={()=>removeStaff(u.id)} style={{flex:1,background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:8,padding:"10px",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:font}}>Remove</button>
+                              </div>
+                            </MobileCard>
+                          );
+                        })}
+                      </div>
+                    ) : (
                     <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,overflow:"hidden",border:`1px solid ${T.border}`}}>
                       <div style={{display:"grid",gridTemplateColumns:"2fr 2fr 2fr 2fr 2fr 120px 160px",padding:"12px 20px",background:T.headerBg,fontSize:11,fontWeight:700,letterSpacing:1,color:T.muted,textTransform:"uppercase",columnGap:0}}>
-                        <span style={{paddingRight:12}}>Name</span>
-                        <span style={{paddingRight:12}}>Email</span>
-                        <span style={{paddingRight:12}}>Job Title</span>
-                        <span style={{paddingRight:12}}>Manager</span>
-                        <span style={{paddingRight:12}}>Progress</span>
-                        <span style={{paddingRight:12}}>Last Active</span>
-                        <span></span>
+                        <span style={{paddingRight:12}}>Name</span><span style={{paddingRight:12}}>Email</span><span style={{paddingRight:12}}>Job Title</span><span style={{paddingRight:12}}>Manager</span><span style={{paddingRight:12}}>Progress</span><span style={{paddingRight:12}}>Last Active</span><span></span>
                       </div>
-                      {filteredStaff.length===0 && (
-                        <div style={{padding:"32px 20px",textAlign:"center",color:T.muted,fontSize:14}}>
-                          {staff.length===0 ? "No staff members yet. Add one above." : "No staff match the current filters."}
-                        </div>
-                      )}
+                      {filteredStaff.length===0 && <div style={{padding:"32px 20px",textAlign:"center",color:T.muted,fontSize:14}}>{staff.length===0?"No staff members yet. Add one above.":"No staff match the current filters."}</div>}
                       {filteredStaff.map((u,i)=>{
                         const a=(assigns[u.id]||[]).length, d=Object.keys(comps[u.id]||{}).length;
                         const pct=a?Math.round(d/a*100):0;
                         const barColor=pct===100?T.green:pct>=50?T.accent:"#ef4444";
-                        const lastActive = lastLoginMap[u.id];
+                        const lastActive=lastLoginMap[u.id];
                         return (
                           <div key={u.id} style={{display:"grid",gridTemplateColumns:"2fr 2fr 2fr 2fr 2fr 120px 160px",padding:"14px 20px",borderTop:i>0?`1px solid ${T.border}`:"none",alignItems:"center",columnGap:0}}>
-                            <div style={{display:"flex",alignItems:"center",gap:10,paddingRight:12,minWidth:0}}>
-                              <Avatar name={u.name} size={32}/>
-                              <span style={{fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.name}</span>
-                            </div>
+                            <div style={{display:"flex",alignItems:"center",gap:10,paddingRight:12,minWidth:0}}><Avatar name={u.name} size={32}/><span style={{fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.name}</span></div>
                             <span style={{color:T.muted,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",paddingRight:12}}>{u.email}</span>
-                            <span style={{color:T.muted,fontSize:12,whiteSpace:"nowrap",paddingRight:12,display:"flex",alignItems:"center",gap:6}}>
-                              {u.jobTitle||<span style={{color:T.muted}}>—</span>}
-                              {u.isWarehouseWorker&&<span style={{fontSize:9,fontWeight:700,color:"#f59e0b",background:"rgba(245,158,11,0.1)",padding:"1px 5px",borderRadius:99,border:"1px solid rgba(245,158,11,0.25)",flexShrink:0}}>🏗</span>}
-                            </span>
+                            <span style={{color:T.muted,fontSize:12,whiteSpace:"nowrap",paddingRight:12,display:"flex",alignItems:"center",gap:6}}>{u.jobTitle||<span style={{color:T.muted}}>—</span>}{u.isWarehouseWorker&&<span style={{fontSize:9,fontWeight:700,color:"#f59e0b",background:"rgba(245,158,11,0.1)",padding:"1px 5px",borderRadius:99,border:"1px solid rgba(245,158,11,0.25)",flexShrink:0}}>🏗</span>}</span>
                             <span style={{color:T.muted,fontSize:12,whiteSpace:"nowrap",paddingRight:12}}>{u.manager||<span style={{color:T.muted}}>—</span>}</span>
-                            <div style={{display:"flex",alignItems:"center",gap:8,paddingRight:12}}>
-                              <span style={{fontWeight:700,color:barColor,fontSize:12,minWidth:28,flexShrink:0}}>{d}/{a}</span>
-                              <Bar pct={pct} color={barColor}/>
-                            </div>
-                            <span style={{color:lastActive?T.muted:"#f87171",fontSize:11,paddingRight:12,whiteSpace:"nowrap"}}>
-                              {lastActive ? lastActive.slice(0,10) : <span title="Has not logged in">Never</span>}
-                            </span>
+                            <div style={{display:"flex",alignItems:"center",gap:8,paddingRight:12}}><span style={{fontWeight:700,color:barColor,fontSize:12,minWidth:28,flexShrink:0}}>{d}/{a}</span><Bar pct={pct} color={barColor}/></div>
+                            <span style={{color:lastActive?T.muted:"#f87171",fontSize:11,paddingRight:12,whiteSpace:"nowrap"}}>{lastActive?lastActive.slice(0,10):<span title="Has not logged in">Never</span>}</span>
                             <div style={{display:"flex",gap:6}}>
-                              <button onClick={()=>setEditingStaff(u)}
-                                style={{flex:1,background:"rgba(37,99,235,0.15)",color:T.accentLt,border:`1px solid ${T.accent}44`,borderRadius:8,padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
-                                ✏ Edit
-                              </button>
-                              <button onClick={()=>removeStaff(u.id)}
-                                style={{flex:1,background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:8,padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
-                                Remove
-                              </button>
+                              <button onClick={()=>setEditingStaff(u)} style={{flex:1,background:"rgba(37,99,235,0.15)",color:T.accentLt,border:`1px solid ${T.accent}44`,borderRadius:8,padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>✏ Edit</button>
+                              <button onClick={()=>removeStaff(u.id)} style={{flex:1,background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:8,padding:"6px 8px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>Remove</button>
                             </div>
                           </div>
                         );
                       })}
-                    </div>
+                    </div>)}
                   </>
                 );
               })()}
