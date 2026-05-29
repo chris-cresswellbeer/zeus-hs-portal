@@ -8455,7 +8455,9 @@ function CreateModuleTab({ onSave, Z, font }) {
                         updateSlide(i,"video",{name:file.name,type:file.type,data:null,uploading:true});
                         const { error } = await sb.storage.upload("documents", path, file);
                         if (error) { alert("Video upload failed: " + error); updateSlide(i,"video",null); return; }
-                        const url = sb.storage.getPublicUrl("documents", path);
+                        // Build URL without any encoding — path is already safe
+                        const url = `${SUPABASE_URL}/storage/v1/object/public/documents/${path}`;
+                        console.log("Video uploaded, URL:", url);
                         updateSlide(i,"video",{name:file.name,type:file.type,data:url,url});
                         e.target.value="";
                       }}/>
