@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 // Replace these two values with your own from:
 // Supabase Dashboard → Project Settings → API
 const SUPABASE_URL  = "https://aoahugfyswgcisfiosyn.supabase.co";
-const SUPABASE_ANON = "YeyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvYWh1Z2Z5c3dnY2lzZmlvc3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjY1NzMsImV4cCI6MjA5NTU0MjU3M30.9mlm3pVxqwTgCdrdVF2ek1mBHro28P-MTaVjdAUvCIs";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvYWh1Z2Z5c3dnY2lzZmlvc3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjY1NzMsImV4cCI6MjA5NTU0MjU3M30.9mlm3pVxqwTgCdrdVF2ek1mBHro28P-MTaVjdAUvCIs";
 
 // Lightweight Supabase client — no npm package needed
 const sb = (() => {
@@ -11647,61 +11647,94 @@ export default function App() {
                             </button>
                           </div>
 
-                          {/* Assign section */}
-                          <div style={{borderTop:`1px solid ${T.border}`,padding:"14px 20px",background:T.overlaySm}}>
-                            <div style={{fontSize:11,fontWeight:700,letterSpacing:.5,color:T.muted,marginBottom:10,textTransform:"uppercase"}}>Assign to Staff — Required Reading</div>
-                            <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom: assignedStaff.length>0?14:0}}>
-                              {staff.map(u=>{
-                                const isAssigned = assignedIds.includes(u.id);
-                                const hasRead = !!(docAcknowledgements[u.id]||{})[d.id];
-                                return (
-                                  <button key={u.id}
-                                    onClick={()=>setDocAssignments(p=>{
-                                      const cur=p[d.id]||[];
-                                      const next={...p,[d.id]:isAssigned?cur.filter(x=>x!==u.id):[...cur,u.id]};
-                                      dbSaveDocAssignments(d.id, next[d.id]);
-                                      return next;
-                                    })}
-                                    style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,border:`1px solid ${isAssigned?(hasRead?"rgba(16,185,129,0.5)":"rgba(37,99,235,0.5)"):T.borderMd}`,background:isAssigned?(hasRead?"rgba(16,185,129,0.1)":"rgba(37,99,235,0.12)"):T.border,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:isAssigned?700:400,color:isAssigned?(hasRead?T.green:T.accentLt):T.muted,transition:"all .2s"}}>
-                                    <Avatar name={u.name} size={18}/>
-                                    {u.name.split(" ")[0]}
-                                    {isAssigned && <span style={{fontSize:10}}>{hasRead?"✓":"·"}</span>}
-                                  </button>
-                                );
-                              })}
-                              <button onClick={()=>setDocAssignments(p=>{const next={...p,[d.id]:staff.map(u=>u.id)};dbSaveDocAssignments(d.id,next[d.id]);return next;})}
-                                style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${T.borderMd}`,background:T.headerBgMd,cursor:"pointer",fontFamily:font,fontSize:11,fontWeight:700,color:T.muted}}>
-                                + All Staff
-                              </button>
-                              {assignedIds.length>0 && (
-                                <button onClick={()=>setDocAssignments(p=>{const next={...p,[d.id]:[]};dbSaveDocAssignments(d.id,[]);return next;})}
-                                  style={{padding:"5px 12px",borderRadius:20,border:"1px solid rgba(239,68,68,0.2)",background:"rgba(239,68,68,0.06)",cursor:"pointer",fontFamily:font,fontSize:11,fontWeight:700,color:"#f87171"}}>
-                                  Clear All
-                                </button>
-                              )}
-                            </div>
+                          {/* Assign section — checkbox list with search */}
+                          {(()=>{
+                            const [docSearch, setDocSearch] = React.useState("");
+                            const filteredForDoc = staff.filter(u=>
+                              u.name.toLowerCase().includes(docSearch.toLowerCase()) ||
+                              (u.jobTitle||"").toLowerCase().includes(docSearch.toLowerCase()) ||
+                              (u.manager||"").toLowerCase().includes(docSearch.toLowerCase())
+                            );
+                            const assignedCount = assignedIds.length;
+                            const readCount = assignedIds.filter(uid=>(docAcknowledgements[uid]||{})[d.id]).length;
+                            return (
+                              <div style={{borderTop:`1px solid ${T.border}`,padding:"14px 20px",background:T.overlaySm}}>
+                                {/* Header row */}
+                                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:8}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                                    <span style={{fontSize:11,fontWeight:700,letterSpacing:.5,color:T.muted,textTransform:"uppercase"}}>Assign to Staff</span>
+                                    {assignedCount>0 && (
+                                      <span style={{fontSize:11,fontWeight:700,color:T.accentLt,background:"rgba(37,99,235,0.12)",border:`1px solid rgba(37,99,235,0.25)`,borderRadius:20,padding:"2px 8px"}}>
+                                        {assignedCount} assigned · {readCount} read
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div style={{display:"flex",gap:6}}>
+                                    <button onClick={()=>setDocAssignments(p=>{const next={...p,[d.id]:staff.map(u=>u.id)};dbSaveDocAssignments(d.id,next[d.id]);return next;})}
+                                      style={{padding:"5px 12px",borderRadius:8,border:`1px solid ${T.borderMd}`,background:T.headerBgMd,cursor:"pointer",fontFamily:font,fontSize:11,fontWeight:700,color:T.muted}}>
+                                      ✓ All
+                                    </button>
+                                    {assignedCount>0 && (
+                                      <button onClick={()=>setDocAssignments(p=>{const next={...p,[d.id]:[]};dbSaveDocAssignments(d.id,[]);return next;})}
+                                        style={{padding:"5px 12px",borderRadius:8,border:"1px solid rgba(239,68,68,0.2)",background:"rgba(239,68,68,0.06)",cursor:"pointer",fontFamily:font,fontSize:11,fontWeight:700,color:"#f87171"}}>
+                                        ✕ Clear
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
 
-                            {/* Read status per staff */}
-                            {assignedStaff.length>0 && (
-                              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:6}}>
-                                {assignedStaff.map(u=>{
-                                  const ack=(docAcknowledgements[u.id]||{})[d.id];
-                                  return (
-                                    <div key={u.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:10,background:ack?"rgba(16,185,129,0.07)":"rgba(239,68,68,0.06)",border:`1px solid ${ack?"rgba(16,185,129,0.2)":"rgba(239,68,68,0.15)"}`}}>
-                                      <Avatar name={u.name} size={22}/>
-                                      <div style={{flex:1,minWidth:0}}>
-                                        <div style={{fontSize:12,fontWeight:600,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{u.name}</div>
-                                        {ack
-                                          ? <div style={{fontSize:10,color:T.green}}>✓ Read {ack.date}</div>
-                                          : <div style={{fontSize:10,color:"#f87171"}}>⏳ Not yet confirmed</div>
-                                        }
+                                {/* Search box */}
+                                <div style={{position:"relative",marginBottom:8}}>
+                                  <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:13,pointerEvents:"none"}}>🔍</span>
+                                  <input
+                                    value={docSearch}
+                                    onChange={e=>setDocSearch(e.target.value)}
+                                    placeholder="Search by name, job title or manager..."
+                                    style={{width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"7px 10px 7px 32px",color:"#fff",fontSize:12,outline:"none",fontFamily:font,boxSizing:"border-box"}}
+                                  />
+                                  {docSearch && (
+                                    <button onClick={()=>setDocSearch("")} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:14,lineHeight:1,padding:0}}>✕</button>
+                                  )}
+                                </div>
+
+                                {/* Checkbox list */}
+                                <div style={{maxHeight:220,overflowY:"auto",borderRadius:8,border:`1px solid ${T.border}`}}>
+                                  {filteredForDoc.length===0 && (
+                                    <div style={{padding:"12px 14px",color:T.muted,fontSize:12,textAlign:"center"}}>No staff match your search</div>
+                                  )}
+                                  {filteredForDoc.map((u,i)=>{
+                                    const isAssigned = assignedIds.includes(u.id);
+                                    const ack = (docAcknowledgements[u.id]||{})[d.id];
+                                    return (
+                                      <div key={u.id}
+                                        onClick={()=>setDocAssignments(p=>{
+                                          const cur=p[d.id]||[];
+                                          const next={...p,[d.id]:isAssigned?cur.filter(x=>x!==u.id):[...cur,u.id]};
+                                          dbSaveDocAssignments(d.id,next[d.id]);
+                                          return next;
+                                        })}
+                                        style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderTop:i>0?`1px solid ${T.border}`:"none",cursor:"pointer",background:isAssigned?"rgba(37,99,235,0.06)":"transparent",transition:"background .15s"}}>
+                                        {/* Checkbox */}
+                                        <div style={{width:16,height:16,borderRadius:4,border:`2px solid ${isAssigned?T.accent:T.borderMd}`,background:isAssigned?T.accent:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}>
+                                          {isAssigned && <span style={{color:"#fff",fontSize:10,fontWeight:900,lineHeight:1}}>✓</span>}
+                                        </div>
+                                        <Avatar name={u.name} size={24}/>
+                                        <div style={{flex:1,minWidth:0}}>
+                                          <div style={{fontSize:13,fontWeight:isAssigned?700:400,color:isAssigned?"#fff":T.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{u.name}</div>
+                                          {u.jobTitle && <div style={{fontSize:10,color:T.muted,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{u.jobTitle}{u.manager?` · ${u.manager}`:""}</div>}
+                                        </div>
+                                        {isAssigned && (
+                                          <span style={{fontSize:10,fontWeight:700,flexShrink:0,color:ack?T.green:"#f87171"}}>
+                                            {ack?`✓ Read ${ack.date}`:"⏳ Pending"}
+                                          </span>
+                                        )}
                                       </div>
-                                    </div>
-                                  );
-                                })}
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            )}
-                          </div>
+                            );
+                          })()}
                         </div>
                       );
                     })}
