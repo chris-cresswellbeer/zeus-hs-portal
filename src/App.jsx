@@ -10999,7 +10999,7 @@ export default function App() {
   // ADMIN PORTAL
   // ══════════════════════════════════════════════════════════════════════════
   if (view==="admin") {
-    const staff = allUsers.filter(u=>u.role==="staff");
+    const staff = allUsers.filter(u=>u.id!==1); // show all users except the primary admin account
     const tUser = allUsers.find(u=>u.id===target);
     const tAssigned = assigns[target]||[];
 
