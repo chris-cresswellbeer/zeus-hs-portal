@@ -4432,21 +4432,24 @@ function AdminMachineryTab({ allStaff, machineComps, setMachineComps, Z, font })
         </div>
       </div>
 
-      {/* Staff selector */}
-      <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:14,padding:"14px 18px",marginBottom:16,border:`1px solid ${Z.border}`,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <span style={{fontSize:12,fontWeight:700,color:Z.muted,whiteSpace:"nowrap"}}>SELECT STAFF MEMBER:</span>
-        {warehouseStaff.map(u=>{
-          const uc = machineComps[u.id]||[];
-          const expiredCnt = uc.filter(c=>{const ex=machineExpiryStatus(c);return c.status==="expired"||(ex&&ex.status==="expired");}).length;
-          return (
-            <button key={u.id} onClick={()=>{setSelectedUser(u.id);setEditingId(null);setForm(null);}}
-              style={{display:"flex",alignItems:"center",gap:7,padding:"7px 14px",borderRadius:10,border:`2px solid ${selectedUser===u.id?Z.accent:"rgba(255,255,255,0.1)"}`,background:selectedUser===u.id?`rgba(37,99,235,0.15)`:Z.overlay,color:selectedUser===u.id?Z.accentLt:Z.muted,cursor:"pointer",fontFamily:font,fontWeight:selectedUser===u.id?700:400,fontSize:12,transition:"all .2s"}}>
-              <Avatar name={u.name} size={20}/>
-              {u.name.split(" ")[0]}
-              {expiredCnt>0&&<span style={{fontSize:10,background:"rgba(239,68,68,0.2)",color:"#f87171",borderRadius:99,padding:"1px 6px",fontWeight:700}}>!</span>}
-            </button>
-          );
-        })}
+      {/* Staff selector — dropdown */}
+      <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:14,padding:"14px 18px",marginBottom:16,border:`1px solid ${Z.border}`,display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+        <span style={{fontSize:12,fontWeight:700,color:Z.muted,whiteSpace:"nowrap",flexShrink:0}}>STAFF MEMBER:</span>
+        <select
+          value={selectedUser||""}
+          onChange={e=>{setSelectedUser(Number(e.target.value));setEditingId(null);setForm(null);}}
+          style={{flex:1,minWidth:200,background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:10,padding:"9px 13px",color:Z.white,fontSize:13,outline:"none",fontFamily:font,cursor:"pointer"}}>
+          {warehouseStaff.map(u=>{
+            const uc = machineComps[u.id]||[];
+            const expiredCnt = uc.filter(c=>{const ex=machineExpiryStatus(c);return c.status==="expired"||(ex&&ex.status==="expired");}).length;
+            return (
+              <option key={u.id} value={u.id}>
+                {u.name}{u.jobTitle?` — ${u.jobTitle}`:""}
+                {expiredCnt>0?" ⚠ Expired":""}
+              </option>
+            );
+          })}
+        </select>
       </div>
 
       {user && (
@@ -7003,6 +7006,12 @@ function EquipmentTrackerTab({ equipment, setEquipment, staff, Z, font }) {
     saveFlash("✓ Equipment saved");
   }
 
+  function deleteEquipment(id){
+    setEquipment(p=>p.filter(e=>e.id!==id));
+    if(activeId===id){ setView("list"); setActiveId(null); }
+    saveFlash("✓ Equipment deleted");
+  }
+
   function addDefect(){
     if(!defectForm||!defectForm.description.trim()) return;
     const d = {...defectForm, id:"d"+Date.now(), date:today, status:"open"};
@@ -7299,6 +7308,10 @@ function EquipmentTrackerTab({ equipment, setEquipment, staff, Z, font }) {
                     style={{background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700,color:Z.muted}}>
                     ✏
                   </button>
+                  <button onClick={()=>{ if(window.confirm(`Delete ${e.name}? This cannot be undone.`)) deleteEquipment(e.id); }}
+                    style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:font}}>
+                    🗑
+                  </button>
                 </div>
               </div>
             );
@@ -7380,7 +7393,13 @@ function EquipmentTrackerTab({ equipment, setEquipment, staff, Z, font }) {
             ← Asset List
           </button>
           {saved&&<span style={{fontSize:12,color:"#10b981",fontWeight:700}}>{saved}</span>}
-          <button onClick={()=>openEdit(activeEq)} style={{marginLeft:"auto",background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"7px 14px",color:Z.muted,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700}}>✏ Edit</button>
+          <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+            <button onClick={()=>openEdit(activeEq)} style={{background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"7px 14px",color:Z.muted,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700}}>✏ Edit</button>
+            <button onClick={()=>{ if(window.confirm(`Delete ${activeEq.name}? This cannot be undone.`)) deleteEquipment(activeEq.id); }}
+              style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:8,padding:"7px 14px",color:"#f87171",cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700}}>
+              🗑 Delete
+            </button>
+          </div>
         </div>
 
         {/* Asset header */}
@@ -9680,6 +9699,51 @@ function StaffActionsTab({ user, incidents, investigations, setInvestigations, a
   );
 }
 
+function DocCard({ d, staff, assignedIds, assignedStaff, readCount, unreadCount, icon, docAcknowledgements, setDocAssignments, dbSaveDocAssignments, setDocs, dbDeleteDoc, setPreviewDoc, T, font }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const extIcons={PDF:"📕",DOCX:"📘",DOC:"📘",XLSX:"📗",XLS:"📗",PPTX:"📙",PPT:"📙",PNG:"🖼️",JPG:"🖼️",JPEG:"🖼️",TXT:"📄",CSV:"📊"};
+  const docIcon = extIcons[d.ext] || "📄";
+  return (
+    <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,border:`1px solid ${T.border}`,overflow:"hidden"}}>
+      <div style={{padding:"14px 20px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+        <span style={{fontSize:26,flexShrink:0}}>{docIcon}</span>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontWeight:700,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.title}</div>
+          <div style={{color:T.muted,fontSize:12,marginTop:2}}>{d.date} · {d.size}{d.fileName?` · ${d.fileName.split(".").pop().toUpperCase()}`:""}</div>
+        </div>
+        <Pill label={d.type} col="navy"/>
+        {assignedStaff.length>0 && (
+          <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+            <Pill label={`✓ ${readCount} read`} col="green"/>
+            {unreadCount>0 && <Pill label={`${unreadCount} unread`} col="red"/>}
+          </div>
+        )}
+        {d.fileData && (
+          <button onClick={()=>setPreviewDoc(d)} style={{background:T.headerBgMd,color:T.muted,border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
+            👁 View
+          </button>
+        )}
+        {d.fileData && (
+          <a href={d.fileData} download={d.fileName||d.title} style={{background:`linear-gradient(135deg,${T.accent},${T.blue})`,color:T.white,border:"none",borderRadius:8,padding:"7px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,textDecoration:"none",whiteSpace:"nowrap"}}>
+            ↓ Download
+          </a>
+        )}
+        <button onClick={()=>setExpanded(v=>!v)}
+          style={{background:expanded?"rgba(37,99,235,0.2)":T.headerBgMd,color:expanded?T.accentLt:T.muted,border:`1px solid ${expanded?T.accent+"55":T.borderMd}`,borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
+          {expanded ? "▲ Assign" : "▼ Assign"}{assignedStaff.length>0?` (${assignedStaff.length})`:""}
+        </button>
+        <button onClick={()=>{setDocs(p=>p.filter(x=>x.id!==d.id));dbDeleteDoc(d.id,d.fileName);}}
+          style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.25)",borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
+          Remove
+        </button>
+      </div>
+      {expanded && (
+        <DocAssignPanel d={d} staff={staff} assignedIds={assignedIds} docAcknowledgements={docAcknowledgements} setDocAssignments={setDocAssignments} dbSaveDocAssignments={dbSaveDocAssignments} T={T} font={font}/>
+      )}
+    </div>
+  );
+}
+
 function DocAssignPanel({ d, staff, assignedIds, docAcknowledgements, setDocAssignments, dbSaveDocAssignments, T, font }) {
   const [docSearch, setDocSearch] = React.useState("");
   const filteredForDoc = staff.filter(u=>
@@ -11705,43 +11769,7 @@ export default function App() {
                       const unreadCount = assignedStaff.length - readCount;
 
                       return (
-                        <div key={d.id} style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,border:`1px solid ${T.border}`,overflow:"hidden"}}>
-
-                          {/* Doc header row */}
-                          <div style={{padding:"14px 20px",display:"flex",alignItems:"center",gap:14}}>
-                            <span style={{fontSize:26,flexShrink:0}}>{icon}</span>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontWeight:700,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.title}</div>
-                              <div style={{color:T.muted,fontSize:12,marginTop:2}}>{d.date} · {d.size}{d.fileName?` · ${d.fileName.split(".").pop().toUpperCase()}`:""}</div>
-                            </div>
-                            <Pill label={d.type} col="navy"/>
-                            {assignedStaff.length>0 && (
-                              <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-                                <Pill label={`✓ ${readCount} read`} col="green"/>
-                                {unreadCount>0 && <Pill label={`${unreadCount} unread`} col="red"/>}
-                              </div>
-                            )}
-                            {d.fileData && (
-                              <button onClick={()=>setPreviewDoc(d)}
-                                style={{background:T.headerBgMd,color:T.muted,border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
-                                👁 View
-                              </button>
-                            )}
-                            {d.fileData && (
-                              <a href={d.fileData} download={d.fileName||d.title}
-                                style={{background:`linear-gradient(135deg,${T.accent},${T.blue})`,color:T.white,border:"none",borderRadius:8,padding:"7px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,textDecoration:"none",whiteSpace:"nowrap"}}>
-                                ↓ Download
-                              </a>
-                            )}
-                            <button onClick={()=>{setDocs(p=>p.filter(x=>x.id!==d.id));dbDeleteDoc(d.id,d.fileName);}}
-                              style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.25)",borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
-                              Remove
-                            </button>
-                          </div>
-
-                          {/* Assign section — checkbox list with search */}
-                          <DocAssignPanel d={d} staff={staff} assignedIds={assignedIds} docAcknowledgements={docAcknowledgements} setDocAssignments={setDocAssignments} dbSaveDocAssignments={dbSaveDocAssignments} T={T} font={font}/>
-                        </div>
+                        <DocCard key={d.id} d={d} staff={staff} assignedIds={assignedIds} assignedStaff={assignedStaff} readCount={readCount} unreadCount={unreadCount} icon={icon} docAcknowledgements={docAcknowledgements} setDocAssignments={setDocAssignments} dbSaveDocAssignments={dbSaveDocAssignments} setDocs={setDocs} dbDeleteDoc={dbDeleteDoc} setPreviewDoc={setPreviewDoc} T={T} font={font}/>
                       );
                     })}
                   </div>
