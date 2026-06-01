@@ -3540,30 +3540,7 @@ function RiskAssessmentTab({ docs, setDocs, setAtab, Z, font }) {
   const [step, setStep]     = useState(0); // 0=details, 1=hazards, 2=review
   const [saved, setSaved]   = useState(false);
 
-  // Seed Documents tab with pre-built HTML for each INIT_RA on first mount
-  useEffect(() => {
-    setDocs(prevDocs => {
-      const existingRaIds = new Set(prevDocs.filter(d=>d.raId).map(d=>d.raId));
-      const newEntries = INIT_RAS
-        .filter(ra => !existingRaIds.has(ra.id))
-        .map(ra => {
-          const html = generateRAHtml(ra);
-          const b64 = "data:text/html;base64," + btoa(unescape(encodeURIComponent(html)));
-          return {
-            id: "d_" + ra.id,
-            title: ra.title,
-            date: ra.date,
-            size: Math.round(html.length / 1024) + " KB",
-            type: "Risk Assessment",
-            fileData: b64,
-            fileName: ra.title.toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,"") + ".html",
-            ext: "HTML",
-            raId: ra.id,
-          };
-        });
-      return newEntries.length > 0 ? [...prevDocs, ...newEntries] : prevDocs;
-    });
-  }, []); // eslint-disable-line
+  // RA seeding moved to App component on mount
 
   function newRA() {
     setForm({
@@ -10033,6 +10010,31 @@ export default function App() {
     }
     loadAll();
   }, []);
+
+  // Seed Documents tab with RA docs on mount (moved from RiskAssessmentTab)
+  useEffect(() => {
+    setDocs(prevDocs => {
+      const existingRaIds = new Set(prevDocs.filter(d=>d.raId).map(d=>d.raId));
+      const newEntries = INIT_RAS
+        .filter(ra => !existingRaIds.has(ra.id))
+        .map(ra => {
+          const html = generateRAHtml(ra);
+          const b64 = "data:text/html;base64," + btoa(unescape(encodeURIComponent(html)));
+          return {
+            id: "d_" + ra.id,
+            title: ra.title,
+            date: ra.date,
+            size: Math.round(html.length / 1024) + " KB",
+            type: "Risk Assessment",
+            fileData: b64,
+            fileName: ra.title.toLowerCase().replace(/\s+/g,"-").replace(/[^a-z0-9-]/g,"") + ".html",
+            ext: "HTML",
+            raId: ra.id,
+          };
+        });
+      return newEntries.length > 0 ? [...prevDocs, ...newEntries] : prevDocs;
+    });
+  }, []); // eslint-disable-line
 
   // ── Auto-sync watchers — fire whenever state changes after initial load ───────
   const _ready = useRef(false);
