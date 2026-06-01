@@ -2289,7 +2289,7 @@ function ManagerRow({ mgr, assigns, comps, Z, font, modules }) {
 }
 
 // ─── Edit Staff Modal ─────────────────────────────────────────────────────────
-function EditStaffModal({ staffUser, allUsers, setAllUsers, passwords, setPasswords, onClose, Z, font }) {
+function EditStaffModal({ staffUser, allUsers, setAllUsers, passwords, setPasswords, onClose, onSaveProfile, Z, font }) {
   const isMobile = useWindowWidth() <= 1024;
   const [name,              setName]             = useState(staffUser.name);
   const [email,             setEmail]            = useState(staffUser.email);
@@ -2308,7 +2308,9 @@ function EditStaffModal({ staffUser, allUsers, setAllUsers, passwords, setPasswo
     if (!email.trim() || !email.includes("@")) { setErr("Valid email is required."); return; }
     if (email !== staffUser.email && allUsers.find(u=>u.email===email.trim())) { setErr("That email is already in use."); return; }
     if (resetPw && newPw.length < 6) { setErr("New password must be at least 6 characters."); return; }
-    setAllUsers(p=>p.map(u=>u.id===staffUser.id ? {...u, name:name.trim(), email:email.trim(), jobTitle:jobTitle.trim(), manager:manager.trim(), role, isWarehouseWorker:isWarehouse} : u));
+    const updated = {...staffUser, name:name.trim(), email:email.trim(), jobTitle:jobTitle.trim(), manager:manager.trim(), role, isWarehouseWorker:isWarehouse};
+    setAllUsers(p=>p.map(u=>u.id===staffUser.id ? updated : u));
+    if (onSaveProfile) onSaveProfile(updated);
     if (resetPw && newPw) setPasswords(p=>({...p,[staffUser.id]:newPw}));
     setSaved(true); setErr("");
     setTimeout(onClose, 900);
@@ -5777,6 +5779,7 @@ function AdminIncidentTab({ incidents, setIncidents, staff, investigations, setI
   const [editErr, setEditErr]           = useState("");
   const [editSaved, setEditSaved]       = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [showReportForm, setShowReportForm] = useState(false);
 
   function deleteIncident(id) {
     setIncidents(p=>p.filter(i=>i.id!==id));
@@ -5986,12 +5989,31 @@ function AdminIncidentTab({ incidents, setIncidents, staff, investigations, setI
 
   return (
     <div>
+      {showReportForm && (
+        <div style={{marginBottom:24,borderRadius:16,border:`1px solid ${Z.borderMd}`,overflow:"hidden"}}>
+          <div style={{padding:"12px 20px",background:Z.overlay,borderBottom:`1px solid ${Z.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <span style={{fontWeight:700,fontSize:15,color:Z.white}}>Report New Incident</span>
+            <button onClick={()=>setShowReportForm(false)} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:8,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font}}>✕ Cancel</button>
+          </div>
+          <IncidentTracker
+            user={staff[0]||{id:1,name:"Admin",role:"admin"}}
+            incidents={incidents}
+            setIncidents={(fn)=>{ setIncidents(fn); setShowReportForm(false); }}
+            equipment={equipment}
+            setEquipment={setEquipment}
+            Z={Z} font={font}/>
+        </div>
+      )}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}}>
         <div>
           <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Incident Tracker</h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>All reported incidents — accidents, near misses, unsafe conditions and acts</p>
         </div>
         <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+          <button onClick={()=>setShowReportForm(v=>!v)}
+            style={{display:"flex",alignItems:"center",gap:8,background:showReportForm?"rgba(239,68,68,0.1)":`linear-gradient(135deg,${Z.accent},${Z.blue})`,color:showReportForm?"#f87171":"#fff",border:showReportForm?"1px solid rgba(239,68,68,0.2)":"none",borderRadius:10,padding:"10px 18px",cursor:"pointer",fontFamily:font,fontSize:13,fontWeight:700,whiteSpace:"nowrap",boxShadow:showReportForm?"none":"0 4px 14px rgba(37,99,235,0.35)"}}>
+            {showReportForm ? "✕ Cancel" : "+ Report Incident"}
+          </button>
           <div style={{background:"rgba(239,68,68,0.1)",borderRadius:10,padding:"10px 16px",textAlign:"center",minWidth:70}}>
             <div style={{fontSize:20,fontWeight:900,color:"#ef4444"}}>{incidents.filter(i=>!i.closed).length}</div>
             <div style={{fontSize:10,color:Z.muted,marginTop:1}}>Open</div>
@@ -9888,6 +9910,15 @@ export default function App() {
           setPasswords(map);
         }
 
+        // User profiles (role, jobTitle, manager etc overrides)
+        const { data: upRows } = await sb.from("user_profiles").select("*");
+        if (upRows && upRows.length) {
+          setAllUsers(prev => prev.map(u => {
+            const saved = upRows.find(r => r.user_id === u.id);
+            return saved ? { ...u, ...saved.data } : u;
+          }));
+        }
+
         // Custom modules
         const { data: cmRows } = await sb.from("custom_modules").select("*");
         if (cmRows && cmRows.length) {
@@ -10071,6 +10102,14 @@ export default function App() {
 
   async function dbSavePassword(userId, password) {
     await sb.from("user_passwords").upsert({ user_id: userId, password }, { onConflict: "user_id" });
+  }
+
+  async function dbSaveUserProfile(user) {
+    await sb.from("user_profiles").upsert({ user_id: user.id, data: user }, { onConflict: "user_id" });
+  }
+
+  async function dbDeleteUserProfile(userId) {
+    await sb.from("user_profiles").delete().eq("user_id", userId);
   }
 
   async function dbSaveCustomModule(mod) {
@@ -11067,12 +11106,15 @@ export default function App() {
       if (!newEmail.trim() || !newEmail.includes("@")) { setAddErr("Valid email is required."); return; }
       if (allUsers.find(u=>u.email===newEmail.trim())) { setAddErr("Email already exists."); return; }
       const id = Date.now();
-      setAllUsers(p=>[...p, { id, name:newName.trim(), email:newEmail.trim(), role:newRole, jobTitle:newJobTitle.trim(), manager:newManager.trim(), isWarehouseWorker:newIsWarehouse }]);
+      const newUser = { id, name:newName.trim(), email:newEmail.trim(), role:newRole, jobTitle:newJobTitle.trim(), manager:newManager.trim(), isWarehouseWorker:newIsWarehouse };
+      setAllUsers(p=>[...p, newUser]);
+      dbSaveUserProfile(newUser);
       setNewName(""); setNewEmail(""); setNewJobTitle(""); setNewManager(""); setNewRole("staff"); setNewIsWarehouse(false); setAddErr(""); setShowAddStaff(false);
     };
 
     const removeStaff = (uid) => {
       setAllUsers(p=>p.filter(u=>u.id!==uid));
+      dbDeleteUserProfile(uid);
       setAssigns(p=>{ const n={...p}; delete n[uid]; return n; });
       setComps(p=>{ const n={...p}; delete n[uid]; return n; });
     };
@@ -11083,7 +11125,7 @@ export default function App() {
         {editingStaff && (
           <EditStaffModal
             staffUser={editingStaff}
-            allUsers={allUsers} setAllUsers={setAllUsers}
+            allUsers={allUsers} setAllUsers={setAllUsers} onSaveProfile={dbSaveUserProfile}
             passwords={passwords} setPasswords={setPasswords}
             onClose={()=>setEditingStaff(null)}
             Z={T} font={font}
