@@ -4377,7 +4377,7 @@ function AdminMachineryTab({ allStaff, machineComps, setMachineComps, Z, font })
   }, [editingId]);
 
   const user = allStaff.find(u=>u.id===selectedUser);
-  const userComps = machineComps[selectedUser]||[];
+  const userComps = Object.values(machineComps[selectedUser]||{});
 
   function blankForm(machineId) {
     return { machineId:machineId||"", status:"provisional", trainerName:"", trainerQual:"", theoryDate:"", assessmentDate:"", observationDates:[], licenceRef:"", licenceExpiry:"", notes:"", fileNames:[] };
@@ -4390,16 +4390,19 @@ function AdminMachineryTab({ allStaff, machineComps, setMachineComps, Z, font })
   function saveComp() {
     const id = editingId==="new" ? "mc"+Date.now() : editingId;
     const entry = {...form, id};
-    setMachineComps(p=>({...p,[selectedUser]:
-      editingId==="new"
-        ? [...(p[selectedUser]||[]), entry]
-        : (p[selectedUser]||[]).map(c=>c.id===id?entry:c)
-    }));
+    setMachineComps(p=>{
+      const cur = p[selectedUser]||{};
+      return {...p,[selectedUser]:{...cur,[id]:entry}};
+    });
     setSaved(true); setEditingId(null); setForm(null);
   }
 
   function deleteComp(compId) {
-    setMachineComps(p=>({...p,[selectedUser]:(p[selectedUser]||[]).filter(c=>c.id!==compId)}));
+    setMachineComps(p=>{
+      const cur = {...(p[selectedUser]||{})};
+      delete cur[compId];
+      return {...p,[selectedUser]:cur};
+    });
   }
 
   function addObs() {
@@ -4440,7 +4443,7 @@ function AdminMachineryTab({ allStaff, machineComps, setMachineComps, Z, font })
           onChange={e=>{setSelectedUser(Number(e.target.value));setEditingId(null);setForm(null);}}
           style={{flex:1,minWidth:200,background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:10,padding:"9px 13px",color:Z.white,fontSize:13,outline:"none",fontFamily:font,cursor:"pointer"}}>
           {warehouseStaff.map(u=>{
-            const uc = machineComps[u.id]||[];
+            const uc = Object.values(machineComps[u.id]||{});
             const expiredCnt = uc.filter(c=>{const ex=machineExpiryStatus(c);return c.status==="expired"||(ex&&ex.status==="expired");}).length;
             return (
               <option key={u.id} value={u.id}>
