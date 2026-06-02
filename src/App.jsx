@@ -3,8 +3,8 @@ import React, { useState, useEffect, useRef } from "react";
 // ─── Supabase Configuration ───────────────────────────────────────────────────
 // Replace these two values with your own from:
 // Supabase Dashboard → Project Settings → API
-const SUPABASE_URL  = "https://YOUR_PROJECT_ID.supabase.co";
-const SUPABASE_ANON = "YOUR_ANON_PUBLIC_KEY";
+const SUPABASE_URL  = "https://aoahugfyswgcisfiosyn.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvYWh1Z2Z5c3dnY2lzZmlvc3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjY1NzMsImV4cCI6MjA5NTU0MjU3M30.9mlm3pVxqwTgCdrdVF2ek1mBHro28P-MTaVjdAUvCIs";
 
 // Lightweight Supabase client — no npm package needed
 const sb = (() => {
@@ -62,6 +62,18 @@ const sb = (() => {
   };
   return { from, storage };
 })();
+
+// ─── Password hashing ───────────────────────────────────────────────────────────
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+// Default password hash (for "pass123")
+let DEFAULT_HASH = "";
+hashPassword("pass123").then(h => { DEFAULT_HASH = h; });
 
 // ─── File accept type constants (avoids wildcard slash-star in JSX string attributes) ─────
 const ACCEPT_IMAGES = ["image/jpeg","image/png","image/gif","image/webp"].join(",");
@@ -2311,7 +2323,11 @@ function EditStaffModal({ staffUser, allUsers, setAllUsers, passwords, setPasswo
     const updated = {...staffUser, name:name.trim(), email:email.trim(), jobTitle:jobTitle.trim(), manager:manager.trim(), role, isWarehouseWorker:isWarehouse};
     setAllUsers(p=>p.map(u=>u.id===staffUser.id ? updated : u));
     if (onSaveProfile) onSaveProfile(updated);
-    if (resetPw && newPw) setPasswords(p=>({...p,[staffUser.id]:newPw}));
+    if (resetPw && newPw) {
+      hashPassword(newPw).then(hashed => {
+        setPasswords(p=>({...p,[staffUser.id]:hashed}));
+      });
+    }
     setSaved(true); setErr("");
     setTimeout(onClose, 900);
   };
@@ -2591,17 +2607,22 @@ function AccountTab({ user, passwords, setPasswords, darkMode, setDarkMode, Z, f
   const [showNew,  setShowNew]  = useState(false);
   const [showConf, setShowConf] = useState(false);
 
-  const currentPassword = passwords[user.id] || "pass123";
+  const currentPassword = passwords[user.id] || DEFAULT_HASH;
   const strength = newPw.length >= 12 ? 3 : newPw.length >= 8 ? 2 : newPw.length >= 6 ? 1 : 0;
   const strengthLabels = ["Too short","Weak","Good","Strong"];
   const strengthColors = ["#ef4444","#f59e0b",Z.accentLt,Z.green];
 
-  const changePassword = () => {
-    if (oldPw !== currentPassword) { setPwMsg({type:"error", text:"Current password is incorrect."}); return; }
+  const changePassword = async () => {
+    const oldHash = await hashPassword(oldPw);
+    // Support both plain-text (legacy) and hashed comparison
+    if (oldHash !== currentPassword && oldPw !== currentPassword) {
+      setPwMsg({type:"error", text:"Current password is incorrect."}); return;
+    }
     if (newPw.length < 6) { setPwMsg({type:"error", text:"New password must be at least 6 characters."}); return; }
     if (newPw !== confirmPw) { setPwMsg({type:"error", text:"New passwords do not match."}); return; }
     if (newPw === oldPw) { setPwMsg({type:"error", text:"New password must differ from your current password."}); return; }
-    setPasswords(p=>({...p,[user.id]:newPw}));
+    const newHash = await hashPassword(newPw);
+    setPasswords(p=>({...p,[user.id]:newHash}));
     setOldPw(""); setNewPw(""); setConfirmPw("");
     setPwMsg({type:"success", text:"Password changed successfully."});
   };
@@ -9860,6 +9881,11 @@ export default function App() {
   const [bulkTarget, setBulkTarget] = useState("individual");
   const [bulkManager, setBulkManager] = useState("");
   const [dbReady, setDbReady] = useState(false); // true once initial Supabase load is complete
+  const [loginAttempts, setLoginAttempts] = useState({}); // { email: { count, lockedUntil } }
+  const inactivityTimer = React.useRef(null);
+  const INACTIVITY_MINUTES = 30;
+  const MAX_LOGIN_ATTEMPTS = 5;
+  const LOCKOUT_MINUTES = 15;
 
   const font = "'Barlow','Trebuchet MS',system-ui,sans-serif";
   const winW = useWindowWidth();
@@ -9872,6 +9898,46 @@ export default function App() {
     if (!meta) { meta = document.createElement('meta'); meta.name = 'viewport'; document.head.appendChild(meta); }
     meta.content = 'width=device-width, initial-scale=1, maximum-scale=1';
   }, []);
+
+  // ── Inactivity timeout — log out after 30 minutes of no interaction ──────────
+  useEffect(() => {
+    if (!user) return; // only run when logged in
+    const reset = () => {
+      clearTimeout(inactivityTimer.current);
+      inactivityTimer.current = setTimeout(() => {
+        setUser(null); setView("login"); setMod(null);
+        alert("You have been logged out due to 30 minutes of inactivity.");
+      }, INACTIVITY_MINUTES * 60 * 1000);
+    };
+    const events = ["mousemove","keydown","mousedown","touchstart","scroll","click"];
+    events.forEach(e => window.addEventListener(e, reset, { passive: true }));
+    reset(); // start timer immediately on login
+    return () => {
+      clearTimeout(inactivityTimer.current);
+      events.forEach(e => window.removeEventListener(e, reset));
+    };
+  }, [user]); // eslint-disable-line
+
+  // ── Show inactivity warning banner 2 mins before logout ─────────────────────
+  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
+  const warningTimer = React.useRef(null);
+  useEffect(() => {
+    if (!user) { setShowInactivityWarning(false); return; }
+    const resetWarning = () => {
+      setShowInactivityWarning(false);
+      clearTimeout(warningTimer.current);
+      warningTimer.current = setTimeout(() => {
+        setShowInactivityWarning(true);
+      }, (INACTIVITY_MINUTES - 2) * 60 * 1000);
+    };
+    const events = ["mousemove","keydown","mousedown","touchstart","scroll","click"];
+    events.forEach(e => window.addEventListener(e, resetWarning, { passive: true }));
+    resetWarning();
+    return () => {
+      clearTimeout(warningTimer.current);
+      events.forEach(e => window.removeEventListener(e, resetWarning));
+    };
+  }, [user]); // eslint-disable-line
 
   // ── Load all persisted data from Supabase on mount ───────────────────────────
   useEffect(() => {
@@ -10194,7 +10260,10 @@ export default function App() {
   }
 
   async function dbSavePassword(userId, password) {
-    await sb.from("user_passwords").upsert({ user_id: userId, password }, { onConflict: "user_id" });
+    // Always store hashed — hash it here if it's not already a 64-char hex hash
+    const isAlreadyHashed = /^[0-9a-f]{64}$/.test(password);
+    const hashed = isAlreadyHashed ? password : await hashPassword(password);
+    await sb.from("user_passwords").upsert({ user_id: userId, password: hashed }, { onConflict: "user_id" });
   }
 
   async function dbSaveUserProfile(user) {
@@ -10239,10 +10308,49 @@ export default function App() {
     </div>
   );
 
-  function login() {
-    const u = allUsers.find(x=>x.email===email);
-    const correctPass = passwords[u?.id] || "pass123";
-    if (!u || pass!==correctPass) { setErr("Invalid email or password."); return; }
+  async function login() {
+    const emailKey = email.toLowerCase().trim();
+
+    // Check lockout
+    const attempt = loginAttempts[emailKey];
+    if (attempt?.lockedUntil && Date.now() < attempt.lockedUntil) {
+      const minsLeft = Math.ceil((attempt.lockedUntil - Date.now()) / 60000);
+      setErr(`Too many failed attempts. Try again in ${minsLeft} minute${minsLeft!==1?"s":""}.`);
+      return;
+    }
+
+    const u = allUsers.find(x=>x.email.toLowerCase()===emailKey);
+    if (!u) {
+      // Still increment attempts on unknown email to prevent user enumeration
+      setLoginAttempts(p => {
+        const cur = p[emailKey]||{count:0};
+        const count = cur.count + 1;
+        const lockedUntil = count >= MAX_LOGIN_ATTEMPTS ? Date.now() + LOCKOUT_MINUTES * 60000 : null;
+        return {...p, [emailKey]: {count, lockedUntil}};
+      });
+      setErr("Invalid email or password."); return;
+    }
+
+    const storedHash = passwords[u.id] || DEFAULT_HASH;
+    const enteredHash = await hashPassword(pass);
+    const isMatch = enteredHash === storedHash || pass === storedHash;
+
+    if (!isMatch) {
+      setLoginAttempts(p => {
+        const cur = p[emailKey]||{count:0};
+        const count = cur.count + 1;
+        const lockedUntil = count >= MAX_LOGIN_ATTEMPTS ? Date.now() + LOCKOUT_MINUTES * 60000 : null;
+        const msg = count >= MAX_LOGIN_ATTEMPTS
+          ? `Too many failed attempts. Account locked for ${LOCKOUT_MINUTES} minutes.`
+          : `Invalid email or password. ${MAX_LOGIN_ATTEMPTS - count} attempt${MAX_LOGIN_ATTEMPTS - count!==1?"s":""} remaining.`;
+        setErr(msg);
+        return {...p, [emailKey]: {count, lockedUntil}};
+      });
+      return;
+    }
+
+    // Success — clear attempts
+    setLoginAttempts(p => { const n={...p}; delete n[emailKey]; return n; });
     const ts = new Date().toISOString().slice(0,16).replace("T"," ");
     setLastLoginMap(p=>({...p, [u.id]: ts}));
     dbRecordLogin(u.id, ts);
@@ -11373,6 +11481,12 @@ export default function App() {
 
     return (
       <div style={{minHeight:"100vh",background:T.bg,fontFamily:font,color:T.white,overflowX:"hidden"}}>
+        {showInactivityWarning && (
+          <div style={{background:"rgba(245,158,11,0.15)",borderBottom:"1px solid rgba(245,158,11,0.3)",padding:"8px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,fontSize:13,color:"#fbbf24",fontFamily:font}}>
+            <span>⚠ You'll be logged out in 2 minutes due to inactivity.</span>
+            <button onClick={()=>setShowInactivityWarning(false)} style={{background:"rgba(245,158,11,0.2)",border:"1px solid rgba(245,158,11,0.3)",borderRadius:6,color:"#fbbf24",cursor:"pointer",fontSize:12,fontWeight:700,padding:"3px 10px",fontFamily:font}}>Dismiss</button>
+          </div>
+        )}
         <PreviewModal doc={previewDoc} onClose={()=>setPreviewDoc(null)} Z={T} font={font}/>
         {editingStaff && (
           <EditStaffModal
