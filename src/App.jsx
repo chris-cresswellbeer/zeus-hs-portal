@@ -2483,7 +2483,7 @@ function StaffDSETab({ user, dseReports, adminResponses, setDseAnswers, setDseCo
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:12}}>
         <div>
-          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>My DSE Assessment <HelpTip dark={false} text="Your Display Screen Equipment assessment. Work through each section honestly — it takes about 5 minutes. If you flag any issues your manager will be notified and can respond with comments or actions directly in the portal."/></h2>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>My DSE Assessment <HelpTip dark={true} text="Your Display Screen Equipment assessment. Work through each section honestly — it takes about 5 minutes. If you flag any issues your manager will be notified and can respond with comments or actions directly in the portal."/></h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>
             Submitted: {latestReport.date} · {latestReport.totalQuestions} questions
             {myReports.length > 1 ? ` · ${myReports.length} assessments on record` : ""}
@@ -5019,7 +5019,7 @@ function IncidentTracker({ user, incidents, setIncidents, equipment, setEquipmen
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:12}}>
         <div>
-          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Report an Incident <HelpTip dark={false} text="Use this to report any accident, near miss, unsafe condition or unsafe act. Fill in as much detail as possible — your manager will review it and may follow up. If someone has been injured, select Accident and complete the injury details section."/></h2>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Report an Incident <HelpTip dark={true} text="Use this to report any accident, near miss, unsafe condition or unsafe act. Fill in as much detail as possible — your manager will review it and may follow up. If someone has been injured, select Accident and complete the injury details section."/></h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>Accidents, near misses, unsafe conditions and acts — all reports are reviewed by the H&S team</p>
         </div>
         {!showForm && (
