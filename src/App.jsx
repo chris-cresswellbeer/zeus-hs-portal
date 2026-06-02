@@ -875,7 +875,7 @@ function StatCard({ icon, val, label, accent, Z: Zt }) {
   return (
     <div style={{background:`linear-gradient(135deg,${theme.navyMd},${theme.navy})`,borderRadius:16,padding:"20px 22px",borderLeft:`4px solid ${accent}`,boxShadow:"0 4px 20px rgba(0,0,0,.15)"}}>
       <div style={{fontSize:28}}>{icon}</div>
-      <div style={{fontSize:30,fontWeight:900,color:theme.white,marginTop:6,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:-1}}>{val}</div>
+      <div style={{fontSize:26,fontWeight:900,color:theme.white,marginTop:6,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:-1}}>{val}</div>
       <div style={{color:theme.muted,fontSize:12,marginTop:2,letterSpacing:.5}}>{label}</div>
     </div>
   );
@@ -1674,7 +1674,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
   function exportStaffReport() {
     const today = new Date().toISOString().slice(0,10);
     const rows = [
-      ["Zeus SafeLearn — Staff Compliance Report"],
+      ["Zeus Protect — Staff Compliance Report"],
       [`Generated: ${today}`],
       [],
       ["Name","Email","Job Title","Manager","Last Login","Modules Assigned","Modules Completed","Modules Pending","Compliance %","Status","Incomplete Modules","Certificates"],
@@ -1700,7 +1700,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
   function exportManagerReport() {
     const today = new Date().toISOString().slice(0,10);
     const rows = [
-      ["Zeus SafeLearn — Manager Performance Report"],
+      ["Zeus Protect — Manager Performance Report"],
       [`Generated: ${today}`],
       [],
       ["Manager","Team Size","Modules Assigned","Modules Completed","Modules Pending","Compliance %","Fully Compliant Staff","Overdue Staff","No Modules Assigned","Status"],
@@ -1912,7 +1912,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
       {reportView === "manager" && (
         <div>
           {/* Summary stat cards */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:24}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:14,marginBottom:16}}>
             <StatCard icon="👤" val={managerData.length} label="Managers" accent="#a78bfa" Z={Z}/>
             <StatCard icon="🟢" val={managerData.filter(m=>m.status==="green").length} label="All Teams Compliant" accent={Z.green} Z={Z}/>
             <StatCard icon="🟡" val={managerData.filter(m=>m.status==="amber").length} label="Teams In Progress" accent={Z.amber} Z={Z}/>
@@ -5148,7 +5148,7 @@ function InvestigationDashboard({ incidents, investigations, onOpen, Z, font }) 
 
   const statCard = (icon, val, label, col, sub) => (
     <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:16,padding:"20px 22px",border:`2px solid ${col}33`,flex:"1 1 150px",minWidth:140}}>
-      <div style={{fontSize:28,marginBottom:6}}>{icon}</div>
+      <div style={{fontSize:22,marginBottom:4}}>{icon}</div>
       <div style={{fontSize:36,fontWeight:900,color:col,lineHeight:1}}>{val}</div>
       <div style={{fontSize:12,fontWeight:700,color:Z.white,marginTop:4}}>{label}</div>
       {sub && <div style={{fontSize:11,color:Z.muted,marginTop:2}}>{sub}</div>}
@@ -9392,7 +9392,7 @@ function SiteInspectionsTab({ inspections, setInspections, staff, Z, font }) {
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 // ─── Staff: My Actions Tab ────────────────────────────────────────────────────
-function StaffActionsTab({ user, incidents, investigations, setInvestigations, assigns, comps, allModules, docs, docAssignments, docAcknowledgements, dseReports, adminResponses, Z, font }) {
+function StaffActionsTab({ user, incidents, investigations, setInvestigations, assigns, comps, allModules, docs, docAssignments, docAcknowledgements, dseReports, adminResponses, setStab, setMod, Z, font }) {
   const today = new Date().toISOString().slice(0,10);
 
   // ── Outstanding training modules ──────────────────────────────────────────
@@ -9618,6 +9618,7 @@ function StaffActionsTab({ user, incidents, investigations, setInvestigations, a
                   <span style={{fontSize:11,fontWeight:700,color:m.ex.status==="expired"?"#f87171":"#f59e0b",background:m.ex.status==="expired"?"rgba(239,68,68,0.12)":"rgba(245,158,11,0.12)",border:`1px solid ${m.ex.status==="expired"?"rgba(239,68,68,0.3)":"rgba(245,158,11,0.3)"}`,borderRadius:8,padding:"4px 10px",whiteSpace:"nowrap"}}>
                     {m.ex.status==="expired"?"⚠ Renewal overdue":`⏳ Renews in ${m.ex.daysLeft}d`}
                   </span>
+                  <button onClick={()=>{setMod(m);setStab("training");}} style={{background:`linear-gradient(135deg,#6366f1,#4f46e5)`,color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap",flexShrink:0}}>Start →</button>
                 </div>
               ))}
               {pendingModules.map(m=>(
@@ -9630,6 +9631,7 @@ function StaffActionsTab({ user, incidents, investigations, setInvestigations, a
                   <span style={{fontSize:11,fontWeight:700,color:m.level==="Mandatory"?"#f87171":"#93c5fd",background:m.level==="Mandatory"?"rgba(239,68,68,0.1)":"rgba(37,99,235,0.12)",border:`1px solid ${m.level==="Mandatory"?"rgba(239,68,68,0.25)":"rgba(37,99,235,0.25)"}`,borderRadius:8,padding:"4px 10px"}}>
                     {m.level==="Mandatory"?"🔴 Mandatory":"📘 Assigned"}
                   </span>
+                  <button onClick={()=>{setMod(m);setStab("training");}} style={{background:`linear-gradient(135deg,#6366f1,#4f46e5)`,color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap",flexShrink:0}}>Start →</button>
                 </div>
               ))}
             </div>
@@ -9647,6 +9649,7 @@ function StaffActionsTab({ user, incidents, investigations, setInvestigations, a
                     <div style={{fontSize:11,color:Z.muted}}>{d.category||"Policy Document"}{d.version?` · v${d.version}`:""}</div>
                   </div>
                   <span style={{fontSize:11,fontWeight:700,color:"#f59e0b",background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:8,padding:"4px 10px",whiteSpace:"nowrap"}}>⏳ Confirmation pending</span>
+                  <button onClick={()=>setStab("documents")} style={{background:`linear-gradient(135deg,#f59e0b,#d97706)`,color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap",flexShrink:0}}>Read →</button>
                 </div>
               ))}
             </div>
@@ -9664,6 +9667,7 @@ function StaffActionsTab({ user, incidents, investigations, setInvestigations, a
                     {issue.comment && <div style={{fontSize:11,color:Z.muted,fontStyle:"italic"}}>Your note: "{issue.comment}"</div>}
                   </div>
                   <span style={{fontSize:11,fontWeight:700,color:"#06b6d4",background:"rgba(6,182,212,0.1)",border:"1px solid rgba(6,182,212,0.25)",borderRadius:8,padding:"4px 10px",whiteSpace:"nowrap"}}>⏳ Awaiting response</span>
+                  <button onClick={()=>setStab("dse")} style={{background:"linear-gradient(135deg,#06b6d4,#0891b2)",color:"#fff",border:"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap",flexShrink:0}}>View →</button>
                 </div>
               ))}
             </div>
@@ -9761,7 +9765,7 @@ function HelpTip({ text, dark = false }) {
         ?
       </button>
       {open && (
-        <span onClick={e=>e.stopPropagation()} style={{display:"block",background:tipBg,border:`1px solid ${tipBorder}`,borderRadius:10,padding:"11px 14px",fontSize:13,color:`${tipCol} !important`,lineHeight:1.6,marginTop:8,maxWidth:340,zIndex:10,boxShadow:"0 4px 20px rgba(0,0,0,0.35)",fontWeight:400,WebkitTextFillColor:tipCol}}>
+        <span onClick={e=>e.stopPropagation()} className="helptip-text" style={{"--tip-col":tipCol,background:tipBg,border:`1px solid ${tipBorder}`,borderRadius:10,padding:"11px 14px",fontSize:13,lineHeight:1.6,marginTop:8,maxWidth:340,zIndex:10,boxShadow:"0 4px 20px rgba(0,0,0,0.35)",fontWeight:400,display:"block"}}>
           {text}
         </span>
       )}
@@ -10658,7 +10662,8 @@ export default function App() {
           @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800;900&display=swap');
           * { margin:0; padding:0; box-sizing:border-box; }
           body { background:#091548; font-family:'Barlow',sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; }
-          @media print { body { background:#091548; } @page { margin:0; } }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+          @media print { body { background:#091548; } @page { margin:0; size: A4 landscape; } }
         </style></head>
         <body>${el.outerHTML}<script>window.onload=()=>{window.print();}<\/script></body></html>
       `);
@@ -10700,7 +10705,7 @@ export default function App() {
             {/* Watermark */}
             <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none",zIndex:0}}>
               <div style={{fontSize:72,fontWeight:900,color:"rgba(245,158,11,0.04)",letterSpacing:8,textTransform:"uppercase",transform:"rotate(-30deg)",whiteSpace:"nowrap",userSelect:"none"}}>
-                ZEUS SAFELEARN
+                ZEUS PROTECT
               </div>
             </div>
 
@@ -10708,13 +10713,13 @@ export default function App() {
             <div style={{height:6,background:"linear-gradient(90deg,#f59e0b,#fbbf24,#f59e0b)",position:"relative",zIndex:1}}/>
 
             {/* Content */}
-            <div style={{padding:"36px 48px 40px",position:"relative",zIndex:1,textAlign:"center"}}>
+            <div style={{padding:"20px 48px 24px",position:"relative",zIndex:1,textAlign:"center"}}>
 
               {/* Logo + title row */}
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24}}>
-                <img src={ZEUS_LOGO_LIGHT_SRC} alt="Zeus" style={{height:52,objectFit:"contain"}}/>
+                <img src={ZEUS_LOGO_LIGHT_SRC} alt="Zeus" style={{height:44,objectFit:"contain"}}/>
                 <div style={{textAlign:"right"}}>
-                  <div style={{fontSize:9,fontWeight:700,letterSpacing:3,color:"rgba(245,158,11,0.7)",textTransform:"uppercase",marginBottom:2}}>Zeus SafeLearn</div>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:3,color:"rgba(245,158,11,0.7)",textTransform:"uppercase",marginBottom:2}}>Zeus Protect</div>
                   <div style={{fontSize:9,color:"rgba(255,255,255,0.3)",letterSpacing:1}}>Health & Safety Training</div>
                 </div>
               </div>
@@ -10727,19 +10732,19 @@ export default function App() {
               </div>
 
               {/* This certifies */}
-              <div style={{fontSize:12,color:"rgba(255,255,255,0.45)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>This is to certify that</div>
+              <div style={{fontSize:12,color:"rgba(255,255,255,0.45)",letterSpacing:1.5,textTransform:"uppercase",marginBottom:4}}>This is to certify that</div>
 
               {/* Name */}
-              <div style={{fontSize:30,fontWeight:900,color:"#ffffff",letterSpacing:-0.5,marginBottom:4,lineHeight:1.1}}>{user?.name}</div>
-              {user?.jobTitle && <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",marginBottom:20}}>{user.jobTitle}</div>}
+              <div style={{fontSize:30,fontWeight:900,color:"#ffffff",letterSpacing:-0.5,marginBottom:2,lineHeight:1.1}}>{user?.name}</div>
+              {user?.jobTitle && <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",marginBottom:10}}>{user.jobTitle}</div>}
 
               {/* has successfully completed */}
-              <div style={{fontSize:12,color:"rgba(255,255,255,0.45)",letterSpacing:1,textTransform:"uppercase",marginBottom:10}}>has successfully completed</div>
+              <div style={{fontSize:12,color:"rgba(255,255,255,0.45)",letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>has successfully completed</div>
 
               {/* Module */}
-              <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:12,padding:"14px 24px",marginBottom:20,display:"inline-block",minWidth:300}}>
+              <div style={{background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.25)",borderRadius:12,padding:"10px 24px",marginBottom:12,display:"inline-block",minWidth:300}}>
                 <div style={{fontSize:28,marginBottom:6}}>{moduleIcon}</div>
-                <div style={{fontSize:20,fontWeight:800,color:"#f59e0b",lineHeight:1.2}}>{cert.module.title}</div>
+                <div style={{fontSize:18,fontWeight:800,color:"#f59e0b",lineHeight:1.2}}>{cert.module.title}</div>
                 {cert.module.category && <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:4}}>{cert.module.category}</div>}
               </div>
 
@@ -10747,7 +10752,7 @@ export default function App() {
               <div style={{display:"flex",justifyContent:"center",gap:32,marginBottom:24}}>
                 <div style={{textAlign:"center"}}>
                   <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:"rgba(255,255,255,0.35)",textTransform:"uppercase",marginBottom:4}}>Score Achieved</div>
-                  <div style={{fontSize:26,fontWeight:900,color:"#10b981"}}>{cert.score}%</div>
+                  <div style={{fontSize:22,fontWeight:900,color:"#10b981"}}>{cert.score}%</div>
                 </div>
                 <div style={{width:1,background:"rgba(255,255,255,0.1)"}}/>
                 <div style={{textAlign:"center"}}>
@@ -10767,7 +10772,7 @@ export default function App() {
               <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",borderTop:"1px solid rgba(255,255,255,0.08)",paddingTop:20}}>
                 {/* Signature */}
                 <div style={{textAlign:"left"}}>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:22,color:"rgba(255,255,255,0.7)",letterSpacing:1,marginBottom:4,fontStyle:"italic"}}>Zeus SafeLearn</div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:22,color:"rgba(255,255,255,0.7)",letterSpacing:1,marginBottom:4,fontStyle:"italic"}}>Zeus Protect</div>
                   <div style={{width:120,height:1,background:"rgba(255,255,255,0.2)",marginBottom:6}}/>
                   <div style={{fontSize:10,color:"rgba(255,255,255,0.35)",letterSpacing:1,textTransform:"uppercase"}}>Authorised Signature</div>
                 </div>
@@ -10786,7 +10791,7 @@ export default function App() {
                     })}
                     <circle cx="40" cy="40" r="24" fill="#0d1f5c" stroke="#f59e0b" strokeWidth="1.5"/>
                     <text x="40" y="35" textAnchor="middle" fill="#f59e0b" fontSize="7" fontWeight="700" fontFamily="Barlow,sans-serif" letterSpacing="1">ZEUS</text>
-                    <text x="40" y="44" textAnchor="middle" fill="#fbbf24" fontSize="5.5" fontFamily="Barlow,sans-serif" letterSpacing="0.5">SAFELEARN</text>
+                    <text x="40" y="44" textAnchor="middle" fill="#fbbf24" fontSize="5.5" fontFamily="Barlow,sans-serif" letterSpacing="0.5">PROTECT</text>
                     <text x="40" y="53" textAnchor="middle" fill="rgba(245,158,11,0.6)" fontSize="4.5" fontFamily="Barlow,sans-serif">VERIFIED</text>
                   </svg>
                 </div>
@@ -11250,6 +11255,7 @@ export default function App() {
               docAcknowledgements={docAcknowledgements}
               dseReports={dseReports}
               adminResponses={adminResponses}
+              setStab={setStab} setMod={setMod}
               Z={T} font={font}
             />
           )}
@@ -11352,6 +11358,8 @@ export default function App() {
             /* Ensure text doesn't overflow cards */
             * { word-break: break-word; }
           }
+
+          .helptip-text, .helptip-text * { color: var(--tip-col) !important; -webkit-text-fill-color: var(--tip-col) !important; }
 
           /* Admin nav bar — hide scrollbar but keep scrollable on mobile */
           .admin-nav-bar { scrollbar-width: none; -ms-overflow-style: none; }
@@ -11978,7 +11986,7 @@ export default function App() {
 
           {atab==="modules" && (
             <div>
-              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:24}}>Training Library <HelpTip dark={false} text="All available training modules. Built-in modules are provided by Zeus SafeLearn. Custom modules are ones you've created. Modules with a renewal period will show as expired when due for re-completion."/></h2>
+              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:24}}>Training Library <HelpTip dark={false} text="All available training modules. Built-in modules are provided by Zeus Protect. Custom modules are ones you've created. Modules with a renewal period will show as expired when due for re-completion."/></h2>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
                 {allModules.map(m=>(
                   <div key={m.id} style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${m._custom?"rgba(245,158,11,0.35)":T.border}`}}>
