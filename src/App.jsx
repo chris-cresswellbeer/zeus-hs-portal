@@ -3,8 +3,8 @@ import React, { useState, useEffect, useRef } from "react";
 // ─── Supabase Configuration ───────────────────────────────────────────────────
 // Replace these two values with your own from:
 // Supabase Dashboard → Project Settings → API
-const SUPABASE_URL  = "https://aoahugfyswgcisfiosyn.supabase.co";
-const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvYWh1Z2Z5c3dnY2lzZmlvc3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjY1NzMsImV4cCI6MjA5NTU0MjU3M30.9mlm3pVxqwTgCdrdVF2ek1mBHro28P-MTaVjdAUvCIs";
+const SUPABASE_URL  = "https://YOUR_PROJECT_ID.supabase.co";
+const SUPABASE_ANON = "YOUR_ANON_PUBLIC_KEY";
 
 // Lightweight Supabase client — no npm package needed
 const sb = (() => {
@@ -1726,7 +1726,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:14}}>
-        <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:0}}>Compliance Reports</h2>
+        <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:0}}>Compliance Reports <HelpTip dark={false} text="View completion rates, expiry status, document acknowledgements and DSE assessments across all staff. Use the Training Expiry tab to identify anyone with overdue renewals before they become a compliance issue."/></h2>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
           {tabBtn("staff",     "👥 Staff Overview")}
           {tabBtn("manager",   "📊 Manager Performance")}
@@ -2467,7 +2467,7 @@ function StaffDSETab({ user, dseReports, adminResponses, setDseAnswers, setDseCo
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:12}}>
         <div>
-          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>My DSE Assessment</h2>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>My DSE Assessment <HelpTip dark={false} text="Your Display Screen Equipment assessment. Work through each section honestly — it takes about 5 minutes. If you flag any issues your manager will be notified and can respond with comments or actions directly in the portal."/></h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>
             Submitted: {latestReport.date} · {latestReport.totalQuestions} questions
             {myReports.length > 1 ? ` · ${myReports.length} assessments on record` : ""}
@@ -3610,7 +3610,7 @@ function RiskAssessmentTab({ docs, setDocs, setAtab, Z, font }) {
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:12}}>
         <div>
-          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Risk Assessment Builder</h2>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Risk Assessment Builder <HelpTip dark={false} text="Create and manage risk assessments for activities and work areas. Hazards are scored by likelihood and severity to produce initial and residual risk ratings. Completed assessments are added to the Documents tab automatically."/></h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>Create 5×5 risk assessments — completed RAs are published to the Documents tab for staff</p>
         </div>
         <button onClick={newRA}
@@ -4407,7 +4407,7 @@ function AdminMachineryTab({ allStaff, machineComps, setMachineComps, Z, font })
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}}>
         <div>
-          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Machinery Competence Records</h2>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Machinery Competence Records <HelpTip dark={false} text="Track which staff are authorised to operate specific machinery. Each record shows the type of authorisation, date assessed and licence expiry if applicable. Expired records are flagged with a warning."/></h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>Manage assessed competencies for warehouse and operational staff only</p>
         </div>
       </div>
@@ -4998,7 +4998,7 @@ function IncidentTracker({ user, incidents, setIncidents, equipment, setEquipmen
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:12}}>
         <div>
-          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Report an Incident</h2>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Report an Incident <HelpTip dark={false} text="Use this to report any accident, near miss, unsafe condition or unsafe act. Fill in as much detail as possible — your manager will review it and may follow up. If someone has been injured, select Accident and complete the injury details section."/></h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>Accidents, near misses, unsafe conditions and acts — all reports are reviewed by the H&S team</p>
         </div>
         {!showForm && (
@@ -5989,7 +5989,7 @@ function AdminIncidentTab({ incidents, setIncidents, staff, investigations, setI
       )}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:12}}>
         <div>
-          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Incident Tracker</h2>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Incident Tracker <HelpTip dark={false} text="All reported incidents across the organisation. RIDDOR-flagged incidents must be reported to the HSE within the required timeframe (typically 10 days for over-7-day injuries). Use Investigate to record root cause and corrective actions."/></h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>All reported incidents — accidents, near misses, unsafe conditions and acts</p>
         </div>
         <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
@@ -7119,7 +7119,7 @@ function EquipmentTrackerTab({ equipment, setEquipment, staff, Z, font }) {
   const Header = () => (
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24,flexWrap:"wrap",gap:12}}>
       <div>
-        <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 2px",color:Z.white}}>Equipment Register</h2>
+        <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 2px",color:Z.white}}>Equipment Register <HelpTip dark={true} text="A full register of equipment on site including inspection due dates, responsible persons and service history. Use this to track PUWER compliance — items approaching their inspection date are highlighted."/></h2>
         <p style={{color:Z.muted,margin:0,fontSize:13}}>Asset register · inspection schedules · defect reporting · service history</p>
       </div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
@@ -8140,7 +8140,7 @@ function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustom
     <div>
       <div style={{marginBottom:20,display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16}}>
         <div>
-          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>COSHH Register</h2>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>COSHH Register <HelpTip dark={false} text="All hazardous substances used on site. Hazard level is calculated automatically from the chemical's classification. Upload the MSDS (Safety Data Sheet) for each product — staff can view it from their portal."/></h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>Material Safety Data Sheets (MSDS) on file — {allChemicals.length} products across {suppliers.length-1} suppliers</p>
         </div>
         <div style={{display:"flex",gap:10,alignItems:"center",flexShrink:0}}>
@@ -8446,7 +8446,7 @@ function CreateModuleTab({ onSave, Z, font }) {
 
   return (
     <div>
-      <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 6px"}}>Create Training Module</h2>
+      <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 6px"}}>Create Training Module <HelpTip dark={false} text="Build your own training module with slides, images and video. Set a pass mark for the quiz — 70% is the default. Set a renewal period in months if the training needs to be repeated periodically."/></h2>
       <p style={{color:Z.muted,fontSize:13,margin:"0 0 24px"}}>Build a custom module with slides and a quiz that can be assigned to staff.</p>
 
       {/* Step progress */}
@@ -9259,7 +9259,7 @@ function SiteInspectionsTab({ inspections, setInspections, staff, Z, font }) {
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
         <div>
-          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px",color:Z.white}}>Site Inspections</h2>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px",color:Z.white}}>Site Inspections <HelpTip dark={true} text="Record regular site inspection findings. Each inspection is scored and failing items can have corrective actions assigned with a due date and responsible person. Completed inspections are stored for audit purposes."/></h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>{inspections.length} inspections recorded · H&S Audits, Fire Risk Assessments, Walk Arounds</p>
         </div>
         <button onClick={()=>{setForm(BLANK_FORM);setFormSection(0);setNcForm(null);setView("new");}}
@@ -9721,6 +9721,30 @@ function DocCard({ d, staff, assignedIds, assignedStaff, readCount, unreadCount,
         <DocAssignPanel d={d} staff={staff} assignedIds={assignedIds} docAcknowledgements={docAcknowledgements} setDocAssignments={setDocAssignments} dbSaveDocAssignments={dbSaveDocAssignments} T={T} font={font}/>
       )}
     </div>
+  );
+}
+
+function HelpTip({ text, dark = false }) {
+  const [open, setOpen] = React.useState(false);
+  const bg = dark ? "rgba(255,255,255,0.12)" : "rgba(37,99,235,0.12)";
+  const col = dark ? "rgba(255,255,255,0.6)" : "#3b82f6";
+  const bgOpen = dark ? "rgba(245,158,11,0.2)" : "rgba(245,158,11,0.15)";
+  const colOpen = dark ? "#f59e0b" : "#b45309";
+  const tipBg = dark ? "rgba(255,255,255,0.07)" : "rgba(37,99,235,0.07)";
+  const tipBorder = dark ? "rgba(255,255,255,0.15)" : "rgba(37,99,235,0.2)";
+  const tipCol = dark ? "rgba(255,255,255,0.75)" : "#1e3a5f";
+  return (
+    <span style={{display:"inline-flex",flexDirection:"column",verticalAlign:"middle"}}>
+      <button onClick={()=>setOpen(v=>!v)} aria-label="Help"
+        style={{width:18,height:18,borderRadius:"50%",background:open?bgOpen:bg,color:open?colOpen:col,border:"none",fontSize:11,fontWeight:700,cursor:"pointer",lineHeight:"18px",padding:0,flexShrink:0,transition:"all .15s"}}>
+        ?
+      </button>
+      {open && (
+        <span style={{display:"block",background:tipBg,border:`1px solid ${tipBorder}`,borderRadius:8,padding:"8px 11px",fontSize:12,color:tipCol,lineHeight:1.55,marginTop:6,maxWidth:320,zIndex:10}}>
+          {text}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -10780,7 +10804,7 @@ export default function App() {
           {stab==="dashboard" && (
             <div>
               <div style={{marginBottom:28}}>
-                <h1 style={{fontSize:26,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Welcome back, {user.name.split(" ")[0]}</h1>
+                <h1 style={{fontSize:26,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Welcome back, {user.name.split(" ")[0]} <HelpTip dark={true} text="Your personal H&S summary. The tiles show outstanding training, documents awaiting your confirmation, and any open actions assigned to you. Overdue items are highlighted — complete them to keep your record up to date."/></h1>
                 <p style={{color:T.muted,margin:"0 0 28px",fontSize:13}}>{user.jobTitle||""}{user.jobTitle?" · ":""}{user.email}</p>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:28}}>
@@ -10824,7 +10848,7 @@ export default function App() {
 
           {stab==="training" && (
             <div>
-              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:24}}>My Assigned Training</h2>
+              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:24}}>My Assigned Training <HelpTip dark={true} text="Modules assigned to you by your manager. Work through each one at your own pace — you'll need to pass the quiz at the end to receive your certificate. Modules with an expiry date will need to be repeated periodically."/></h2>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
                 {myMods.map(m=>{
                   const isDone = !!myC[m.id];
@@ -10925,7 +10949,7 @@ export default function App() {
 
           {stab==="history" && (
             <div>
-              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:24}}>Training History</h2>
+              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:24}}>Training History <HelpTip dark={true} text="A record of all modules you've completed, including your score and the date. Use the certificate button to view and print your certificates."/></h2>
               {!Object.keys(myC).length
                 ? <p style={{color:T.muted}}>No completed training yet.</p>
                 : (
@@ -10969,7 +10993,7 @@ export default function App() {
 
           {stab==="documents" && (
             <div>
-              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:8}}>H&S Documentation</h2>
+              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:8}}>H&S Documentation <HelpTip dark={true} text="Policies and procedures your manager has asked you to read. Once you've read a document click Confirm I Have Read This — this logs your acknowledgement with a date stamp visible to your manager."/></h2>
               <p style={{color:T.muted,marginBottom:24,fontSize:13}}>Documents assigned to you for required reading are highlighted. Please read and confirm each one.</p>
 
               {/* Required reading section */}
@@ -11486,7 +11510,7 @@ export default function App() {
             <div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
                 <div>
-                  <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Staff Accounts</h2>
+                  <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Staff Accounts <HelpTip dark={false} text="All registered portal users. Use Edit to update roles, job titles and managers. Marking someone as Admin gives them full access to this panel. Removing a staff member does not delete their training records."/></h2>
                   <p style={{color:T.muted,margin:0,fontSize:13}}>{staff.length} staff member{staff.length!==1?"s":""} registered</p>
                 </div>
                 <div style={{display:"flex",gap:10}}>
@@ -11679,7 +11703,7 @@ export default function App() {
 
           {atab==="assign" && (
             <div>
-              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:6}}>Assign Training</h2>
+              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:6}}>Assign Training <HelpTip dark={false} text="Tick modules to assign them to staff. Assigned modules appear on the staff member's dashboard as required training. Use bulk assignment to push modules to an entire team at once."/></h2>
               <p style={{color:T.muted,fontSize:13,marginBottom:20}}>Assign modules to individuals, teams, or all staff at once.</p>
 
               {(()=>{
@@ -11840,7 +11864,7 @@ export default function App() {
 
           {atab==="modules" && (
             <div>
-              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:24}}>Training Library</h2>
+              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:24}}>Training Library <HelpTip dark={false} text="All available training modules. Built-in modules are provided by Zeus SafeLearn. Custom modules are ones you've created. Modules with a renewal period will show as expired when due for re-completion."/></h2>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
                 {allModules.map(m=>(
                   <div key={m.id} style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${m._custom?"rgba(245,158,11,0.35)":T.border}`}}>
@@ -11874,7 +11898,7 @@ export default function App() {
 
           {atab==="documents" && (
             <div>
-              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:6}}>H&S Documentation</h2>
+              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:6}}>H&S Documentation <HelpTip dark={false} text="Upload policies, procedures, risk assessments and guidance documents. Use the Assign button on each document to nominate staff for required reading — they'll be prompted to confirm they've read it in their portal."/></h2>
               <p style={{color:T.muted,marginBottom:20,fontSize:13}}>Upload documents here — all staff can view and download them.</p>
 
               {/* Upload area */}
