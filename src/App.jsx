@@ -9761,7 +9761,7 @@ function HelpTip({ text, dark = false }) {
         ?
       </button>
       {open && (
-        <span style={{display:"block",background:tipBg,border:`1px solid ${tipBorder}`,borderRadius:8,padding:"8px 11px",fontSize:12,color:tipCol,lineHeight:1.55,marginTop:6,maxWidth:320,zIndex:10}}>
+        <span onClick={e=>e.stopPropagation()} style={{display:"block",background:tipBg,border:`1px solid ${tipBorder}`,borderRadius:10,padding:"11px 14px",fontSize:13,color:`${tipCol} !important`,lineHeight:1.6,marginTop:8,maxWidth:340,zIndex:10,boxShadow:"0 4px 20px rgba(0,0,0,0.35)",fontWeight:400,WebkitTextFillColor:tipCol}}>
           {text}
         </span>
       )}
