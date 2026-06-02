@@ -1641,7 +1641,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
       const totalAssigned   = m.members.reduce((s,u)=>(assigns[u.id]||[]).length+s, 0);
       const totalCompleted  = m.members.reduce((s,u)=>Object.keys(comps[u.id]||{}).length+s, 0);
       const totalPending    = totalAssigned - totalCompleted;
-      const compliancePct   = totalAssigned ? Math.round(totalCompleted / totalAssigned * 100) : 0;
+      const compliancePct   = totalAssigned ? Math.min(100, Math.round(totalCompleted / totalAssigned * 100)) : 0;
       const fullyCompliant  = m.members.filter(u=>{
         const a=(assigns[u.id]||[]).length;
         const c=Object.keys(comps[u.id]||{}).length;
@@ -1683,8 +1683,8 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
       const assignedIds = assigns[u.id]||[];
       const userComps   = comps[u.id]||{};
       const a = assignedIds.length;
-      const d = Object.keys(userComps).length;
-      const pct = a ? Math.round(d/a*100) : 0;
+      const d = assignedIds.filter(mid => userComps[mid]).length;
+      const pct = a ? Math.min(100, Math.round(d/a*100)) : 0;
       const pending = allModules.filter(m=>assignedIds.includes(m.id)&&!userComps[m.id]).map(m=>m.title).join("; ");
       const certs = allModules.filter(m=>assignedIds.includes(m.id)&&userComps[m.id]?.certId).map(m=>`${m.title}: ${userComps[m.id].certId}`).join("; ");
       const expiredMods = allModules.filter(m=>assignedIds.includes(m.id)&&userComps[m.id]&&m.renewalMonths&&getExpiryStatus(userComps[m.id].date,m.renewalMonths)?.status==="expired").map(m=>m.title).join("; ");
@@ -1693,7 +1693,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
       rows.push([u.name, u.email, u.jobTitle||"", u.manager||"", lastLogin, a, d, a-d, pct+"%", status, pending, certs]);
     });
     rows.push([]);
-    rows.push([`Total Staff: ${staff.length}`, `Total Completions: ${staff.reduce((s,u)=>s+Object.keys(comps[u.id]||{}).length,0)}`, `Average Compliance: ${staff.length?Math.round(staff.reduce((s,u)=>{const a=(assigns[u.id]||[]).length;const c=Object.keys(comps[u.id]||{}).length;return s+(a?c/a:0);},0)/staff.length*100):0}%`]);
+    rows.push([`Total Staff: ${staff.length}`, `Total Completions: ${staff.reduce((s,u)=>s+Object.keys(comps[u.id]||{}).length,0)}`, `Average Compliance: ${staff.length?Math.min(100, Math.round(staff.reduce((s,u)=>{const a=(assigns[u.id]||[]).length;const c=Object.keys(comps[u.id]||{}).length;return s+(a?c/a:0);},0)/staff.length*100)):0}%`]);
     downloadCsv(`zeus-staff-report-${today}.csv`, rows);
   }
 
@@ -1718,8 +1718,8 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
         const assignedIds = assigns[u.id]||[];
         const userComps   = comps[u.id]||{};
         const a = assignedIds.length;
-        const d = Object.keys(userComps).length;
-        const pct = a ? Math.round(d/a*100) : 0;
+        const d = (assigns[u.id]||[]).filter(mid => userComps[mid]).length;
+        const pct = a ? Math.min(100, Math.round(d/a*100)) : 0;
         const pending = allModules.filter(m=>assignedIds.includes(m.id)&&!userComps[m.id]).map(m=>m.title).join("; ");
         rows.push(["  "+u.name, "  "+(u.jobTitle||""), a, d, pct+"%", pending]);
       });
@@ -1761,7 +1761,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
             <StatCard icon="👥" val={staff.length} label="Total Staff" accent={Z.accentLt} Z={Z}/>
             <StatCard icon="📚" val={allModules.length} label="Modules Available" accent="#a78bfa" Z={Z}/>
             <StatCard icon="✅" val={staff.reduce((s,u)=>s+Object.keys(comps[u.id]||{}).length,0)} label="Total Completions" accent={Z.green} Z={Z}/>
-            <StatCard icon="📊" val={staff.length?`${Math.round(staff.reduce((s,u)=>{const a=(assigns[u.id]||[]).length;const c=Object.keys(comps[u.id]||{}).length;return s+(a?c/a:0);},0)/staff.length*100)}%`:"—"} label="Avg Compliance" accent={Z.gold} Z={Z}/>
+            <StatCard icon="📊" val={staff.length?`${Math.min(100, Math.round(staff.reduce((s,u)=>{const a=(assigns[u.id]||[]).length;const c=Object.keys(comps[u.id]||{}).length;return s+(a?c/a:0);},0)/staff.length*100))}%`:"—"} label="Avg Compliance" accent={Z.gold} Z={Z}/>
           </div>
           <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:16,overflow:"hidden",border:`1px solid ${Z.border}`}}>
             <div style={{padding:"14px 20px",borderBottom:`1px solid ${Z.border}`,fontWeight:700,fontSize:12,letterSpacing:1,color:Z.muted,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1775,8 +1775,8 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
               const assignedIds = assigns[u.id]||[];
               const userComps = comps[u.id]||{};
               const a = assignedIds.length;
-              const d = Object.keys(userComps).length;
-              const p = a ? Math.round(d/a*100) : 0;
+              const d = (assigns[u.id]||[]).filter(mid => userComps[mid]).length;
+              const p = a ? Math.min(100, Math.round(d/a*100)) : 0;
               const isOpen = expandedStaff === u.id;
               const notDone = allModules.filter(m => assignedIds.includes(m.id) && !userComps[m.id]);
               const doneModules = allModules.filter(m => assignedIds.includes(m.id) && userComps[m.id]);
@@ -2260,8 +2260,8 @@ function ManagerRow({ mgr, assigns, comps, Z, font, modules }) {
             const assignedIds = assigns[u.id]||[];
             const userComps   = comps[u.id]||{};
             const a = assignedIds.length;
-            const d = Object.keys(userComps).length;
-            const pct = a ? Math.round(d/a*100) : 0;
+            const d = (assigns[u.id]||[]).filter(mid => userComps[mid]).length;
+            const pct = a ? Math.min(100, Math.round(d/a*100)) : 0;
             const pending = allModules.filter(m=>assignedIds.includes(m.id)&&!userComps[m.id]);
             const memberColor = pct===100?Z.green:pct>=50?Z.accentLt:"#f87171";
             return (
@@ -11715,8 +11715,8 @@ export default function App() {
                   }
                   if (staffFilterProgress!=="all") {
                     const a=(assigns[u.id]||[]).length;
-                    const d=Object.keys(comps[u.id]||{}).length;
-                    const pct=a?Math.round(d/a*100):0;
+                    const d=(assigns[u.id]||[]).filter(mid=>(comps[u.id]||{})[mid]).length;
+                    const pct=a?Math.min(100, Math.round(d/a*100)):0;
                     if (staffFilterProgress==="compliant" && pct!==100) return false;
                     if (staffFilterProgress==="inprogress" && (pct===100||pct===0)) return false;
                     if (staffFilterProgress==="overdue" && pct!==0) return false;
@@ -11765,8 +11765,8 @@ export default function App() {
                       <div>
                         {filteredStaff.length===0 && <div style={{padding:"32px 20px",textAlign:"center",color:T.muted,fontSize:14}}>{staff.length===0?"No staff members yet.":"No staff match filters."}</div>}
                         {filteredStaff.map((u)=>{
-                          const a=(assigns[u.id]||[]).length, d=Object.keys(comps[u.id]||{}).length;
-                          const pct=a?Math.round(d/a*100):0;
+                          const a=(assigns[u.id]||[]).length, d=(assigns[u.id]||[]).filter(mid=>(comps[u.id]||{})[mid]).length;
+                          const pct=a?Math.min(100, Math.round(d/a*100)):0;
                           const barColor=pct===100?T.green:pct>=50?T.accent:"#ef4444";
                           const lastActive=lastLoginMap[u.id];
                           return (
@@ -11797,8 +11797,8 @@ export default function App() {
                       </div>
                       {filteredStaff.length===0 && <div style={{padding:"32px 20px",textAlign:"center",color:T.muted,fontSize:14}}>{staff.length===0?"No staff members yet. Add one above.":"No staff match the current filters."}</div>}
                       {filteredStaff.map((u,i)=>{
-                        const a=(assigns[u.id]||[]).length, d=Object.keys(comps[u.id]||{}).length;
-                        const pct=a?Math.round(d/a*100):0;
+                        const a=(assigns[u.id]||[]).length, d=(assigns[u.id]||[]).filter(mid=>(comps[u.id]||{})[mid]).length;
+                        const pct=a?Math.min(100, Math.round(d/a*100)):0;
                         const barColor=pct===100?T.green:pct>=50?T.accent:"#ef4444";
                         const lastActive=lastLoginMap[u.id];
                         return (
