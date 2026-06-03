@@ -1623,8 +1623,11 @@ function AdminDSETab({ staff, dseReports, adminResponses, setAdminResponses, dar
 }
 
 // ─── Reports Tab Component ────────────────────────────────────────────────────
-function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledgements, reportView, setReportView, dseReports, adminResponses, setAdminResponses, darkMode, Z, font, modules, machineComps, lastLoginMap }) {
+function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledgements, reportView, setReportView, dseReports, adminResponses, setAdminResponses, darkMode, Z, font, modules, machineComps, lastLoginMap, extCerts }) {
   const isMobile = useWindowWidth() <= 1024;
+  const [rptFilterSearch, setRptFilterSearch] = React.useState("");
+  const [rptFilterManager, setRptFilterManager] = React.useState("all");
+  const [rptFilterProgress, setRptFilterProgress] = React.useState("all");
   const allModules = modules || TRAINING_MODULES;
   const [expandedStaff, setExpandedStaff] = useState(null);
   const [expandedModule, setExpandedModule] = useState(null);
@@ -1677,7 +1680,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
       ["Zeus Protect — Staff Compliance Report"],
       [`Generated: ${today}`],
       [],
-      ["Name","Email","Job Title","Manager","Last Login","Modules Assigned","Modules Completed","Modules Pending","Compliance %","Status","Incomplete Modules","Certificates"],
+      ["Name","Email","Job Title","Manager","Last Login","Modules Assigned","Modules Completed","Modules Pending","Compliance %","Status","Incomplete Modules","Certificates","First Aid Cert","First Aid Expiry","Fire Marshall Cert","Fire Marshall Expiry"],
     ];
     staff.forEach(u => {
       const assignedIds = assigns[u.id]||[];
@@ -1690,7 +1693,14 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
       const expiredMods = allModules.filter(m=>assignedIds.includes(m.id)&&userComps[m.id]&&m.renewalMonths&&getExpiryStatus(userComps[m.id].date,m.renewalMonths)?.status==="expired").map(m=>m.title).join("; ");
       const status = pct===100?"Compliant":pct>=50?"In Progress":"Overdue";
       const lastLogin = (lastLoginMap&&lastLoginMap[u.id]) || "Never";
-      rows.push([u.name, u.email, u.jobTitle||"", u.manager||"", lastLogin, a, d, a-d, pct+"%", status, pending, certs]);
+      const userExtCerts = (extCerts||{})[u.id] || {};
+      const firstAid = userExtCerts["first_aid"];
+      const fireMarshal = userExtCerts["fire_marshall"];
+      const firstAidStatus = firstAid ? (new Date(firstAid.expiryDate) < new Date() ? "Expired" : "Valid") : "Not uploaded";
+      const fireMarshalStatus = fireMarshal ? (new Date(fireMarshal.expiryDate) < new Date() ? "Expired" : "Valid") : "Not uploaded";
+      rows.push([u.name, u.email, u.jobTitle||"", u.manager||"", lastLogin, a, d, a-d, pct+"%", status, pending, certs,
+        firstAidStatus, firstAid?.expiryDate||"",
+        fireMarshalStatus, fireMarshal?.expiryDate||""]);
     });
     rows.push([]);
     rows.push([`Total Staff: ${staff.length}`, `Total Completions: ${staff.reduce((s,u)=>s+Object.keys(comps[u.id]||{}).length,0)}`, `Average Compliance: ${staff.length?Math.min(100, Math.round(staff.reduce((s,u)=>{const a=(assigns[u.id]||[]).length;const c=Object.keys(comps[u.id]||{}).length;return s+(a?c/a:0);},0)/staff.length*100)):0}%`]);
@@ -1763,6 +1773,55 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
             <StatCard icon="✅" val={staff.reduce((s,u)=>s+Object.keys(comps[u.id]||{}).length,0)} label="Total Completions" accent={Z.green} Z={Z}/>
             <StatCard icon="📊" val={staff.length?`${Math.min(100, Math.round(staff.reduce((s,u)=>{const a=(assigns[u.id]||[]).length;const c=Object.keys(comps[u.id]||{}).length;return s+(a?c/a:0);},0)/staff.length*100))}%`:"—"} label="Avg Compliance" accent={Z.gold} Z={Z}/>
           </div>
+          {(()=>{
+            const managers = ["all", ...Array.from(new Set(staff.map(u=>u.manager||"").filter(Boolean))).sort()];
+            const selStyle = {background:Z.headerBg,border:`1px solid ${Z.borderMd}`,borderRadius:10,padding:"8px 14px",color:Z.white,fontSize:13,outline:"none",fontFamily:font,cursor:"pointer"};
+            const filteredStaff = staff.filter(u=>{
+              if (rptFilterManager!=="all" && (u.manager||"")!==rptFilterManager) return false;
+              if (rptFilterSearch) {
+                const q = rptFilterSearch.toLowerCase();
+                if (!u.name.toLowerCase().includes(q) && !u.email.toLowerCase().includes(q) && !(u.jobTitle||"").toLowerCase().includes(q)) return false;
+              }
+              if (rptFilterProgress!=="all") {
+                const a=(assigns[u.id]||[]).length;
+                const d=(assigns[u.id]||[]).filter(mid=>(comps[u.id]||{})[mid]).length;
+                const pct=a?Math.min(100,Math.round(d/a*100)):0;
+                if (rptFilterProgress==="compliant" && pct!==100) return false;
+                if (rptFilterProgress==="inprogress" && (pct===100||pct===0)) return false;
+                if (rptFilterProgress==="overdue" && pct!==0) return false;
+                if (rptFilterProgress==="none" && a!==0) return false;
+              }
+              return true;
+            });
+            const activeFilters = (rptFilterManager!=="all"?1:0)+(rptFilterSearch?1:0)+(rptFilterProgress!=="all"?1:0);
+            return (<>
+              <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:14,padding:"14px 18px",marginBottom:14,border:`1px solid ${Z.border}`,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+                <div style={{position:"relative",flex:"1 1 180px",minWidth:150}}>
+                  <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:Z.muted,fontSize:14,pointerEvents:"none"}}>🔍</span>
+                  <input value={rptFilterSearch} onChange={e=>setRptFilterSearch(e.target.value)} placeholder="Search name, email, job title..."
+                    style={{...selStyle,paddingLeft:36,width:"100%",boxSizing:"border-box"}}/>
+                </div>
+                <select value={rptFilterManager} onChange={e=>setRptFilterManager(e.target.value)} style={selStyle}>
+                  <option value="all">All Managers</option>
+                  {managers.filter(m=>m!=="all").map(m=><option key={m} value={m}>{m}</option>)}
+                  {staff.some(u=>!u.manager) && <option value="">No Manager</option>}
+                </select>
+                <select value={rptFilterProgress} onChange={e=>setRptFilterProgress(e.target.value)} style={selStyle}>
+                  <option value="all">All Progress</option>
+                  <option value="compliant">✓ Compliant</option>
+                  <option value="inprogress">In Progress</option>
+                  <option value="overdue">Overdue</option>
+                  <option value="none">No Modules</option>
+                </select>
+                {activeFilters>0 && (
+                  <button onClick={()=>{setRptFilterManager("all");setRptFilterSearch("");setRptFilterProgress("all");}}
+                    style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
+                    ✕ Clear {activeFilters} filter{activeFilters!==1?"s":""}
+                  </button>
+                )}
+                <span style={{color:Z.muted,fontSize:12,marginLeft:"auto",whiteSpace:"nowrap"}}>{filteredStaff.length} of {staff.length} staff</span>
+              </div>
+
           <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:16,overflow:"hidden",border:`1px solid ${Z.border}`}}>
             <div style={{padding:"14px 20px",borderBottom:`1px solid ${Z.border}`,fontWeight:700,fontSize:12,letterSpacing:1,color:Z.muted,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <span>STAFF COMPLIANCE OVERVIEW</span>
@@ -1771,7 +1830,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
             {staff.length === 0 && (
               <div style={{padding:"32px 20px",textAlign:"center",color:Z.muted,fontSize:14}}>No staff members yet.</div>
             )}
-            {staff.map((u,i)=>{
+            {filteredStaff.map((u,i)=>{
               const assignedIds = assigns[u.id]||[];
               const userComps = comps[u.id]||{};
               const a = assignedIds.length;
@@ -1899,12 +1958,54 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
                           )}
                         </>
                       )}
+
+                      {/* External Certificates */}
+                      {(() => {
+                        const userExtCerts = (extCerts||{})[u.id] || {};
+                        const certEntries = EXT_CERT_TYPES.filter(ct => userExtCerts[ct.id]);
+                        const missingCerts = EXT_CERT_TYPES.filter(ct => !userExtCerts[ct.id]);
+                        if (!certEntries.length && !missingCerts.length) return null;
+                        return (
+                          <div style={{marginTop:16,paddingTop:16,borderTop:`1px solid ${Z.border}`}}>
+                            <p style={{fontSize:11,fontWeight:700,letterSpacing:1,color:Z.muted,margin:"0 0 10px",textTransform:"uppercase"}}>External Certificates</p>
+                            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:8}}>
+                              {EXT_CERT_TYPES.map(ct => {
+                                const cert = userExtCerts[ct.id];
+                                const isExpired = cert?.expiryDate && new Date(cert.expiryDate) < new Date();
+                                const daysLeft = cert?.expiryDate ? Math.ceil((new Date(cert.expiryDate) - new Date()) / 86400000) : null;
+                                return (
+                                  <div key={ct.id} style={{background:cert?(isExpired?"rgba(239,68,68,0.08)":"rgba(16,185,129,0.08)"):"rgba(255,255,255,0.03)",border:`1px solid ${cert?(isExpired?"rgba(239,68,68,0.25)":"rgba(16,185,129,0.25)"):"rgba(255,255,255,0.08)"}`,borderRadius:12,padding:"10px 12px",display:"flex",alignItems:"center",gap:10}}>
+                                    <span style={{fontSize:20,flexShrink:0}}>{ct.icon}</span>
+                                    <div style={{flex:1,minWidth:0}}>
+                                      <div style={{fontWeight:700,fontSize:12,color:Z.white}}>{ct.label}</div>
+                                      {cert ? (
+                                        <>
+                                          <div style={{fontSize:10,color:isExpired?"#f87171":Z.green,marginTop:2}}>{isExpired?"⚠ Expired":daysLeft<=30?`⏳ ${daysLeft}d left`:"✓ Valid"}</div>
+                                          <div style={{fontSize:10,color:Z.muted}}>Expires: {cert.expiryDate||"—"}</div>
+                                        </>
+                                      ) : (
+                                        <div style={{fontSize:10,color:"#f87171",marginTop:2}}>⚠ Not uploaded</div>
+                                      )}
+                                    </div>
+                                    {cert && (
+                                      <a href={cert.fileUrl} target="_blank" rel="noreferrer"
+                                        style={{fontSize:11,color:Z.accentLt,textDecoration:"none",fontWeight:700,flexShrink:0}}>View</a>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
+            </>);
+          })()}
         </div>
       )}
 
@@ -9773,6 +9874,125 @@ function HelpTip({ text, dark = false }) {
   );
 }
 
+// ─── External Certificates Section ──────────────────────────────────────────────
+const EXT_CERT_TYPES = [
+  { id: "first_aid", label: "First Aid", icon: "🩺", color: "#ef4444", renewalMonths: 36 },
+  { id: "fire_marshall", label: "Fire Marshall", icon: "🔥", color: "#f97316", renewalMonths: 12 },
+];
+
+function ExternalCertsSection({ staff, extCerts, setExtCerts, dbSaveExtCert, dbDeleteExtCert, T, font }) {
+  const isMobile = useWindowWidth() <= 1024;
+  const [selectedUser, setSelectedUser] = React.useState(staff[0]?.id || null);
+  const [uploadingFor, setUploadingFor] = React.useState(null); // certType being uploaded
+  const [form, setForm] = React.useState({ issuedDate: "", expiryDate: "" });
+
+  const userCerts = extCerts[selectedUser] || {};
+
+  async function handleUpload(certType, file) {
+    setUploadingFor(certType);
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `ext_certs/${selectedUser}_${certType}_${safeName}`;
+    const { error } = await sb.storage.upload("documents", path, file);
+    if (error) { alert("Upload failed: " + error); setUploadingFor(null); return; }
+    const fileUrl = sb.storage.getPublicUrl("documents", path);
+    const rec = { fileName: file.name, fileUrl, issuedDate: form.issuedDate, expiryDate: form.expiryDate, uploadedAt: new Date().toLocaleDateString("en-GB") };
+    setExtCerts(p => ({ ...p, [selectedUser]: { ...(p[selectedUser]||{}), [certType]: rec } }));
+    dbSaveExtCert(selectedUser, certType, rec);
+    setUploadingFor(null);
+    setForm({ issuedDate: "", expiryDate: "" });
+  }
+
+  function removeCert(certType) {
+    setExtCerts(p => { const n = {...p}; if (n[selectedUser]) { n[selectedUser] = {...n[selectedUser]}; delete n[selectedUser][certType]; } return n; });
+    dbDeleteExtCert(selectedUser, certType);
+  }
+
+  return (
+    <div style={{marginTop:32,borderTop:`1px solid ${T.border}`,paddingTop:28}}>
+      <h3 style={{fontSize:18,fontWeight:800,letterSpacing:-.3,marginBottom:4,margin:"0 0 4px"}}>External Certificates</h3>
+      <p style={{color:T.muted,fontSize:13,marginBottom:20}}>Upload externally issued certificates such as First Aid and Fire Marshall training.</p>
+
+      {/* Staff selector */}
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+        <span style={{fontSize:12,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:.5,flexShrink:0}}>Staff Member:</span>
+        <select value={selectedUser||""} onChange={e=>setSelectedUser(Number(e.target.value))}
+          style={{flex:1,minWidth:200,maxWidth:360,background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:10,padding:"9px 13px",color:T.white,fontSize:13,outline:"none",fontFamily:font,cursor:"pointer"}}>
+          {staff.map(u=><option key={u.id} value={u.id}>{u.name}{u.jobTitle?` — ${u.jobTitle}`:""}</option>)}
+        </select>
+      </div>
+
+      {/* Certificate cards */}
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16}}>
+        {EXT_CERT_TYPES.map(ct => {
+          const cert = userCerts[ct.id];
+          const isExpired = cert?.expiryDate && new Date(cert.expiryDate) < new Date();
+          const daysLeft = cert?.expiryDate ? Math.ceil((new Date(cert.expiryDate) - new Date()) / 86400000) : null;
+          return (
+            <div key={ct.id} style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,border:`1px solid ${cert?(isExpired?"rgba(239,68,68,0.4)":"rgba(16,185,129,0.3)"):T.border}`,overflow:"hidden"}}>
+              {/* Header */}
+              <div style={{padding:"14px 18px",display:"flex",alignItems:"center",gap:12,borderBottom:`1px solid ${T.border}`}}>
+                <span style={{fontSize:28}}>{ct.icon}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:700,fontSize:15,color:T.white}}>{ct.label}</div>
+                  <div style={{fontSize:11,color:T.muted}}>Renews every {ct.renewalMonths} months</div>
+                </div>
+                {cert && (
+                  <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,background:isExpired?"rgba(239,68,68,0.15)":"rgba(16,185,129,0.15)",color:isExpired?"#f87171":"#10b981",border:`1px solid ${isExpired?"rgba(239,68,68,0.3)":"rgba(16,185,129,0.3)"}`}}>
+                    {isExpired ? "⚠ Expired" : daysLeft <= 30 ? `⏳ ${daysLeft}d left` : "✓ Valid"}
+                  </span>
+                )}
+              </div>
+
+              {/* Content */}
+              <div style={{padding:"14px 18px"}}>
+                {cert ? (
+                  <div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+                      <div><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:2}}>Issued</div><div style={{fontSize:13,fontWeight:600,color:T.white}}>{cert.issuedDate||"—"}</div></div>
+                      <div><div style={{fontSize:10,color:T.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:2}}>Expires</div><div style={{fontSize:13,fontWeight:600,color:isExpired?"#f87171":T.white}}>{cert.expiryDate||"—"}</div></div>
+                    </div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      <a href={cert.fileUrl} target="_blank" rel="noreferrer"
+                        style={{flex:1,background:`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",border:"none",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,textDecoration:"none",textAlign:"center",whiteSpace:"nowrap"}}>
+                        👁 View Certificate
+                      </a>
+                      <button onClick={()=>removeCert(ct.id)}
+                        style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font}}>
+                        🗑
+                      </button>
+                    </div>
+                    <div style={{fontSize:10,color:T.muted,marginTop:8}}>Uploaded {cert.uploadedAt} · {cert.fileName}</div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+                      <div>
+                        <label style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:.5,display:"block",marginBottom:4}}>Issue Date</label>
+                        <input type="date" value={form.issuedDate} onChange={e=>setForm(p=>({...p,issuedDate:e.target.value}))}
+                          style={{width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"7px 10px",color:T.white,fontSize:12,outline:"none",fontFamily:font,boxSizing:"border-box"}}/>
+                      </div>
+                      <div>
+                        <label style={{fontSize:11,color:T.muted,textTransform:"uppercase",letterSpacing:.5,display:"block",marginBottom:4}}>Expiry Date</label>
+                        <input type="date" value={form.expiryDate} onChange={e=>setForm(p=>({...p,expiryDate:e.target.value}))}
+                          style={{width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"7px 10px",color:T.white,fontSize:12,outline:"none",fontFamily:font,boxSizing:"border-box"}}/>
+                      </div>
+                    </div>
+                    <label style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:uploadingFor===ct.id?"rgba(37,99,235,0.1)":`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",borderRadius:10,padding:"9px 18px",cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700,border:uploadingFor===ct.id?`1px solid ${T.accent}`:"none",transition:"all .2s"}}>
+                      {uploadingFor===ct.id ? "⏳ Uploading…" : "↑ Upload Certificate"}
+                      <input type="file" accept={ACCEPT_IMG_DOCS} style={{display:"none"}} disabled={!!uploadingFor}
+                        onChange={e=>{ if(e.target.files[0]) handleUpload(ct.id, e.target.files[0]); e.target.value=""; }}/>
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function DocAssignPanel({ d, staff, assignedIds, docAcknowledgements, setDocAssignments, dbSaveDocAssignments, T, font }) {
   const [docSearch, setDocSearch] = React.useState("");
   const filteredForDoc = staff.filter(u=>
@@ -9864,6 +10084,7 @@ export default function App() {
   const [machineComps, setMachineComps] = useState(INIT_MACHINE_COMPS);
   const [siteInspections, setSiteInspections] = useState(INIT_SITE_INSPECTIONS);
   const [customModules, setCustomModules] = useState([]); // admin-created training modules
+  const [extCerts, setExtCerts] = useState({}); // { userId: { certType: { fileName, fileUrl, issuedDate, expiryDate, uploadedAt } } }
   const [msdsFiles, setMsdsFiles] = useState({}); // { [chemCode]: { fileName, fileData, fileUrl, uploadedAt } }
   const [customChemicals, setCustomChemicals] = useState([]); // admin-added COSHH chemicals
   const allModules = [...TRAINING_MODULES, ...customModules];
@@ -10055,6 +10276,17 @@ export default function App() {
             const saved = upRows.find(r => r.user_id === u.id);
             return saved ? { ...u, ...saved.data } : u;
           }));
+        }
+
+        // External certificates
+        const { data: ecRows } = await sb.from("ext_certs").select("*");
+        if (ecRows && ecRows.length) {
+          const map = {};
+          ecRows.forEach(r => {
+            map[r.user_id] = map[r.user_id] || {};
+            map[r.user_id][r.cert_type] = r.data;
+          });
+          setExtCerts(map);
         }
 
         // Custom modules
@@ -10276,6 +10508,14 @@ export default function App() {
 
   async function dbDeleteUserProfile(userId) {
     await sb.from("user_profiles").delete().eq("user_id", userId);
+  }
+
+  async function dbSaveExtCert(userId, certType, data) {
+    await sb.from("ext_certs").upsert({ user_id: userId, cert_type: certType, data }, { onConflict: "user_id,cert_type" });
+  }
+
+  async function dbDeleteExtCert(userId, certType) {
+    await sb.from("ext_certs").delete().eq("user_id", userId).eq("cert_type", certType);
   }
 
   async function dbSaveCustomModule(mod) {
@@ -11974,6 +12214,16 @@ export default function App() {
                   </>
                 );
               })()}
+
+              {/* External Certificates */}
+              <ExternalCertsSection
+                staff={staff}
+                extCerts={extCerts}
+                setExtCerts={setExtCerts}
+                dbSaveExtCert={dbSaveExtCert}
+                dbDeleteExtCert={dbDeleteExtCert}
+                T={T} font={font}/>
+
             </div>
           )}
 
@@ -12093,7 +12343,7 @@ export default function App() {
           )}
 
           {atab==="reports" && (
-            <ReportsTab staff={staff} assigns={assigns} comps={comps} docs={docs} docAssignments={docAssignments} docAcknowledgements={docAcknowledgements} reportView={adminReportView} setReportView={setAdminReportView} dseReports={dseReports} adminResponses={adminResponses} setAdminResponses={setAdminResponses} darkMode={darkMode} Z={T} font={font} modules={allModules} machineComps={machineComps} lastLoginMap={lastLoginMap}/>
+            <ReportsTab staff={staff} assigns={assigns} comps={comps} docs={docs} docAssignments={docAssignments} docAcknowledgements={docAcknowledgements} reportView={adminReportView} setReportView={setAdminReportView} dseReports={dseReports} adminResponses={adminResponses} setAdminResponses={setAdminResponses} darkMode={darkMode} Z={T} font={font} modules={allModules} machineComps={machineComps} lastLoginMap={lastLoginMap} extCerts={extCerts}/>
           )}
 
           {atab==="incidents" && (
