@@ -2804,23 +2804,23 @@ function AccountTab({ user, passwords, setPasswords, darkMode, setDarkMode, Z, f
           </button>
         </div>
 
-      </div>
 
-      {/* Theme toggle */}
-      <div style={{...card,marginTop:20,maxWidth:800,padding:24}}>
-        <h3 style={{fontSize:13,fontWeight:700,letterSpacing:.5,color:Z.muted,margin:"0 0 16px",textTransform:"uppercase"}}>Display Theme</h3>
-        <div style={{display:"flex",gap:12}}>
-          {[
-            {id:true,  label:"🌙 Dark Mode",  desc:"Default — dark navy interface"},
-            {id:false, label:"☀️ Light Mode", desc:"Clean light interface"},
-          ].map(opt=>(
-            <button key={String(opt.id)} onClick={()=>setDarkMode(opt.id)}
-              style={{flex:1,padding:"14px 18px",borderRadius:12,border:`2px solid ${darkMode===opt.id?Z.accent:Z.border}`,background:darkMode===opt.id?`linear-gradient(135deg,${Z.accent}22,${Z.blue}11)`:Z.headerBg,cursor:"pointer",textAlign:"left",fontFamily:font,transition:"all .2s"}}>
-              <div style={{fontWeight:800,fontSize:15,color:darkMode===opt.id?Z.accentLt:Z.muted,marginBottom:3}}>{opt.label}</div>
-              <div style={{fontSize:12,color:Z.muted}}>{opt.desc}</div>
-              {darkMode===opt.id && <div style={{marginTop:6,fontSize:11,color:Z.accentLt,fontWeight:700}}>✓ Active</div>}
-            </button>
-          ))}
+          {/* Theme toggle — spans full width of grid */}
+        <div style={{...card,gridColumn:isMobile?"1":"1 / -1",padding:24}}>
+          <h3 style={{fontSize:13,fontWeight:700,letterSpacing:.5,color:Z.muted,margin:"0 0 16px",textTransform:"uppercase"}}>Display Theme</h3>
+          <div style={{display:"flex",gap:12}}>
+            {[
+              {id:true,  label:"🌙 Dark Mode",  desc:"Default — dark navy interface"},
+              {id:false, label:"☀️ Light Mode", desc:"Clean light interface"},
+            ].map(opt=>(
+              <button key={String(opt.id)} onClick={()=>setDarkMode(opt.id)}
+                style={{flex:1,padding:"14px 18px",borderRadius:12,border:`2px solid ${darkMode===opt.id?Z.accent:Z.border}`,background:darkMode===opt.id?`linear-gradient(135deg,${Z.accent}22,${Z.blue}11)`:Z.headerBg,cursor:"pointer",textAlign:"left",fontFamily:font,transition:"all .2s"}}>
+                <div style={{fontWeight:800,fontSize:15,color:darkMode===opt.id?Z.accentLt:Z.muted,marginBottom:3}}>{opt.label}</div>
+                <div style={{fontSize:12,color:Z.muted}}>{opt.desc}</div>
+                {darkMode===opt.id && <div style={{marginTop:6,fontSize:11,color:Z.accentLt,fontWeight:700}}>✓ Active</div>}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -8129,6 +8129,79 @@ function coshhHazardLevel(classification) {
   return "low";
 }
 
+function CoshhAssessmentForm({ c, existing, onSave, onCancel, Z, font, isMobile }) {
+  const BLANK = {
+    preparedBy:"", reviewDate:"", location:"", frequency:"",
+    exposureRoutes:{ inhalation:false, skin:false, ingestion:false, eye:false, injection:false },
+    healthEffects:"",
+    controlMeasures:{ substitution:false, enclosure:false, ventilation:false, ppe:false, training:false, monitoring:false },
+    ppeRequired:{ gloves:"", respirator:"", eyeProtection:"", bodyProtection:"", footProtection:"" },
+    emergencyProcedures:"", wasteDisposal:"", assessmentDate:"", nextReviewDate:"", riskRating:"medium",
+  };
+  const [form, setForm] = React.useState(existing || BLANK);
+  const inp2 = {width:"100%",background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"8px 11px",color:Z.white,fontSize:12,outline:"none",fontFamily:font,boxSizing:"border-box"};
+  const lbl2 = {fontSize:10,fontWeight:700,color:Z.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:4};
+  const checkRow = (group, key, label) => (
+    <label key={key} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:Z.white}}>
+      <input type="checkbox" checked={!!form[group][key]} onChange={e=>setForm(p=>({...p,[group]:{...p[group],[key]:e.target.checked}}))} style={{accentColor:Z.accent,width:14,height:14}}/>
+      {label}
+    </label>
+  );
+  return (
+    <div style={{padding:"16px"}}>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
+        <div><label style={lbl2}>Prepared By</label><input style={inp2} value={form.preparedBy} onChange={e=>setForm(p=>({...p,preparedBy:e.target.value}))}/></div>
+        <div><label style={lbl2}>Location / Area Used</label><input style={inp2} value={form.location} onChange={e=>setForm(p=>({...p,location:e.target.value}))}/></div>
+        <div><label style={lbl2}>Assessment Date</label><input type="date" style={inp2} value={form.assessmentDate} onChange={e=>setForm(p=>({...p,assessmentDate:e.target.value}))}/></div>
+        <div><label style={lbl2}>Next Review Date</label><input type="date" style={inp2} value={form.nextReviewDate} onChange={e=>setForm(p=>({...p,nextReviewDate:e.target.value}))}/></div>
+        <div><label style={lbl2}>Frequency of Use</label><input style={inp2} value={form.frequency} onChange={e=>setForm(p=>({...p,frequency:e.target.value}))} placeholder="e.g. Daily, Weekly"/></div>
+        <div><label style={lbl2}>Risk Rating</label>
+          <select style={inp2} value={form.riskRating} onChange={e=>setForm(p=>({...p,riskRating:e.target.value}))}>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+      </div>
+      <div style={{marginBottom:14}}><label style={lbl2}>Health Effects / Hazards</label><textarea style={{...inp2,minHeight:60,resize:"vertical"}} value={form.healthEffects} onChange={e=>setForm(p=>({...p,healthEffects:e.target.value}))}/></div>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
+        <div style={{background:Z.overlay,borderRadius:10,padding:"12px 14px",border:`1px solid ${Z.border}`}}>
+          <div style={lbl2}>Exposure Routes</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {[["inhalation","Inhalation"],["skin","Skin contact"],["ingestion","Ingestion"],["eye","Eye contact"],["injection","Injection"]].map(([k,l])=>checkRow("exposureRoutes",k,l))}
+          </div>
+        </div>
+        <div style={{background:Z.overlay,borderRadius:10,padding:"12px 14px",border:`1px solid ${Z.border}`}}>
+          <div style={lbl2}>Control Measures</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {[["substitution","Substitution"],["enclosure","Enclosure"],["ventilation","Local exhaust ventilation"],["ppe","PPE"],["training","Training & instruction"],["monitoring","Health monitoring"]].map(([k,l])=>checkRow("controlMeasures",k,l))}
+          </div>
+        </div>
+      </div>
+      <div style={{background:Z.overlay,borderRadius:10,padding:"12px 14px",border:`1px solid ${Z.border}`,marginBottom:14}}>
+        <div style={lbl2}>PPE Required</div>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:8}}>
+          {[["gloves","Gloves (type)"],["respirator","Respirator (type)"],["eyeProtection","Eye protection"],["bodyProtection","Body protection"],["footProtection","Foot protection"]].map(([k,l])=>(
+            <div key={k}><label style={{...lbl2,textTransform:"none",fontSize:11}}>{l}</label><input style={inp2} value={form.ppeRequired[k]||""} onChange={e=>setForm(p=>({...p,ppeRequired:{...p.ppeRequired,[k]:e.target.value}}))}/></div>
+          ))}
+        </div>
+      </div>
+      <div style={{marginBottom:14}}><label style={lbl2}>Emergency Procedures (spill / first aid)</label><textarea style={{...inp2,minHeight:60,resize:"vertical"}} value={form.emergencyProcedures} onChange={e=>setForm(p=>({...p,emergencyProcedures:e.target.value}))}/></div>
+      <div style={{marginBottom:16}}><label style={lbl2}>Waste Disposal Method</label><input style={inp2} value={form.wasteDisposal} onChange={e=>setForm(p=>({...p,wasteDisposal:e.target.value}))}/></div>
+      <div style={{display:"flex",gap:10}}>
+        <button onClick={()=>onSave(form)}
+          style={{background:`linear-gradient(135deg,${Z.green},#059669)`,color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:font,flex:1,boxShadow:"0 4px 14px rgba(16,185,129,0.3)"}}>
+          ✓ Save Assessment
+        </button>
+        <button onClick={onCancel}
+          style={{background:Z.overlay,color:Z.muted,border:`1px solid ${Z.borderMd}`,borderRadius:10,padding:"10px 18px",cursor:"pointer",fontSize:13,fontWeight:700,fontFamily:font}}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustomChemicals }) {
   const isMobile = useWindowWidth() <= 1024;
   const [search, setSearch] = useState("");
@@ -8136,6 +8209,9 @@ function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustom
   const [hazardFilter, setHazardFilter] = useState("all");
   const [expandedCode, setExpandedCode] = useState(null);
   const [previewMsds, setPreviewMsds] = useState(null);
+  const [assessments, setAssessments] = useState({}); // { chemCode: assessmentData }
+  const [editingAssessment, setEditingAssessment] = useState(null); // chemCode being edited
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [addErr, setAddErr] = useState("");
   const BLANK_CHEM = { code:"", name:"", supplier:"", msdsDate:"", un:"Non Dangerous Goods", classification:"" };
@@ -8177,6 +8253,11 @@ function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustom
     setShowAddForm(false);
     setAddErr("");
     setExpandedCode(addForm.code.trim());
+  }
+
+  async function saveAssessment(code, data) {
+    setAssessments(p=>({...p,[code]:data}));
+    await sb.from("coshh_assessments").upsert({ code, data }, { onConflict: "code" });
   }
 
   async function deleteChemical(code) {
@@ -8461,6 +8542,54 @@ function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustom
                           <div style={{fontSize:11,color:Z.muted}}>Drop file here or click to browse · PDF, Word, or image</div>
                         </label>
                       </div>
+                    )}
+                  </div>
+
+                  {/* COSHH Assessment */}
+                  <div style={{marginTop:14,background:Z.overlaySm,borderRadius:12,border:`1px solid ${Z.borderMd}`,overflow:"hidden"}}>
+                    <div style={{padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:assessments[c.code]||editingAssessment===c.code?`1px solid ${Z.border}`:"none"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:16}}>📋</span>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:700,color:Z.white}}>COSHH Assessment</div>
+                          {assessments[c.code] && <div style={{fontSize:10,color:Z.green}}>✓ Completed {assessments[c.code].assessmentDate||""}</div>}
+                          {!assessments[c.code] && <div style={{fontSize:10,color:"#f87171"}}>⚠ Not yet completed</div>}
+                        </div>
+                      </div>
+                      <button onClick={()=>setEditingAssessment(editingAssessment===c.code?null:c.code)}
+                        style={{background:editingAssessment===c.code?"rgba(239,68,68,0.1)":`linear-gradient(135deg,${Z.accent},${Z.blue})`,color:editingAssessment===c.code?"#f87171":"#fff",border:editingAssessment===c.code?"1px solid rgba(239,68,68,0.25)":"none",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
+                        {editingAssessment===c.code?"✕ Cancel":assessments[c.code]?"✏ Edit Assessment":"+ Complete Assessment"}
+                      </button>
+                    </div>
+
+                    {/* View completed assessment */}
+                    {assessments[c.code] && editingAssessment!==c.code && (() => {
+                      const a = assessments[c.code];
+                      const riskColors = {low:"#10b981",medium:"#f59e0b",high:"#ef4444"};
+                      return (
+                        <div style={{padding:"14px 16px",display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
+                          <div><span style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5}}>Prepared by</span><div style={{fontSize:13,color:Z.white,marginTop:2}}>{a.preparedBy||"—"}</div></div>
+                          <div><span style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5}}>Risk Rating</span><div style={{fontSize:13,fontWeight:700,color:riskColors[a.riskRating]||Z.muted,marginTop:2,textTransform:"capitalize"}}>{a.riskRating||"—"}</div></div>
+                          <div><span style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5}}>Location / Area</span><div style={{fontSize:13,color:Z.white,marginTop:2}}>{a.location||"—"}</div></div>
+                          <div><span style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5}}>Next Review</span><div style={{fontSize:13,color:Z.white,marginTop:2}}>{a.nextReviewDate||"—"}</div></div>
+                          {a.exposureRoutes && <div style={{gridColumn:isMobile?"1":"1 / -1"}}><span style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5}}>Exposure Routes</span><div style={{fontSize:13,color:Z.white,marginTop:2}}>{Object.entries(a.exposureRoutes).filter(([,v])=>v).map(([k])=>k.charAt(0).toUpperCase()+k.slice(1)).join(", ")||"None specified"}</div></div>}
+                          {a.healthEffects && <div style={{gridColumn:isMobile?"1":"1 / -1"}}><span style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5}}>Health Effects</span><div style={{fontSize:13,color:Z.white,marginTop:2}}>{a.healthEffects}</div></div>}
+                          {a.controlMeasures && <div style={{gridColumn:isMobile?"1":"1 / -1"}}><span style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5}}>Control Measures</span><div style={{fontSize:13,color:Z.white,marginTop:2}}>{Object.entries(a.controlMeasures).filter(([,v])=>v).map(([k])=>k.charAt(0).toUpperCase()+k.slice(1)).join(", ")||"None specified"}</div></div>}
+                          {(a.ppeRequired?.gloves||a.ppeRequired?.respirator||a.ppeRequired?.eyeProtection) && <div style={{gridColumn:isMobile?"1":"1 / -1"}}><span style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5}}>PPE Required</span><div style={{fontSize:13,color:Z.white,marginTop:2}}>{[a.ppeRequired.gloves&&`Gloves: ${a.ppeRequired.gloves}`,a.ppeRequired.respirator&&`Respirator: ${a.ppeRequired.respirator}`,a.ppeRequired.eyeProtection&&`Eye: ${a.ppeRequired.eyeProtection}`,a.ppeRequired.bodyProtection&&`Body: ${a.ppeRequired.bodyProtection}`,a.ppeRequired.footProtection&&`Foot: ${a.ppeRequired.footProtection}`].filter(Boolean).join(" · ")}</div></div>}
+                          {a.emergencyProcedures && <div style={{gridColumn:isMobile?"1":"1 / -1"}}><span style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5}}>Emergency Procedures</span><div style={{fontSize:13,color:Z.white,marginTop:2}}>{a.emergencyProcedures}</div></div>}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Edit / create form */}
+                    {editingAssessment===c.code && (
+                      <CoshhAssessmentForm
+                        c={c}
+                        existing={assessments[c.code]||null}
+                        onSave={form=>{saveAssessment(c.code,form);setEditingAssessment(null);}}
+                        onCancel={()=>setEditingAssessment(null)}
+                        Z={Z} font={font} isMobile={isMobile}
+                      />
                     )}
                   </div>
 
