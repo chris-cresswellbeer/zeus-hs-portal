@@ -1623,7 +1623,161 @@ function AdminDSETab({ staff, dseReports, adminResponses, setAdminResponses, dar
 }
 
 // ─── Reports Tab Component ────────────────────────────────────────────────────
-function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledgements, reportView, setReportView, dseReports, adminResponses, setAdminResponses, darkMode, Z, font, modules, machineComps, lastLoginMap, extCerts }) {
+function generateStaffPDF(u, allModules, assigns, comps, docs, docAssignments, docAcknowledgements, extCerts, machineComps, lastLoginMap, Z) {
+  const today = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"});
+  const assignedIds = assigns[u.id]||[];
+  const userComps = comps[u.id]||{};
+  const a = assignedIds.length;
+  const d = assignedIds.filter(mid=>userComps[mid]).length;
+  const pct = a ? Math.min(100,Math.round(d/a*100)) : 0;
+  const status = pct===100?"Compliant":pct>=50?"In Progress":"Overdue";
+  const lastLogin = lastLoginMap[u.id]||"Never";
+
+  // Training rows
+  const trainingRows = assignedIds.map(mid=>{
+    const m = allModules.find(x=>x.id===mid);
+    const c = userComps[mid];
+    if (!m) return "";
+    const passed = c && c.score>=70;
+    const statusTxt = !c?"Not started":passed?"Passed":"Failed";
+    const score = c?`${c.score}%`:"—";
+    const date = c?c.date:"—";
+    const certId = c?.certId||"—";
+    let expiry = "—";
+    if (c && m.renewalMonths) {
+      const ex = getExpiryStatus(c.date, m.renewalMonths);
+      expiry = ex ? ex.expiryDate : "—";
+    }
+    const rowColor = !c?"#fff2f2":passed?"#f0fff4":"#fff8f0";
+    const statusColor = !c?"#999":passed?"#15803d":"#b45309";
+    return `<tr style="background:${rowColor}">
+      <td>${m.icon||""} ${m.title}</td>
+      <td style="color:${statusColor};font-weight:600">${statusTxt}</td>
+      <td style="text-align:center">${score}</td>
+      <td>${date}</td>
+      <td>${expiry}</td>
+      <td style="font-family:monospace;font-size:11px">${certId}</td>
+    </tr>`;
+  }).join("");
+
+  // Document acknowledgements
+  const assignedDocs = docs.filter(doc=>(docAssignments[doc.id]||[]).includes(u.id));
+  const docRows = assignedDocs.map(doc=>{
+    const ack=(docAcknowledgements[u.id]||{})[doc.id];
+    return `<tr style="background:${ack?"#f0fff4":"#fff2f2"}">
+      <td>${doc.title}</td>
+      <td>${doc.type||"—"}</td>
+      <td style="color:${ack?"#15803d":"#dc2626"};font-weight:600">${ack?`✓ Confirmed ${ack.date}`:"⏳ Not yet confirmed"}</td>
+      <td>${doc.version?`v${doc.version}`:"v1"}</td>
+    </tr>`;
+  }).join("");
+
+  // External certificates
+  const userExtCerts = extCerts[u.id]||{};
+  const extCertRows = EXT_CERT_TYPES.map(ct=>{
+    const cert=userExtCerts[ct.id];
+    if (!cert) return `<tr style="background:#fff2f2"><td>${ct.icon} ${ct.label}</td><td style="color:#dc2626;font-weight:600">Not uploaded</td><td>—</td><td>—</td></tr>`;
+    const expired = cert.expiryDate && cert.expiryDate < new Date().toISOString().slice(0,10);
+    return `<tr style="background:${expired?"#fff8f0":"#f0fff4"}">
+      <td>${ct.icon} ${ct.label}</td>
+      <td style="color:${expired?"#b45309":"#15803d"};font-weight:600">${expired?"⚠ Expired":"✓ Valid"}</td>
+      <td>${cert.issuedDate||"—"}</td>
+      <td>${cert.expiryDate||"—"}</td>
+    </tr>`;
+  }).join("");
+
+  // Machinery
+  const userMachineComps = Object.values(machineComps[u.id]||{});
+  const machineRows = userMachineComps.map(mc=>{
+    const mType = MACHINERY_TYPES.find(x=>x.id===mc.machineId)||{label:mc.machineId,icon:"🔧"};
+    const expired = mc.licenceExpiry && mc.licenceExpiry < new Date().toISOString().slice(0,10);
+    return `<tr style="background:${expired?"#fff8f0":"#fff"}">
+      <td>${mType.icon||"🔧"} ${mType.label||mc.machineId}</td>
+      <td style="color:${mc.status==="competent"?"#15803d":mc.status==="provisional"?"#b45309":"#dc2626"};font-weight:600;text-transform:capitalize">${mc.status||"—"}</td>
+      <td>${mc.assessedDate||"—"}</td>
+      <td style="color:${expired?"#dc2626":"inherit"}">${mc.licenceExpiry||"—"}${expired?" ⚠ Expired":""}</td>
+    </tr>`;
+  }).join("");
+
+  const statusColor = pct===100?"#15803d":pct>=50?"#b45309":"#dc2626";
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>Compliance Report — ${u.name}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background:#fff; padding:32px; font-size:13px; }
+  @media print { body { padding:20px; } @page { margin:15mm; size:A4; } }
+  .header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:28px; padding-bottom:18px; border-bottom:3px solid #0d1f5c; }
+  .header-left h1 { font-size:22px; font-weight:900; color:#0d1f5c; margin-bottom:4px; }
+  .header-left p { color:#64748b; font-size:12px; }
+  .header-right { text-align:right; }
+  .status-badge { display:inline-block; padding:6px 16px; border-radius:20px; font-size:13px; font-weight:700; color:${statusColor}; background:${pct===100?"#f0fff4":pct>=50?"#fff8f0":"#fff2f2"}; border:2px solid ${statusColor}; }
+  .meta-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:24px; }
+  .meta-card { background:#f8fafc; border-radius:10px; padding:12px 16px; border:1px solid #e2e8f0; }
+  .meta-card .label { font-size:10px; font-weight:700; letter-spacing:.5px; color:#94a3b8; text-transform:uppercase; margin-bottom:4px; }
+  .meta-card .value { font-size:16px; font-weight:800; color:#0d1f5c; }
+  h2 { font-size:14px; font-weight:800; color:#0d1f5c; margin:20px 0 10px; padding-bottom:6px; border-bottom:2px solid #e2e8f0; text-transform:uppercase; letter-spacing:.5px; }
+  table { width:100%; border-collapse:collapse; margin-bottom:4px; font-size:12px; }
+  th { background:#0d1f5c; color:#fff; padding:8px 12px; text-align:left; font-size:11px; font-weight:700; letter-spacing:.3px; }
+  td { padding:8px 12px; border-bottom:1px solid #e2e8f0; }
+  .footer { margin-top:32px; padding-top:12px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; }
+  .no-data { padding:12px 16px; color:#94a3b8; font-style:italic; background:#f8fafc; border-radius:6px; margin-bottom:4px; }
+</style>
+</head><body>
+  <div class="header">
+    <div class="header-left">
+      <h1>${u.name}</h1>
+      <p>${u.jobTitle||""}${u.jobTitle&&u.manager?" · ":""}${u.manager?"Manager: "+u.manager:""}</p>
+      <p style="margin-top:4px;color:#94a3b8">Report generated: ${today}</p>
+    </div>
+    <div class="header-right">
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:6px">Zeus Protect H&S Portal</div>
+      <div class="status-badge">${status} — ${pct}%</div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:6px">Last active: ${lastLogin}</div>
+    </div>
+  </div>
+
+  <div class="meta-grid">
+    <div class="meta-card"><div class="label">Modules Assigned</div><div class="value">${a}</div></div>
+    <div class="meta-card"><div class="label">Modules Completed</div><div class="value">${d}</div></div>
+    <div class="meta-card"><div class="label">Overall Compliance</div><div class="value" style="color:${statusColor}">${pct}%</div></div>
+  </div>
+
+  <h2>📚 Training Modules</h2>
+  ${assignedIds.length===0
+    ? '<div class="no-data">No modules assigned</div>'
+    : `<table><thead><tr><th>Module</th><th>Status</th><th>Score</th><th>Date</th><th>Expiry</th><th>Certificate ID</th></tr></thead><tbody>${trainingRows}</tbody></table>`
+  }
+
+  <h2>📄 Document Acknowledgements</h2>
+  ${assignedDocs.length===0
+    ? '<div class="no-data">No documents assigned</div>'
+    : `<table><thead><tr><th>Document</th><th>Type</th><th>Acknowledgement</th><th>Version</th></tr></thead><tbody>${docRows}</tbody></table>`
+  }
+
+  <h2>🩺 External Certificates</h2>
+  <table><thead><tr><th>Certificate</th><th>Status</th><th>Issue Date</th><th>Expiry Date</th></tr></thead><tbody>${extCertRows}</tbody></table>
+
+  ${userMachineComps.length>0?`
+  <h2>⚙ Machinery Competence</h2>
+  <table><thead><tr><th>Machine</th><th>Status</th><th>Assessed</th><th>Licence Expiry</th></tr></thead><tbody>${machineRows}</tbody></table>
+  `:""}
+
+  <div class="footer">
+    <span>Zeus Protect Health & Safety Portal · Confidential</span>
+    <span>${u.email}</span>
+    <span>Generated ${today}</span>
+  </div>
+</body></html>`;
+
+  const win = window.open("","_blank","width=900,height=700");
+  win.document.write(html);
+  win.document.close();
+  win.onload = () => win.print();
+}
+
+function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledgements, reportView, setReportView, dseReports, adminResponses, setAdminResponses, darkMode, Z, font, modules, machineComps, lastLoginMap, extCerts, quizFailures, setQuizFailures, incidents, onExportPDF }) {
   const isMobile = useWindowWidth() <= 1024;
   const [rptFilterSearch, setRptFilterSearch] = React.useState("");
   const [rptFilterManager, setRptFilterManager] = React.useState("all");
@@ -1755,6 +1909,8 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
           {tabBtn("dse",       "🖥 DSE Reports")}
           {tabBtn("documents", "📄 Document Read Status")}
           {tabBtn("expiry",    "⏰ Training Expiry")}
+          {tabBtn("failures",  "❌ Quiz Failures", (quizFailures||[]).filter(f=>!f.acknowledged).length)}
+          {tabBtn("trends",    "📊 Incident Trends")}
           <div style={{width:1,height:28,background:Z.borderMd,margin:"0 4px"}}/>
           <button
             onClick={reportView==="staff" ? exportStaffReport : exportManagerReport}
@@ -1858,6 +2014,12 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
                   </div>
                   {isOpen && (
                     <div style={{background:Z.overlay,borderTop:`1px solid ${Z.border}`,padding:"18px 24px 22px"}}>
+                      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:14}}>
+                        <button onClick={()=>onExportPDF&&onExportPDF(u)}
+                          style={{background:`linear-gradient(135deg,${Z.accent},${Z.blue})`,color:"#fff",border:"none",borderRadius:9,padding:"8px 18px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,boxShadow:`0 4px 14px ${Z.accent}44`,display:"flex",alignItems:"center",gap:7}}>
+                          🖨 Export Compliance Report PDF
+                        </button>
+                      </div>
                       {a === 0 ? (
                         <p style={{color:Z.muted,fontSize:13,margin:0}}>No modules assigned yet.</p>
                       ) : (
@@ -2010,6 +2172,246 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
       )}
 
       {/* ── MANAGER PERFORMANCE ── */}
+      {reportView === "failures" && (
+        <div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:12}}>
+            <div>
+              <h3 style={{fontSize:18,fontWeight:800,margin:"0 0 4px"}}>Quiz Failures</h3>
+              <p style={{color:Z.muted,fontSize:13,margin:0}}>Staff who have failed a module quiz in the last 30 days.</p>
+            </div>
+            {(quizFailures||[]).filter(f=>!f.acknowledged).length > 0 && (
+              <button onClick={()=>{
+                const updated = (quizFailures||[]).map(f=>({...f,acknowledged:true}));
+                setQuizFailures(updated);
+                updated.forEach(f=>sb.from("quiz_failures").upsert({data:f},{onConflict:"data->>'id'"}));
+              }} style={{background:"rgba(16,185,129,0.1)",color:Z.green,border:"1px solid rgba(16,185,129,0.25)",borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font}}>
+                ✓ Mark all as reviewed
+              </button>
+            )}
+          </div>
+          {(quizFailures||[]).length === 0 ? (
+            <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:16,padding:"40px 20px",textAlign:"center",border:`1px solid ${Z.border}`,color:Z.muted,fontSize:14}}>
+              ✓ No quiz failures recorded
+            </div>
+          ) : (
+            <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:16,overflow:"hidden",border:`1px solid ${Z.border}`}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 2fr 1fr 1fr 1fr",padding:"10px 20px",background:Z.headerBg,fontSize:11,fontWeight:700,letterSpacing:1,color:Z.muted,textTransform:"uppercase"}}>
+                <span>Staff Member</span>
+                {!isMobile && <><span>Module</span><span>Score</span><span>Date</span><span>Status</span></>}
+              </div>
+              {[...(quizFailures||[])].sort((a,b)=>b.date.localeCompare(a.date)).map((f,i)=>(
+                <div key={f.id||i} style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 2fr 1fr 1fr 1fr",padding:"14px 20px",borderTop:i>0?`1px solid ${Z.border}`:"none",alignItems:"center",background:f.acknowledged?"transparent":"rgba(239,68,68,0.04)"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <Avatar name={f.userName} size={28}/>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:13,color:Z.white}}>{f.userName}</div>
+                      {isMobile && <div style={{fontSize:11,color:Z.muted,marginTop:2}}>{f.moduleTitle} · <span style={{color:"#f87171",fontWeight:700}}>{f.score}%</span> · {f.date}</div>}
+                    </div>
+                  </div>
+                  {!isMobile && <>
+                    <span style={{fontSize:13,color:Z.muted}}>{f.moduleTitle}</span>
+                    <span style={{fontWeight:800,color:"#f87171",fontSize:15}}>{f.score}%</span>
+                    <span style={{fontSize:12,color:Z.muted}}>{f.date}</span>
+                    <span>
+                      {f.acknowledged
+                        ? <Pill label="Reviewed" col="green"/>
+                        : <button onClick={()=>{
+                            const updated = (quizFailures||[]).map(x=>x.id===f.id?{...x,acknowledged:true}:x);
+                            setQuizFailures(updated);
+                            sb.from("quiz_failures").upsert({data:{...f,acknowledged:true}},{onConflict:"data->>'id'"});
+                          }} style={{background:"rgba(37,99,235,0.1)",color:Z.accentLt,border:`1px solid rgba(37,99,235,0.25)`,borderRadius:8,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>
+                            Mark reviewed
+                          </button>
+                      }
+                    </span>
+                  </>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {reportView === "trends" && (() => {
+        const inc = incidents || [];
+        const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const TYPE_COLORS = { accident:"#ef4444", near_miss:"#f59e0b", unsafe_condition:"#fb923c", unsafe_act:"#a78bfa" };
+        const TYPE_LABELS = { accident:"Accident", near_miss:"Near Miss", unsafe_condition:"Unsafe Condition", unsafe_act:"Unsafe Act" };
+
+        // Last 12 months
+        const now = new Date();
+        const last12 = Array.from({length:12},(_,i)=>{
+          const d = new Date(now.getFullYear(), now.getMonth()-11+i, 1);
+          return { year:d.getFullYear(), month:d.getMonth(), label:MONTHS[d.getMonth()]+" "+String(d.getFullYear()).slice(2) };
+        });
+
+        const byMonth = last12.map(m => {
+          const hits = inc.filter(i => {
+            const d = new Date(i.date);
+            return d.getFullYear()===m.year && d.getMonth()===m.month;
+          });
+          return {
+            ...m, total:hits.length,
+            accident: hits.filter(i=>i.type==="accident").length,
+            near_miss: hits.filter(i=>i.type==="near_miss").length,
+            unsafe_condition: hits.filter(i=>i.type==="unsafe_condition").length,
+            unsafe_act: hits.filter(i=>i.type==="unsafe_act").length,
+            riddor: hits.filter(i=>i.riddor).length,
+          };
+        });
+
+        const maxMonthly = Math.max(...byMonth.map(m=>m.total), 1);
+
+        // By type totals
+        const byType = Object.keys(TYPE_COLORS).map(k=>({ id:k, label:TYPE_LABELS[k], color:TYPE_COLORS[k], count:inc.filter(i=>i.type===k).length }));
+        const typeTotal = byType.reduce((s,t)=>s+t.count,0)||1;
+
+        // By location top 8
+        const locMap = {};
+        inc.forEach(i=>{ if(i.location) locMap[i.location.trim()]=(locMap[i.location.trim()]||0)+1; });
+        const byLocation = Object.entries(locMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+        const maxLoc = byLocation[0]?.[1]||1;
+
+        // Stats
+        const open = inc.filter(i=>!i.closed).length;
+        const riddorOpen = inc.filter(i=>i.riddor&&!i.closed).length;
+        const last30 = inc.filter(i=>new Date(i.date)>=new Date(Date.now()-30*86400000)).length;
+        const last30prev = inc.filter(i=>{const d=new Date(i.date);return d>=new Date(Date.now()-60*86400000)&&d<new Date(Date.now()-30*86400000);}).length;
+        const trend = last30-last30prev;
+
+        const card = {background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:16,padding:24,border:`1px solid ${Z.border}`};
+        const statCard = (icon,label,value,sub,col="#fff") => (
+          <div style={{...card,textAlign:"center"}}>
+            <div style={{fontSize:28,marginBottom:6}}>{icon}</div>
+            <div style={{fontSize:28,fontWeight:900,color:col,lineHeight:1}}>{value}</div>
+            <div style={{fontSize:12,fontWeight:700,color:Z.muted,marginTop:4,textTransform:"uppercase",letterSpacing:.5}}>{label}</div>
+            {sub && <div style={{fontSize:11,color:Z.muted,marginTop:3}}>{sub}</div>}
+          </div>
+        );
+
+        return (
+          <div>
+            <h3 style={{fontSize:18,fontWeight:800,margin:"0 0 4px"}}>Incident Trends</h3>
+            <p style={{color:Z.muted,fontSize:13,marginBottom:20}}>Analysis of all {inc.length} recorded incidents.</p>
+
+            {/* Stat tiles */}
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:14,marginBottom:24}}>
+              {statCard("📋","Total Incidents",inc.length,"")}
+              {statCard("🔓","Open Incidents",open,open>0?"Awaiting closure":"All closed",open>0?"#f87171":Z.green)}
+              {statCard("⚠️","RIDDOR Open",riddorOpen,riddorOpen>0?"HSE reporting required":"",riddorOpen>0?"#f87171":Z.green)}
+              {statCard("📅","Last 30 Days",last30,trend===0?"Same as previous 30d":trend>0?`▲ ${trend} more than prev 30d`:`▼ ${Math.abs(trend)} fewer than prev 30d`,trend>0?"#f87171":trend<0?Z.green:"#fff")}
+            </div>
+
+            {/* Monthly bar chart */}
+            <div style={{...card,marginBottom:24}}>
+              <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Incidents by Month</div>
+              <div style={{fontSize:12,color:Z.muted,marginBottom:16}}>Last 12 months</div>
+              {/* Legend */}
+              <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:16}}>
+                {Object.entries(TYPE_COLORS).map(([k,c])=>(
+                  <div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:Z.muted}}>
+                    <div style={{width:10,height:10,borderRadius:2,background:c,flexShrink:0}}/>
+                    {TYPE_LABELS[k]}
+                  </div>
+                ))}
+              </div>
+              {/* Bars */}
+              <div style={{display:"flex",alignItems:"flex-end",gap:isMobile?4:8,height:160}}>
+                {byMonth.map((m,i)=>(
+                  <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,height:"100%",justifyContent:"flex-end"}}>
+                    <div style={{fontSize:10,fontWeight:700,color:m.total>0?Z.white:Z.muted,marginBottom:2}}>{m.total||""}</div>
+                    <div style={{width:"100%",display:"flex",flexDirection:"column",gap:1,justifyContent:"flex-end"}}>
+                      {["unsafe_act","unsafe_condition","near_miss","accident"].map(type=>(
+                        m[type]>0 && <div key={type} title={`${TYPE_LABELS[type]}: ${m[type]}`} style={{width:"100%",height:Math.max(4,m[type]/maxMonthly*120),background:TYPE_COLORS[type],borderRadius:type==="unsafe_act"?"3px 3px 0 0":"0",transition:"height .3s"}}/>
+                      ))}
+                    </div>
+                    <div style={{fontSize:9,color:Z.muted,marginTop:4,whiteSpace:"nowrap",transform:"rotate(-45deg)",transformOrigin:"center",width:20,textAlign:"center"}}>{m.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20,marginBottom:24}}>
+              {/* Donut chart by type */}
+              <div style={card}>
+                <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Incidents by Type</div>
+                <div style={{fontSize:12,color:Z.muted,marginBottom:16}}>All time</div>
+                <div style={{display:"flex",gap:20,alignItems:"center"}}>
+                  <svg viewBox="0 0 100 100" style={{width:120,height:120,flexShrink:0}}>
+                    {(() => {
+                      let angle = -90;
+                      return byType.filter(t=>t.count>0).map((t,i)=>{
+                        const pct = t.count/typeTotal;
+                        const start = angle*(Math.PI/180);
+                        angle += pct*360;
+                        const end = angle*(Math.PI/180);
+                        const x1=50+40*Math.cos(start), y1=50+40*Math.sin(start);
+                        const x2=50+40*Math.cos(end), y2=50+40*Math.sin(end);
+                        const largeArc = pct>0.5?1:0;
+                        return <path key={i} d={`M50,50 L${x1},${y1} A40,40 0 ${largeArc},1 ${x2},${y2} Z`} fill={t.color} opacity={0.9}/>;
+                      });
+                    })()}
+                    <circle cx="50" cy="50" r="22" fill={Z.navyMd}/>
+                    <text x="50" y="47" textAnchor="middle" fill={Z.white} fontSize="8" fontWeight="700">{inc.length}</text>
+                    <text x="50" y="56" textAnchor="middle" fill={Z.muted} fontSize="6">total</text>
+                  </svg>
+                  <div style={{display:"flex",flexDirection:"column",gap:8,flex:1}}>
+                    {byType.map(t=>(
+                      <div key={t.id} style={{display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{width:10,height:10,borderRadius:2,background:t.color,flexShrink:0}}/>
+                        <div style={{flex:1,fontSize:12,color:Z.muted}}>{t.label}</div>
+                        <div style={{fontWeight:700,fontSize:13,color:Z.white}}>{t.count}</div>
+                        <div style={{fontSize:11,color:Z.muted,minWidth:32,textAlign:"right"}}>{typeTotal>0?Math.round(t.count/typeTotal*100):0}%</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* By location */}
+              <div style={card}>
+                <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Incidents by Location</div>
+                <div style={{fontSize:12,color:Z.muted,marginBottom:16}}>Top {byLocation.length} locations</div>
+                {byLocation.length===0
+                  ? <div style={{color:Z.muted,fontSize:13,textAlign:"center",paddingTop:20}}>No location data yet</div>
+                  : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                    {byLocation.map(([loc,cnt],i)=>(
+                      <div key={i}>
+                        <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                          <span style={{fontSize:12,color:Z.white,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{loc}</span>
+                          <span style={{fontSize:12,fontWeight:700,color:Z.accentLt,flexShrink:0}}>{cnt}</span>
+                        </div>
+                        <div style={{height:6,background:Z.border,borderRadius:99,overflow:"hidden"}}>
+                          <div style={{height:"100%",width:`${cnt/maxLoc*100}%`,background:`linear-gradient(90deg,${Z.accent},${Z.accentLt})`,borderRadius:99,transition:"width .4s"}}/>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                }
+              </div>
+            </div>
+
+            {/* RIDDOR line chart */}
+            <div style={card}>
+              <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>RIDDOR Reportable — Monthly</div>
+              <div style={{fontSize:12,color:Z.muted,marginBottom:16}}>Last 12 months · {inc.filter(i=>i.riddor).length} total RIDDOR incidents recorded</div>
+              <div style={{display:"flex",alignItems:"flex-end",gap:isMobile?4:8,height:80}}>
+                {byMonth.map((m,i)=>{
+                  const h = Math.max(m.riddor>0?8:0, m.riddor/Math.max(...byMonth.map(x=>x.riddor),1)*70);
+                  return (
+                    <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,height:"100%",justifyContent:"flex-end"}}>
+                      {m.riddor>0 && <div style={{fontSize:9,fontWeight:700,color:"#f87171"}}>{m.riddor}</div>}
+                      <div style={{width:"100%",height:h||2,background:m.riddor>0?"#ef4444":"rgba(255,255,255,0.05)",borderRadius:3}}/>
+                      <div style={{fontSize:9,color:Z.muted,marginTop:4,whiteSpace:"nowrap",transform:"rotate(-45deg)",transformOrigin:"center",width:20,textAlign:"center"}}>{m.label}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {reportView === "manager" && (
         <div>
           {/* Summary stat cards */}
@@ -3653,11 +4055,10 @@ function generateRAHtml(ra) {
   </body></html>`;
 }
 
-function RiskAssessmentTab({ docs, setDocs, setAtab, Z, font }) {
+function RiskAssessmentTab({ docs, setDocs, setAtab, ras, setRas, dbSaveRA, Z, font }) {
   const isMobile = useWindowWidth() <= 1024;
   const [view, setView]     = useState("list");  // "list" | "new" | "edit"
   const [editId, setEditId] = useState(null);
-  const [ras, setRas]       = useState(INIT_RAS);
   const [form, setForm]     = useState(null);
   const [step, setStep]     = useState(0); // 0=details, 1=hazards, 2=review
   const [saved, setSaved]   = useState(false);
@@ -3719,6 +4120,7 @@ function RiskAssessmentTab({ docs, setDocs, setAtab, Z, font }) {
         if (existing>=0) { const n=[...p]; n[existing]=form; return n; }
         return [...p, form];
       });
+      if (dbSaveRA) dbSaveRA(form);
     };
     reader.readAsDataURL(blob);
   }
@@ -3770,9 +4172,16 @@ function RiskAssessmentTab({ docs, setDocs, setAtab, Z, font }) {
                     <span style={{fontSize:11,background:"rgba(37,99,235,0.15)",color:Z.accentLt,padding:"2px 8px",borderRadius:6,fontWeight:600}}>{ra.hazards.length} hazard{ra.hazards.length!==1?"s":""}</span>
                     <span style={{fontSize:11,background:"rgba(16,185,129,0.12)",color:"#10b981",padding:"2px 8px",borderRadius:6,fontWeight:600}}>{done}/{ra.hazards.length} actions complete</span>
                     {high>0&&<span style={{fontSize:11,background:"rgba(239,68,68,0.12)",color:"#f87171",padding:"2px 8px",borderRadius:6,fontWeight:600}}>⚠ {high} high residual risk{high!==1?"s":""}</span>}
+                    {(()=>{
+                      if (!ra.reviewDate) return <span style={{fontSize:11,background:"rgba(255,255,255,0.06)",color:Z.muted,padding:"2px 8px",borderRadius:6}}>📅 No review date</span>;
+                      const days = Math.ceil((new Date(ra.reviewDate)-new Date())/86400000);
+                      if (days < 0) return <span style={{fontSize:11,background:"rgba(239,68,68,0.12)",color:"#f87171",padding:"2px 8px",borderRadius:6,fontWeight:700}}>⚠ Review overdue by {Math.abs(days)}d</span>;
+                      if (days <= 30) return <span style={{fontSize:11,background:"rgba(245,158,11,0.12)",color:"#f59e0b",padding:"2px 8px",borderRadius:6,fontWeight:700}}>⏳ Review due in {days}d</span>;
+                      return <span style={{fontSize:11,background:"rgba(255,255,255,0.06)",color:Z.muted,padding:"2px 8px",borderRadius:6}}>📅 Review: {ra.reviewDate}</span>;
+                    })()}
                   </div>
                 </div>
-                <div style={{display:"flex",gap:8,flexShrink:0}}>
+                <div style={{display:"flex",gap:8,flexShrink:0,flexWrap:"wrap"}}>
                   <button onClick={()=>editRA(ra)}
                     style={{background:"rgba(37,99,235,0.15)",color:Z.accentLt,border:`1px solid ${Z.accent}44`,borderRadius:8,padding:"7px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font}}>
                     ✏ Edit
@@ -3780,6 +4189,15 @@ function RiskAssessmentTab({ docs, setDocs, setAtab, Z, font }) {
                   <button onClick={()=>{setAtab("documents");}}
                     style={{background:"rgba(16,185,129,0.12)",color:"#10b981",border:"1px solid rgba(16,185,129,0.3)",borderRadius:8,padding:"7px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font}}>
                     📄 View in Docs
+                  </button>
+                  <button onClick={()=>{
+                    const d = prompt("Set next review date (YYYY-MM-DD):", ra.reviewDate || new Date(new Date().setFullYear(new Date().getFullYear()+1)).toISOString().slice(0,10));
+                    if (d===null) return;
+                    const updated = {...ra, reviewDate:d};
+                    setRas(p=>p.map(r=>r.id===ra.id?updated:r));
+                    dbSaveRA(updated);
+                  }} style={{background:"rgba(245,158,11,0.1)",color:"#f59e0b",border:"1px solid rgba(245,158,11,0.25)",borderRadius:8,padding:"7px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
+                    📅 Review Date
                   </button>
                 </div>
               </div>
@@ -4973,6 +5391,38 @@ function IncidentForm({ form, setF, err, saved, onSubmit, onCancel, isEdit, Z, f
         </div>
       </div>
 
+      {/* Photo / file attachments */}
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:12,fontWeight:700,letterSpacing:.5,color:Z.muted,marginBottom:10,textTransform:"uppercase"}}>📎 Evidence Photos & Files</div>
+        {(form.photos||[]).length > 0 && (
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:10,marginBottom:12}}>
+            {(form.photos||[]).map((p,i)=>(
+              <div key={i} style={{position:"relative",borderRadius:10,overflow:"hidden",border:`1px solid ${Z.borderMd}`,background:Z.overlay}}>
+                {p.type&&p.type.startsWith("image/")
+                  ? <img src={p.data||p.url} alt={p.name} style={{width:"100%",height:80,objectFit:"cover",display:"block"}}/>
+                  : <div style={{height:80,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28}}>📄</div>
+                }
+                <div style={{padding:"4px 6px",fontSize:10,color:Z.muted,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.name}</div>
+                <button onClick={()=>setF("photos",(form.photos||[]).filter((_,j)=>j!==i))}
+                  style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",borderRadius:"50%",width:20,height:20,cursor:"pointer",fontSize:11,lineHeight:"20px",padding:0,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <label style={{display:"inline-flex",alignItems:"center",gap:8,background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:10,padding:"9px 18px",cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700,color:Z.muted}}>
+          📎 Add Photos / Files
+          <input type="file" accept={ACCEPT_IMG_DOCS} multiple style={{display:"none"}}
+            onChange={e=>{
+              Array.from(e.target.files).forEach(file=>{
+                const reader=new FileReader();
+                reader.onload=ev=>setF("photos",[...(form.photos||[]),{name:file.name,type:file.type,data:ev.target.result}]);
+                reader.readAsDataURL(file);
+              });
+              e.target.value="";
+            }}/>
+        </label>
+      </div>
+
       {err && <div style={{marginBottom:14,padding:"10px 14px",background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:10,color:"#f87171",fontSize:13,fontWeight:600}}>⚠ {err}</div>}
       {saved && <div style={{marginBottom:14,padding:"10px 14px",background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:10,color:"#10b981",fontSize:13,fontWeight:600}}>✓ {isEdit?"Changes saved successfully":"Incident report submitted successfully"}</div>}
 
@@ -5598,7 +6048,14 @@ function InvestigationTab({ incidents, setIncidents, staff, investigations, setI
                       <span style={{fontSize:11,fontWeight:800,color:ti.col}}>{inc.type.replace("_"," ").toUpperCase()}</span>
                       <span style={{fontSize:11,color:Z.muted}}>📍 {inc.location}</span>
                       <span style={{fontSize:11,color:Z.muted}}>{inc.date}</span>
-                      {inc.riddor && <span style={{fontSize:10,color:"#f87171",fontWeight:700,background:"rgba(239,68,68,0.1)",padding:"2px 7px",borderRadius:6,border:"1px solid rgba(239,68,68,0.25)"}}>RIDDOR</span>}
+                      {inc.riddor && (
+                        <span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:6,
+                          color:inc.riddorReported?"#10b981":"#f87171",
+                          background:inc.riddorReported?"rgba(16,185,129,0.1)":"rgba(239,68,68,0.1)",
+                          border:`1px solid ${inc.riddorReported?"rgba(16,185,129,0.3)":"rgba(239,68,68,0.25)"}`}}>
+                          {inc.riddorReported?"RIDDOR ✓":"RIDDOR ⚠"}
+                        </span>
+                      )}
                     </div>
                     <div style={{fontSize:13,color:Z.slate,marginBottom:6,lineHeight:1.4}}>{inc.description.slice(0,90)}{inc.description.length>90?"…":""}</div>
                     {inv && (
@@ -5954,7 +6411,7 @@ function AdminIncidentTab({ incidents, setIncidents, staff, investigations, setI
       // ── Sheet 1: Incident Log ──
       const headers = [
         "Incident ID","Date","Time","Type","Location","Description",
-        "Injury Type","RIDDOR","Accident Code","Number Code","Status",
+        "Injury Type","RIDDOR","Reported to HSE","HSE Report Date","HSE Reference","Reported By","Accident Code","Number Code","Status",
         "Reported By",
         "Equipment Involved","Equipment Asset No","Equipment Name","Equipment Damaged","Damage Description","Damage Severity","Taken Out of Service",
         "Person Involved","Date of Birth","Address","Postcode",
@@ -5978,6 +6435,10 @@ function AdminIncidentTab({ incidents, setIncidents, staff, investigations, setI
             inc.description,
             inc.injuryType||"",
             inc.riddor?"Yes":"No",
+            inc.riddorReported?"Yes":"No",
+            inc.riddorReportedDate||"",
+            inc.hseReference||"",
+            inc.riddorReportedBy||"",
             inc.accidentCode||"",
             inc.numberCode||"",
             inc.closed?"Closed":"Open",
@@ -6366,8 +6827,42 @@ function AdminIncidentTab({ incidents, setIncidents, staff, investigations, setI
 
                     {/* RIDDOR notice */}
                     {inc.riddor && (
-                      <div style={{marginBottom:12,padding:"10px 14px",background:"rgba(239,68,68,0.08)",borderRadius:10,border:"1px solid rgba(239,68,68,0.2)",fontSize:12,color:"#fca5a5"}}>
-                        🏥 <strong>RIDDOR reportable</strong> — This incident must be reported to the HSE under RIDDOR 2013. Ensure the appropriate form (F2508/F2508A) has been submitted within the required timescale.
+                      <div style={{marginBottom:12,padding:"12px 16px",background:inc.riddorReported?"rgba(16,185,129,0.08)":"rgba(239,68,68,0.08)",borderRadius:10,border:`1px solid ${inc.riddorReported?"rgba(16,185,129,0.25)":"rgba(239,68,68,0.25)"}`}}>
+                        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:13,fontWeight:700,color:inc.riddorReported?"#10b981":"#f87171",marginBottom:3}}>
+                              {inc.riddorReported ? "✓ Reported to HSE" : "⚠ RIDDOR Reportable — Action Required"}
+                            </div>
+                            <div style={{fontSize:11,color:"rgba(255,255,255,0.5)"}}>
+                              {inc.riddorReported
+                                ? `Reported to HSE on ${inc.riddorReportedDate||"—"}${inc.riddorReportedBy?" by "+inc.riddorReportedBy:""}. Reference: ${inc.hseReference||"not recorded"}.`
+                                : "This incident must be reported to the HSE under RIDDOR 2013. Submit form F2508/F2508A at riddor.hse.gov.uk or call 0345 300 9923."}
+                            </div>
+                            {!inc.riddorReported && (
+                              <a href="https://www.hse.gov.uk/riddor/report.htm" target="_blank" rel="noreferrer"
+                                style={{fontSize:11,color:"#93c5fd",marginTop:4,display:"inline-block"}}>
+                                → Report online at hse.gov.uk
+                              </a>
+                            )}
+                          </div>
+                          {!inc.riddorReported ? (
+                            <button onClick={()=>{
+                              const date = prompt("Date reported to HSE (YYYY-MM-DD):", new Date().toISOString().slice(0,10));
+                              if (!date) return;
+                              const ref = prompt("HSE reference number (optional):", "") || "";
+                              const by = prompt("Reported by (name):", "") || "";
+                              setIncidents(p=>p.map(i=>i.id===inc.id?{...i,riddorReported:true,riddorReportedDate:date,hseReference:ref,riddorReportedBy:by}:i));
+                            }} style={{background:"linear-gradient(135deg,#ef4444,#b91c1c)",color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,flexShrink:0,whiteSpace:"nowrap"}}>
+                              ✓ Mark as Reported to HSE
+                            </button>
+                          ) : (
+                            <button onClick={()=>{
+                              if(window.confirm("Undo RIDDOR reported status?")) setIncidents(p=>p.map(i=>i.id===inc.id?{...i,riddorReported:false,riddorReportedDate:null,hseReference:null,riddorReportedBy:null}:i));
+                            }} style={{background:"rgba(255,255,255,0.06)",color:"rgba(255,255,255,0.4)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:11,fontFamily:font,flexShrink:0,whiteSpace:"nowrap"}}>
+                              Undo
+                            </button>
+                          )}
+                        </div>
                       </div>
                     )}
 
@@ -9934,17 +10429,58 @@ function StaffActionsTab({ user, incidents, investigations, setInvestigations, a
   );
 }
 
-function DocCard({ d, staff, assignedIds, assignedStaff, readCount, unreadCount, icon, docAcknowledgements, setDocAssignments, dbSaveDocAssignments, setDocs, dbDeleteDoc, setPreviewDoc, T, font }) {
+function DocCard({ d, staff, assignedIds, assignedStaff, readCount, unreadCount, icon, docAcknowledgements, setDocAcknowledgements, setDocAssignments, dbSaveDocAssignments, setDocs, dbDeleteDoc, dbSaveDoc, setPreviewDoc, T, font }) {
   const [expanded, setExpanded] = React.useState(false);
+  const [editingReview, setEditingReview] = React.useState(false);
+  const [reviewInput, setReviewInput] = React.useState(d.reviewDate||"");
   const extIcons={PDF:"📕",DOCX:"📘",DOC:"📘",XLSX:"📗",XLS:"📗",PPTX:"📙",PPT:"📙",PNG:"🖼️",JPG:"🖼️",JPEG:"🖼️",TXT:"📄",CSV:"📊"};
   const docIcon = extIcons[d.ext] || "📄";
+
+  const today = new Date().toISOString().slice(0,10);
+  const reviewDate = d.reviewDate || null;
+  const daysToReview = reviewDate ? Math.ceil((new Date(reviewDate) - new Date()) / 86400000) : null;
+  const reviewOverdue = daysToReview !== null && daysToReview < 0;
+  const reviewSoon = daysToReview !== null && daysToReview >= 0 && daysToReview <= 30;
+  const reviewStatus = reviewOverdue ? {label:`Review overdue by ${Math.abs(daysToReview)}d`, color:"#f87171", bg:"rgba(239,68,68,0.12)", border:"rgba(239,68,68,0.3)"}
+    : reviewSoon ? {label:`Review due in ${daysToReview}d`, color:"#f59e0b", bg:"rgba(245,158,11,0.12)", border:"rgba(245,158,11,0.3)"}
+    : reviewDate ? {label:`Review: ${reviewDate}`, color:T.muted, bg:"transparent", border:"transparent"}
+    : null;
+
+  function saveReviewDate(val) {
+    const updated = {...d, reviewDate: val||null};
+    setDocs(p=>p.map(x=>x.id===d.id?updated:x));
+    dbSaveDoc(updated, null);
+    setEditingReview(false);
+  }
+
   return (
-    <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,border:`1px solid ${T.border}`,overflow:"hidden"}}>
+    <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,border:`1px solid ${reviewOverdue?"rgba(239,68,68,0.4)":reviewSoon?"rgba(245,158,11,0.35)":T.border}`,overflow:"hidden"}}>
       <div style={{padding:"14px 20px",display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
         <span style={{fontSize:26,flexShrink:0}}>{docIcon}</span>
         <div style={{flex:1,minWidth:0}}>
           <div style={{fontWeight:700,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{d.title}</div>
-          <div style={{color:T.muted,fontSize:12,marginTop:2}}>{d.date} · {d.size}{d.fileName?` · ${d.fileName.split(".").pop().toUpperCase()}`:""}</div>
+          <div style={{color:T.muted,fontSize:12,marginTop:2,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <span>{d.date} · {d.size}{d.fileName?` · ${d.fileName.split(".").pop().toUpperCase()}`:""}</span>
+            {/* Review date display / edit */}
+            {!editingReview ? (
+              <span onClick={()=>{setReviewInput(d.reviewDate||"");setEditingReview(true);}}
+                style={{cursor:"pointer",display:"inline-flex",alignItems:"center",gap:4,padding:"1px 7px",borderRadius:20,
+                  background:reviewStatus?reviewStatus.bg:"rgba(255,255,255,0.06)",
+                  border:`1px solid ${reviewStatus?reviewStatus.border:"rgba(255,255,255,0.1)"}`,
+                  color:reviewStatus?reviewStatus.color:T.muted,fontSize:11,fontWeight:reviewStatus?700:400}}>
+                {reviewOverdue?"⚠":reviewSoon?"⏳":"📅"}
+                {reviewStatus ? reviewStatus.label : "Set review date"}
+              </span>
+            ) : (
+              <span style={{display:"inline-flex",alignItems:"center",gap:6}}>
+                <input type="date" value={reviewInput} onChange={e=>setReviewInput(e.target.value)} autoFocus
+                  style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:6,padding:"2px 8px",color:T.white,fontSize:11,outline:"none",fontFamily:font}}/>
+                <button onClick={()=>saveReviewDate(reviewInput)} style={{background:"rgba(16,185,129,0.15)",color:T.green,border:"1px solid rgba(16,185,129,0.3)",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>✓</button>
+                {reviewInput && <button onClick={()=>saveReviewDate("")} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:6,padding:"2px 8px",cursor:"pointer",fontSize:11,fontFamily:font}}>Clear</button>}
+                <button onClick={()=>setEditingReview(false)} style={{background:"none",border:"none",color:T.muted,cursor:"pointer",fontSize:11,fontFamily:font}}>✕</button>
+              </span>
+            )}
+          </div>
         </div>
         <Pill label={d.type} col="navy"/>
         {assignedStaff.length>0 && (
@@ -9967,6 +10503,34 @@ function DocCard({ d, staff, assignedIds, assignedStaff, readCount, unreadCount,
           style={{background:expanded?"rgba(37,99,235,0.2)":T.headerBgMd,color:expanded?T.accentLt:T.muted,border:`1px solid ${expanded?T.accent+"55":T.borderMd}`,borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
           {expanded ? "▲ Assign" : "▼ Assign"}{assignedStaff.length>0?` (${assignedStaff.length})`:""}
         </button>
+        <label style={{background:"rgba(37,99,235,0.1)",color:"#93c5fd",border:"1px solid rgba(37,99,235,0.25)",borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
+          ↑ New Version
+          <input type="file" accept={ACCEPT_IMG_DOCS} style={{display:"none"}}
+            onChange={e=>{
+              const file=e.target.files[0]; if(!file) return;
+              if(!window.confirm(`Upload "${file.name}" as a new version of "${d.title}"?\n\nThis will clear all existing staff acknowledgements.`)) return;
+              const ext2=file.name.split(".").pop().toUpperCase();
+              const path2=`doc_${d.id}_${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
+              const fileUrl2=sb.storage.getPublicUrl("documents",path2);
+              const newDoc={...d,version:(d.version||1)+1,date:new Date().toISOString().slice(0,10),size:`${(file.size/1024).toFixed(0)} KB`,fileName:file.name,ext:ext2,fileData:fileUrl2,fileUrl:fileUrl2};
+              setDocAcknowledgements(p=>{
+                const n={};
+                Object.keys(p).forEach(uid=>{
+                  n[uid]={...p[uid]};
+                  if(n[uid][d.id]) { delete n[uid][d.id]; sb.from("doc_acknowledgements").delete().eq("user_id",Number(uid)).eq("doc_id",d.id); }
+                });
+                return n;
+              });
+              setDocs(p=>p.map(x=>x.id===d.id?newDoc:x));
+              sb.storage.upload("documents",path2,file).then(()=>{
+                newDoc.fileUrl=sb.storage.getPublicUrl("documents",path2);
+                newDoc.fileData=newDoc.fileUrl;
+                setDocs(p=>p.map(x=>x.id===d.id?newDoc:x));
+                dbSaveDoc(newDoc,null);
+              });
+              e.target.value="";
+            }}/>
+        </label>
         <button onClick={()=>{setDocs(p=>p.filter(x=>x.id!==d.id));dbDeleteDoc(d.id,d.fileName);}}
           style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.25)",borderRadius:8,padding:"7px 12px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
           Remove
@@ -10188,7 +10752,7 @@ export default function App() {
   const [step,    setStep]    = useState(0);
   const [qans,    setQans]    = useState({});
   const [qsub,    setQsub]    = useState(false);
-  const [atab,    setAtab]    = useState("users");
+  const [atab,    setAtab]    = useState("dashboard");
   const [adminReportView, setAdminReportView] = useState("staff");
   const [stab,    setStab]    = useState("dashboard");
   const [cert,    setCert]    = useState(null);
@@ -10213,6 +10777,8 @@ export default function App() {
   const [machineComps, setMachineComps] = useState(INIT_MACHINE_COMPS);
   const [siteInspections, setSiteInspections] = useState(INIT_SITE_INSPECTIONS);
   const [customModules, setCustomModules] = useState([]); // admin-created training modules
+  const [ras, setRas] = useState(INIT_RAS); // risk assessments
+  const [quizFailures, setQuizFailures] = useState([]); // [{ userId, userName, moduleId, moduleTitle, score, date }]
   const [extCerts, setExtCerts] = useState({}); // { userId: { certType: { fileName, fileUrl, issuedDate, expiryDate, uploadedAt } } }
   const [msdsFiles, setMsdsFiles] = useState({}); // { [chemCode]: { fileName, fileData, fileUrl, uploadedAt } }
   const [customChemicals, setCustomChemicals] = useState([]); // admin-added COSHH chemicals
@@ -10220,6 +10786,11 @@ export default function App() {
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [staffFilterManager,  setStaffFilterManager]  = useState("all");
   const [staffFilterSearch,   setStaffFilterSearch]   = useState("");
+  const [showBulkReset, setShowBulkReset] = useState(false);
+  const [bulkResetPw, setBulkResetPw] = useState("");
+  const [bulkResetScope, setBulkResetScope] = useState("all"); // "all" | "selected"
+  const [bulkResetSelected, setBulkResetSelected] = useState([]);
+  const [bulkResetDone, setBulkResetDone] = useState(false);
   const [staffFilterProgress, setStaffFilterProgress] = useState("all");
   const [staffGroupByTeam,    setStaffGroupByTeam]    = useState(false);
   const [staffExpandedTeams,  setStaffExpandedTeams]  = useState({});
@@ -10323,6 +10894,10 @@ export default function App() {
             id: r.id, date: r.date, type: r.type, accidentCode: r.accident_code,
             numberCode: r.number_code, location: r.location, reportedBy: r.reported_by,
             description: r.description, injuryType: r.injury_type, riddor: r.riddor, closed: r.closed,
+            riddorReported: r.riddor_reported||false,
+            riddorReportedDate: r.riddor_reported_date||null,
+            hseReference: r.hse_reference||null,
+            riddorReportedBy: r.riddor_reported_by||null,
           })));
         }
 
@@ -10358,7 +10933,7 @@ export default function App() {
             const kept = prev.filter(d => !existingIds.has(d.id));
             return [...kept, ...docRows.map(r => ({
               id: r.id, title: r.title, date: r.date, size: r.size,
-              type: r.type, ext: r.ext, fileName: r.file_name, fileData: r.file_url || null, fileUrl: r.file_url || null,
+              type: r.type, ext: r.ext, fileName: r.file_name, fileData: r.file_url || null, fileUrl: r.file_url || null, version: r.version || 1, reviewDate: r.review_date || null,
             }))];
           });
         }
@@ -10416,6 +10991,21 @@ export default function App() {
             map[r.user_id][r.cert_type] = r.data;
           });
           setExtCerts(map);
+        }
+
+        // Quiz failures
+        const { data: qfRows } = await sb.from("quiz_failures").select("*");
+        if (qfRows && qfRows.length) {
+          setQuizFailures(qfRows.map(r => r.data));
+        }
+
+        // Risk assessments (custom/edited ones override INIT_RAS)
+        const { data: raRows } = await sb.from("risk_assessments").select("*");
+        if (raRows && raRows.length) {
+          setRas(prev => prev.map(r => {
+            const saved = raRows.find(x => x.id === r.id);
+            return saved ? { ...r, ...saved.data } : r;
+          }));
         }
 
         // Custom modules
@@ -10561,6 +11151,10 @@ export default function App() {
       id: inc.id, date: inc.date, type: inc.type, accident_code: inc.accidentCode,
       number_code: inc.numberCode, location: inc.location, reported_by: inc.reportedBy,
       description: inc.description, injury_type: inc.injuryType, riddor: inc.riddor, closed: inc.closed,
+      riddor_reported: inc.riddorReported||false,
+      riddor_reported_date: inc.riddorReportedDate||null,
+      hse_reference: inc.hseReference||null,
+      riddor_reported_by: inc.riddorReportedBy||null,
     }, { onConflict: "id" });
   }
 
@@ -10593,6 +11187,8 @@ export default function App() {
     await sb.from("documents").upsert({
       id: doc.id, title: doc.title, date: doc.date, size: doc.size,
       type: doc.type, ext: doc.ext, file_name: doc.fileName, file_url: doc.fileUrl || null,
+      version: doc.version || 1,
+      review_date: doc.reviewDate || null,
     }, { onConflict: "id" });
   }
 
@@ -10637,6 +11233,14 @@ export default function App() {
 
   async function dbDeleteUserProfile(userId) {
     await sb.from("user_profiles").delete().eq("user_id", userId);
+  }
+
+  async function dbSaveRA(ra) {
+    await sb.from("risk_assessments").upsert({ id: ra.id, data: ra }, { onConflict: "id" });
+  }
+
+  async function dbSaveQuizFailure(record) {
+    await sb.from("quiz_failures").insert({ data: record });
   }
 
   async function dbSaveExtCert(userId, certType, data) {
@@ -10743,6 +11347,21 @@ export default function App() {
     const rec = {score:pct, date:new Date().toISOString().slice(0,10), answers:{...qans}, certId};
     setComps(p=>({...p,[user.id]:{...p[user.id],[mod.id]:rec}}));
     dbSaveCompletion(user.id, mod.id, rec);
+    // Record failure for admin visibility
+    if (pct < 70) {
+      const failure = {
+        id: "qf_" + Date.now(),
+        userId: user.id,
+        userName: user.name,
+        moduleId: mod.id,
+        moduleTitle: mod.title,
+        score: pct,
+        date: new Date().toISOString().slice(0,10),
+        acknowledged: false,
+      };
+      setQuizFailures(p=>[...p, failure]);
+      dbSaveQuizFailure(failure);
+    }
   }
 
   const totalSlides = mod ? mod.content.length : 0;
@@ -11882,6 +12501,7 @@ export default function App() {
             const TRAINING_TABS=["assign","modules","create","reports"]; const trainingActive=TRAINING_TABS.includes(atab);
             const ME_TABS=["machinery","equipment"]; const meActive=ME_TABS.includes(atab);
             return (<>
+              <button onClick={()=>setAtab("dashboard")} style={navBtn(atab==="dashboard",T.gold)}>Dashboard</button>
               <button onClick={()=>setAtab("users")} style={navBtn(atab==="users",T.gold)}>Staff</button>
               <div style={{position:"relative",display:"inline-block"}} onMouseEnter={e=>e.currentTarget.querySelector(".training-dd").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".training-dd").style.display="none"}>
                 <button style={{...navBtn(trainingActive,T.gold),display:"flex",alignItems:"center",gap:5}}>Training<span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span></button>
@@ -11954,6 +12574,21 @@ export default function App() {
               const riddorIncidents = incidents.filter(i=>i.riddor&&!i.closed);
               if(riddorIncidents.length) notifications.push({type:"report",urgent:true,title:`${riddorIncidents.length} open RIDDOR reportable incident${riddorIncidents.length!==1?"s":""}`,detail:"Check Incidents tab — HSE reporting may be required",nav:{tab:"incidents"}});
               else if(openIncidents.length) notifications.push({type:"report",urgent:false,title:`${openIncidents.length} open incident${openIncidents.length!==1?"s":""}`,detail:"Check Incidents tab to review and close",nav:{tab:"incidents"}});
+              // Quiz failures in last 7 days
+              const recentFailures = quizFailures.filter(f=>!f.acknowledged && f.date >= new Date(Date.now()-7*86400000).toISOString().slice(0,10));
+              if(recentFailures.length) notifications.push({type:"module",urgent:false,title:`${recentFailures.length} quiz failure${recentFailures.length!==1?"s":""} in last 7 days`,detail:"Check Training → Reports to review",nav:{tab:"reports"}});
+              // RA review dates
+              const today2 = new Date().toISOString().slice(0,10);
+              const overdueRAs = ras.filter(ra2=>ra2.reviewDate&&ra2.reviewDate<today2);
+              const soonRAs = ras.filter(ra2=>ra2.reviewDate&&ra2.reviewDate>=today2&&Math.ceil((new Date(ra2.reviewDate)-new Date())/86400000)<=30);
+              if(overdueRAs.length) notifications.push({type:"report",urgent:true,title:`${overdueRAs.length} risk assessment${overdueRAs.length!==1?"s":""} overdue for review`,detail:overdueRAs.map(r=>r.title).join(", "),nav:{tab:"ra"}});
+              else if(soonRAs.length) notifications.push({type:"report",urgent:false,title:`${soonRAs.length} risk assessment${soonRAs.length!==1?"s":""} due for review soon`,detail:soonRAs.map(r=>r.title).join(", "),nav:{tab:"ra"}});
+
+              // Document review dates
+              const overdueReviews = docs.filter(d=>d.reviewDate&&d.reviewDate<today2);
+              const soonReviews = docs.filter(d=>d.reviewDate&&d.reviewDate>=today2&&Math.ceil((new Date(d.reviewDate)-new Date())/86400000)<=30);
+              if(overdueReviews.length) notifications.push({type:"document",urgent:true,title:`${overdueReviews.length} document${overdueReviews.length!==1?"s":""} overdue for review`,detail:overdueReviews.map(d=>d.title).join(", "),nav:{tab:"documents"}});
+              else if(soonReviews.length) notifications.push({type:"document",urgent:false,title:`${soonReviews.length} document${soonReviews.length!==1?"s":""} due for review soon`,detail:soonReviews.map(d=>d.title).join(", "),nav:{tab:"documents"}});
               return <NotificationBell notifications={notifications} onNavigate={n=>{setAtab(n.tab);if(n.view)setAdminReportView(n.view);}} Z={T} font={font}/>;
             })()}
             <div style={{width:1,height:20,background:T.headerBgMd,margin:"0 4px"}}/>
@@ -11973,6 +12608,7 @@ export default function App() {
         {isMobile && mobileMenuOpen && (
           <div style={{background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:"8px 0",zIndex:300,position:"relative"}}>
             {[
+              ["dashboard","🏠 Dashboard"],
               ["users","👥 Staff"],
               ["assign","📋 Assign Training"],
               ["modules","📚 Training Library"],
@@ -11997,6 +12633,197 @@ export default function App() {
 
         <div style={{maxWidth:1100,margin:"0 auto",padding:isMobile?"16px 12px":"36px 28px"}}>
 
+          {atab==="dashboard" && (() => {
+            const today = new Date().toISOString().slice(0,10);
+
+            // ── Training stats ────────────────────────────────────────────────
+            const staffList = staff;
+            const overdueTraining = staffList.filter(u=>{
+              const a=(assigns[u.id]||[]).length;
+              const d=(assigns[u.id]||[]).filter(mid=>(comps[u.id]||{})[mid]).length;
+              return a>0 && d<a;
+            });
+            const expiringTraining = staffList.filter(u=>
+              (assigns[u.id]||[]).some(mid=>{
+                const c=(comps[u.id]||{})[mid];
+                const m=allModules.find(x=>x.id===mid);
+                if(!c||!m?.renewalMonths) return false;
+                const ex=getExpiryStatus(c.date,m.renewalMonths);
+                return ex&&(ex.status==="expired"||ex.status==="expiring");
+              })
+            );
+
+            // ── Incident stats ────────────────────────────────────────────────
+            const openIncidents2 = incidents.filter(i=>!i.closed);
+            const riddorOpen2 = incidents.filter(i=>i.riddor&&!i.closed&&!i.riddorReported);
+            const last30Inc = incidents.filter(i=>i.date>=new Date(Date.now()-30*86400000).toISOString().slice(0,10));
+
+            // ── Document stats ────────────────────────────────────────────────
+            const assignedDocs = docs.filter(d=>Object.keys(docAssignments[d.id]||{}).length>0||(docAssignments[d.id]||[]).length>0);
+            const unreadDocs = docs.filter(d=>{
+              const assigned = docAssignments[d.id]||[];
+              return assigned.some(uid=>!(docAcknowledgements[uid]||{})[d.id]);
+            });
+            const overdueDocReviews = docs.filter(d=>d.reviewDate&&d.reviewDate<today);
+            const overdueRAReviews = ras.filter(r=>r.reviewDate&&r.reviewDate<today);
+
+            // ── Equipment stats ───────────────────────────────────────────────
+            const overdueEquipment = equipment.filter(e=>e.nextInspection&&e.nextInspection<today);
+            const soonEquipment = equipment.filter(e=>e.nextInspection&&e.nextInspection>=today&&Math.ceil((new Date(e.nextInspection)-new Date())/86400000)<=30);
+            const outOfService = equipment.filter(e=>e.status==="inactive");
+
+            // ── Quiz failures ─────────────────────────────────────────────────
+            const unreviewedFailures = quizFailures.filter(f=>!f.acknowledged);
+
+            // ── External certs ────────────────────────────────────────────────
+            const expiredExtCerts = [];
+            staffList.forEach(u=>{
+              EXT_CERT_TYPES.forEach(ct=>{
+                const cert=(extCerts[u.id]||{})[ct.id];
+                if(cert&&cert.expiryDate&&cert.expiryDate<today) expiredExtCerts.push({user:u,cert,certType:ct});
+              });
+            });
+
+            const card = (icon,label,value,sub,col,urgent,onClick) => (
+              <div onClick={onClick} style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:"18px 20px",border:`1px solid ${urgent?"rgba(239,68,68,0.4)":col?"rgba(245,158,11,0.25)":T.border}`,cursor:onClick?"pointer":"default",transition:"transform .15s,box-shadow .15s"}}
+                onMouseEnter={e=>{if(onClick){e.currentTarget.style.transform="translateY(-2px)";e.currentTarget.style.boxShadow="0 8px 24px rgba(0,0,0,0.3)";}}}
+                onMouseLeave={e=>{e.currentTarget.style.transform="";e.currentTarget.style.boxShadow="";}}>
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:8}}>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,letterSpacing:.5,color:T.muted,textTransform:"uppercase",marginBottom:6}}>{label}</div>
+                    <div style={{fontSize:32,fontWeight:900,color:urgent?"#f87171":col?"#f59e0b":value===0?T.green:"#fff",lineHeight:1}}>{value}</div>
+                    {sub && <div style={{fontSize:11,color:T.muted,marginTop:5}}>{sub}</div>}
+                  </div>
+                  <span style={{fontSize:28,opacity:.7}}>{icon}</span>
+                </div>
+              </div>
+            );
+
+            const section = (title, children) => (
+              <div style={{marginBottom:28}}>
+                <h3 style={{fontSize:14,fontWeight:700,letterSpacing:.5,color:T.muted,textTransform:"uppercase",margin:"0 0 12px"}}>{title}</h3>
+                {children}
+              </div>
+            );
+
+            const listCard = (items, emptyMsg, renderItem) => (
+              <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,border:`1px solid ${T.border}`,overflow:"hidden"}}>
+                {items.length===0
+                  ? <div style={{padding:"20px",textAlign:"center",color:T.green,fontSize:13,fontWeight:600}}>✓ {emptyMsg}</div>
+                  : items.slice(0,5).map((item,i)=>(
+                    <div key={i} style={{padding:"12px 16px",borderTop:i>0?`1px solid ${T.border}`:"none",display:"flex",alignItems:"center",gap:12}}>
+                      {renderItem(item,i)}
+                    </div>
+                  ))
+                }
+                {items.length>5 && <div style={{padding:"8px 16px",borderTop:`1px solid ${T.border}`,fontSize:11,color:T.muted,textAlign:"center"}}>+{items.length-5} more</div>}
+              </div>
+            );
+
+            return (
+              <div>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24,flexWrap:"wrap",gap:12}}>
+                  <div>
+                    <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Admin Dashboard</h2>
+                    <p style={{color:T.muted,fontSize:13,margin:0}}>Health & Safety overview — {new Date().toLocaleDateString("en-GB",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</p>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={()=>setAtab("incidents")} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font}}>+ Report Incident</button>
+                  </div>
+                </div>
+
+                {/* Stat grid */}
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:14,marginBottom:28}}>
+                  {card("📚","Training Incomplete",overdueTraining.length,`of ${staffList.length} staff`,null,overdueTraining.length>0,()=>setAtab("assign"))}
+                  {card("🔄","Expiring/Expired",expiringTraining.length,"training renewals",expiringTraining.length>0,false,()=>setAtab("reports"))}
+                  {card("⚠️","Open Incidents",openIncidents2.length,`${riddorOpen2.length} RIDDOR unreported`,null,riddorOpen2.length>0,()=>setAtab("incidents"))}
+                  {card("📄","Unread Documents",unreadDocs.length,"assigned but unacknowledged",unreadDocs.length>0,false,()=>setAtab("documents"))}
+                  {card("🔧","Equipment Overdue",overdueEquipment.length,"inspection overdue",null,overdueEquipment.length>0,()=>setAtab("equipment"))}
+                  {card("📋","Out of Service",outOfService.length,"equipment items",null,false,()=>setAtab("equipment"))}
+                  {card("❌","Quiz Failures",unreviewedFailures.length,"unreviewed",unreviewedFailures.length>0,false,()=>setAtab("reports"))}
+                  {card("📅","Reviews Overdue",overdueDocReviews.length+overdueRAReviews.length,"docs & RAs",overdueDocReviews.length+overdueRAReviews.length>0,false,()=>setAtab("documents"))}
+                </div>
+
+                <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20}}>
+                  {/* Incomplete training */}
+                  {section("Staff with incomplete training",
+                    listCard(overdueTraining,"All staff training complete",u=>{
+                      const a=(assigns[u.id]||[]).length;
+                      const d=(assigns[u.id]||[]).filter(mid=>(comps[u.id]||{})[mid]).length;
+                      const pct=a?Math.min(100,Math.round(d/a*100)):0;
+                      return (<>
+                        <Avatar name={u.name} size={28}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:700,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{u.name}</div>
+                          <div style={{fontSize:11,color:T.muted}}>{d}/{a} modules · {pct}%</div>
+                        </div>
+                        <button onClick={()=>setAtab("assign")} style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:`1px solid ${T.accent}33`,borderRadius:7,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font,flexShrink:0}}>Assign →</button>
+                      </>);
+                    })
+                  )}
+
+                  {/* Open incidents */}
+                  {section("Open incidents",
+                    listCard(openIncidents2,"No open incidents",inc=>(
+                      <>
+                        <span style={{fontSize:18,flexShrink:0}}>{{accident:"🚑",near_miss:"⚠️",unsafe_condition:"🏗",unsafe_act:"🚫"}[inc.type]||"📋"}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:700,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{inc.description?.slice(0,60)}{inc.description?.length>60?"…":""}</div>
+                          <div style={{fontSize:11,color:T.muted}}>{inc.date} · {inc.location}</div>
+                        </div>
+                        {inc.riddor&&!inc.riddorReported&&<span style={{fontSize:10,fontWeight:700,color:"#f87171",background:"rgba(239,68,68,0.1)",padding:"2px 7px",borderRadius:6,border:"1px solid rgba(239,68,68,0.25)",flexShrink:0}}>RIDDOR ⚠</span>}
+                        <button onClick={()=>setAtab("incidents")} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:7,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font,flexShrink:0}}>View →</button>
+                      </>
+                    ))
+                  )}
+
+                  {/* Equipment overdue */}
+                  {section("Equipment inspection overdue",
+                    listCard([...overdueEquipment,...soonEquipment].slice(0,5),"All equipment inspections up to date",e=>{
+                      const overdue = e.nextInspection<today;
+                      const days = Math.ceil((new Date(e.nextInspection)-new Date())/86400000);
+                      return (<>
+                        <span style={{fontSize:18,flexShrink:0}}>🔧</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:700,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{e.name}</div>
+                          <div style={{fontSize:11,color:overdue?"#f87171":"#f59e0b"}}>{overdue?`Overdue by ${Math.abs(days)}d`:`Due in ${days}d`} · {e.location||"—"}</div>
+                        </div>
+                        <button onClick={()=>setAtab("equipment")} style={{background:"rgba(245,158,11,0.1)",color:"#f59e0b",border:"1px solid rgba(245,158,11,0.2)",borderRadius:7,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font,flexShrink:0}}>View →</button>
+                      </>);
+                    })
+                  )}
+
+                  {/* Expiring external certs */}
+                  {section("Expired external certificates",
+                    listCard(expiredExtCerts,"All external certificates valid",(item)=>(
+                      <>
+                        <span style={{fontSize:18,flexShrink:0}}>{item.certType.icon}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:700,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.user.name}</div>
+                          <div style={{fontSize:11,color:"#f87171"}}>{item.certType.label} expired {item.cert.expiryDate}</div>
+                        </div>
+                        <button onClick={()=>setAtab("assign")} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:7,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font,flexShrink:0}}>Update →</button>
+                      </>
+                    ))
+                  )}
+                </div>
+
+                {/* Recent activity */}
+                {section("Recent incidents (last 30 days)",
+                  listCard(last30Inc,"No incidents in the last 30 days",inc=>(
+                    <>
+                      <span style={{fontSize:16,flexShrink:0}}>{{accident:"🚑",near_miss:"⚠️",unsafe_condition:"🏗",unsafe_act:"🚫"}[inc.type]||"📋"}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:600,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{inc.description?.slice(0,70)}{inc.description?.length>70?"…":""}</div>
+                        <div style={{fontSize:11,color:T.muted}}>{inc.date} · {inc.location} · {inc.closed?"Closed":"Open"}</div>
+                      </div>
+                    </>
+                  ))
+                )}
+              </div>
+            );
+          })()}
+
           {atab==="users" && (<div style={{overflowX:"auto",WebkitOverflowScrolling:"touch"}}>
             <div>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
@@ -12009,12 +12836,88 @@ export default function App() {
                     style={{background:staffGroupByTeam?`linear-gradient(135deg,${T.navyMd},${T.navy})`:T.overlay,color:staffGroupByTeam?T.gold:T.muted,border:`1px solid ${staffGroupByTeam?T.gold:T.borderMd}`,borderRadius:10,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:13,display:"flex",alignItems:"center",gap:6}}>
                     👥 {staffGroupByTeam?"By Team ✓":"Group by Team"}
                   </button>
+                  <button onClick={()=>{setShowBulkReset(s=>!s);setBulkResetPw("");setBulkResetDone(false);setBulkResetSelected([]);}}
+                    style={{background:showBulkReset?`linear-gradient(135deg,#b91c1c,#991b1b)`:"rgba(239,68,68,0.1)",color:showBulkReset?"#fff":"#f87171",border:showBulkReset?"none":"1px solid rgba(239,68,68,0.25)",borderRadius:10,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:13,display:"flex",alignItems:"center",gap:6}}>
+                    🔑 {showBulkReset?"✕ Cancel":"Reset Passwords"}
+                  </button>
                   <button onClick={()=>{setShowAddStaff(s=>!s);setAddErr("");}}
                     style={{background:`linear-gradient(135deg,${T.accent},${T.blue})`,color:T.white,border:"none",borderRadius:10,padding:"10px 20px",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:13,boxShadow:`0 4px 16px ${T.accent}44`,display:"flex",alignItems:"center",gap:6}}>
                     {showAddStaff ? "✕ Cancel" : "+ Add Staff Member"}
                   </button>
                 </div>
               </div>
+
+              {/* Bulk Password Reset Panel */}
+              {showBulkReset && (
+                <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,marginBottom:20,border:"1px solid rgba(239,68,68,0.3)"}}>
+                  <h3 style={{margin:"0 0 4px",fontSize:14,fontWeight:700,letterSpacing:.5,color:"#f87171",textTransform:"uppercase"}}>🔑 Bulk Password Reset</h3>
+                  <p style={{color:T.muted,fontSize:12,marginBottom:18}}>Reset passwords for multiple staff members at once. They will need to change their password on next login.</p>
+
+                  {bulkResetDone ? (
+                    <div style={{padding:"14px 18px",background:"rgba(16,185,129,0.1)",border:"1px solid rgba(16,185,129,0.3)",borderRadius:10,color:T.green,fontWeight:700,fontSize:13}}>
+                      ✓ Passwords reset successfully for {bulkResetScope==="all"?staff.length:bulkResetSelected.length} staff member{(bulkResetScope==="all"?staff.length:bulkResetSelected.length)!==1?"s":""}.
+                      <button onClick={()=>{setShowBulkReset(false);setBulkResetDone(false);}} style={{marginLeft:12,background:"none",border:"none",color:T.green,cursor:"pointer",fontSize:12,fontWeight:700,textDecoration:"underline"}}>Close</button>
+                    </div>
+                  ) : (
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16}}>
+                      <div>
+                        <label style={{color:T.muted,fontSize:11,fontWeight:700,letterSpacing:.5,display:"block",marginBottom:6}}>APPLY TO</label>
+                        <div style={{display:"flex",gap:8,marginBottom:14}}>
+                          {[["all","All Staff"],["selected","Selected Staff"]].map(([val,lbl])=>(
+                            <button key={val} onClick={()=>setBulkResetScope(val)}
+                              style={{flex:1,padding:"8px 14px",borderRadius:9,border:`2px solid ${bulkResetScope===val?"#f87171":T.borderMd}`,background:bulkResetScope===val?"rgba(239,68,68,0.12)":T.overlay,color:bulkResetScope===val?"#f87171":T.muted,fontWeight:bulkResetScope===val?700:400,cursor:"pointer",fontFamily:font,fontSize:12,transition:"all .15s"}}>
+                              {lbl}
+                            </button>
+                          ))}
+                        </div>
+                        {bulkResetScope==="selected" && (
+                          <div style={{maxHeight:160,overflowY:"auto",border:`1px solid ${T.border}`,borderRadius:8,marginBottom:14}}>
+                            {staff.map((u,i)=>(
+                              <div key={u.id} onClick={()=>setBulkResetSelected(p=>p.includes(u.id)?p.filter(x=>x!==u.id):[...p,u.id])}
+                                style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderTop:i>0?`1px solid ${T.border}`:"none",cursor:"pointer",background:bulkResetSelected.includes(u.id)?"rgba(239,68,68,0.06)":"transparent"}}>
+                                <div style={{width:16,height:16,borderRadius:4,border:`2px solid ${bulkResetSelected.includes(u.id)?"#ef4444":T.borderMd}`,background:bulkResetSelected.includes(u.id)?"#ef4444":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                  {bulkResetSelected.includes(u.id)&&<span style={{color:"#fff",fontSize:10,fontWeight:900}}>✓</span>}
+                                </div>
+                                <Avatar name={u.name} size={20}/>
+                                <div style={{flex:1,minWidth:0}}>
+                                  <div style={{fontSize:12,fontWeight:600,color:T.white,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{u.name}</div>
+                                  <div style={{fontSize:10,color:T.muted}}>{u.jobTitle||u.email}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label style={{color:T.muted,fontSize:11,fontWeight:700,letterSpacing:.5,display:"block",marginBottom:6}}>NEW PASSWORD</label>
+                        <input value={bulkResetPw} onChange={e=>setBulkResetPw(e.target.value)} placeholder="Enter new password for selected staff"
+                          style={{width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:10,padding:"10px 14px",color:T.white,fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box",marginBottom:8}}/>
+                        {bulkResetPw && bulkResetPw.length < 6 && <div style={{fontSize:11,color:"#f87171",marginBottom:8}}>Password must be at least 6 characters</div>}
+                        <div style={{fontSize:11,color:T.muted,marginBottom:14}}>
+                          This will reset passwords for <strong style={{color:T.white}}>{bulkResetScope==="all"?staff.length:bulkResetSelected.length} staff member{(bulkResetScope==="all"?staff.length:bulkResetSelected.length)!==1?"s":""}</strong>.
+                        </div>
+                        <button
+                          disabled={!bulkResetPw||bulkResetPw.length<6||(bulkResetScope==="selected"&&bulkResetSelected.length===0)}
+                          onClick={async()=>{
+                            const targets = bulkResetScope==="all" ? staff.map(u=>u.id) : bulkResetSelected;
+                            const hashed = await hashPassword(bulkResetPw);
+                            setPasswords(p=>{
+                              const n={...p};
+                              targets.forEach(id=>{ n[id]=hashed; });
+                              return n;
+                            });
+                            await Promise.all(targets.map(id=>dbSavePassword(id, hashed)));
+                            setBulkResetDone(true);
+                            setBulkResetPw("");
+                          }}
+                          style={{width:"100%",background:(!bulkResetPw||bulkResetPw.length<6||(bulkResetScope==="selected"&&bulkResetSelected.length===0))?"rgba(239,68,68,0.3)":`linear-gradient(135deg,#ef4444,#b91c1c)`,color:"#fff",border:"none",borderRadius:10,padding:"11px",fontWeight:700,cursor:(!bulkResetPw||bulkResetPw.length<6)?"not-allowed":"pointer",fontFamily:font,fontSize:13,opacity:(!bulkResetPw||bulkResetPw.length<6||(bulkResetScope==="selected"&&bulkResetSelected.length===0))?.5:1}}>
+                          🔑 Reset {bulkResetScope==="all"?"All":bulkResetSelected.length} Password{(bulkResetScope==="all"?staff.length:bulkResetSelected.length)!==1?"s":""}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Add Staff Form */}
               {showAddStaff && (
@@ -12418,7 +13321,7 @@ export default function App() {
                       const id="d"+Date.now()+Math.random();
                       const path=`${id}/${file.name}`;
                       const fileUrl=sb.storage.getPublicUrl("documents",path);
-                      const newDoc={id,title:file.name.substring(0,file.name.lastIndexOf(".")>0?file.name.lastIndexOf("."):file.name.length),date:new Date().toISOString().slice(0,10),size:`${(file.size/1024).toFixed(0)} KB`,type:typeMap[ext]||"Document",fileData:fileUrl,fileUrl,fileName:file.name,ext};
+                      const newDoc={id,title:file.name.substring(0,file.name.lastIndexOf(".")>0?file.name.lastIndexOf("."):file.name.length),date:new Date().toISOString().slice(0,10),size:`${(file.size/1024).toFixed(0)} KB`,type:typeMap[ext]||"Document",fileData:fileUrl,fileUrl,fileName:file.name,ext,version:1};
                       setDocs(p=>[...p,newDoc]);
                       dbSaveDoc(newDoc,file);
                     });
@@ -12432,7 +13335,7 @@ export default function App() {
                         const id="d"+Date.now()+Math.random();
                         const path=`${id}/${file.name}`;
                         const fileUrl=sb.storage.getPublicUrl("documents",path);
-                        const newDoc={id,title:file.name.substring(0,file.name.lastIndexOf(".")>0?file.name.lastIndexOf("."):file.name.length),date:new Date().toISOString().slice(0,10),size:`${(file.size/1024).toFixed(0)} KB`,type:typeMap[ext]||"Document",fileData:fileUrl,fileUrl,fileName:file.name,ext};
+                        const newDoc={id,title:file.name.substring(0,file.name.lastIndexOf(".")>0?file.name.lastIndexOf("."):file.name.length),date:new Date().toISOString().slice(0,10),size:`${(file.size/1024).toFixed(0)} KB`,type:typeMap[ext]||"Document",fileData:fileUrl,fileUrl,fileName:file.name,ext,version:1};
                         setDocs(p=>[...p,newDoc]);
                         dbSaveDoc(newDoc,file);
                       });
@@ -12458,7 +13361,7 @@ export default function App() {
                       const unreadCount = assignedStaff.length - readCount;
 
                       return (
-                        <DocCard key={d.id} d={d} staff={staff} assignedIds={assignedIds} assignedStaff={assignedStaff} readCount={readCount} unreadCount={unreadCount} icon={icon} docAcknowledgements={docAcknowledgements} setDocAssignments={setDocAssignments} dbSaveDocAssignments={dbSaveDocAssignments} setDocs={setDocs} dbDeleteDoc={dbDeleteDoc} setPreviewDoc={setPreviewDoc} T={T} font={font}/>
+                        <DocCard key={d.id} d={d} staff={staff} assignedIds={assignedIds} assignedStaff={assignedStaff} readCount={readCount} unreadCount={unreadCount} icon={icon} docAcknowledgements={docAcknowledgements} setDocAcknowledgements={setDocAcknowledgements} setDocAssignments={setDocAssignments} dbSaveDocAssignments={dbSaveDocAssignments} setDocs={setDocs} dbDeleteDoc={dbDeleteDoc} dbSaveDoc={dbSaveDoc} setPreviewDoc={setPreviewDoc} T={T} font={font}/>
                       );
                     })}
                   </div>
@@ -12472,7 +13375,7 @@ export default function App() {
           )}
 
           {atab==="reports" && (
-            <ReportsTab staff={staff} assigns={assigns} comps={comps} docs={docs} docAssignments={docAssignments} docAcknowledgements={docAcknowledgements} reportView={adminReportView} setReportView={setAdminReportView} dseReports={dseReports} adminResponses={adminResponses} setAdminResponses={setAdminResponses} darkMode={darkMode} Z={T} font={font} modules={allModules} machineComps={machineComps} lastLoginMap={lastLoginMap} extCerts={extCerts}/>
+            <ReportsTab staff={staff} assigns={assigns} comps={comps} docs={docs} docAssignments={docAssignments} docAcknowledgements={docAcknowledgements} reportView={adminReportView} setReportView={setAdminReportView} dseReports={dseReports} adminResponses={adminResponses} setAdminResponses={setAdminResponses} darkMode={darkMode} Z={T} font={font} modules={allModules} machineComps={machineComps} lastLoginMap={lastLoginMap} extCerts={extCerts} quizFailures={quizFailures} setQuizFailures={setQuizFailures} incidents={incidents} onExportPDF={u=>generateStaffPDF(u,allModules,assigns,comps,docs,docAssignments,docAcknowledgements,extCerts,machineComps,lastLoginMap,T)}/>
           )}
 
           {atab==="incidents" && (
@@ -12492,7 +13395,7 @@ export default function App() {
           )}
 
           {atab==="ra" && (
-            <RiskAssessmentTab docs={docs} setDocs={setDocs} setAtab={setAtab} Z={T} font={font}/>
+            <RiskAssessmentTab docs={docs} setDocs={setDocs} setAtab={setAtab} ras={ras} setRas={setRas} dbSaveRA={dbSaveRA} Z={T} font={font}/>
           )}
 
           {atab==="machinery" && (
