@@ -158,6 +158,7 @@ const Z = {
   overlay: "rgba(255,255,255,0.07)",
   overlaySm:"rgba(255,255,255,0.04)",
   headerBg:"rgba(0,0,0,0.3)",
+  headerBgMd:"rgba(255,255,255,0.06)",
 };
 
 const Z_LIGHT = {
@@ -186,7 +187,91 @@ const Z_LIGHT = {
   overlay: "rgba(0,0,0,0.04)",
   overlaySm:"rgba(0,0,0,0.02)",
   headerBg:"rgba(0,0,0,0.05)",
+  headerBgMd:"rgba(0,0,0,0.04)",
 };
+
+// ─── Additional Themes ───────────────────────────────────────────────────────
+const Z_SLATE = { // Midnight Slate — dark charcoal + teal
+  navy:"#1a1f2e", navyDk:"#12151f", navyMd:"#1f2639",
+  blue:"#1a3a9e", accent:"#0d9488", accentLt:"#14b8a6",
+  gold:"#f59e0b", white:"#f1f5f9", offWhite:"#e2e8f0",
+  slate:"#94a3b8", muted:"#64748b", mutedDk:"#475569",
+  bg:"#0d1117", bgCard:"#1a1f2e", bgDeep:"#12151f",
+  green:"#10b981", greenDk:"#065f46", red:"#ef4444", amber:"#f59e0b",
+  border:"rgba(255,255,255,0.07)", borderMd:"rgba(255,255,255,0.11)",
+  overlay:"rgba(255,255,255,0.05)", overlaySm:"rgba(255,255,255,0.03)",
+  headerBg:"rgba(0,0,0,0.35)", headerBgMd:"rgba(255,255,255,0.06)",
+};
+
+const Z_FOREST = { // Deep Forest — dark green + amber
+  navy:"#1a2e1a", navyDk:"#111f11", navyMd:"#1f3620",
+  blue:"#1a5c2a", accent:"#16a34a", accentLt:"#4ade80",
+  gold:"#d97706", white:"#f0fdf4", offWhite:"#dcfce7",
+  slate:"#86efac", muted:"#6b9e7a", mutedDk:"#4a7a5a",
+  bg:"#0a150a", bgCard:"#1a2e1a", bgDeep:"#111f11",
+  green:"#22c55e", greenDk:"#14532d", red:"#ef4444", amber:"#f59e0b",
+  border:"rgba(255,255,255,0.07)", borderMd:"rgba(255,255,255,0.11)",
+  overlay:"rgba(255,255,255,0.05)", overlaySm:"rgba(255,255,255,0.03)",
+  headerBg:"rgba(0,0,0,0.35)", headerBgMd:"rgba(255,255,255,0.06)",
+};
+
+const Z_GRAPHITE = { // Graphite & Gold — near-black + gold
+  navy:"#1c1c1e", navyDk:"#111111", navyMd:"#242424",
+  blue:"#2c2c2e", accent:"#b8860b", accentLt:"#f59e0b",
+  gold:"#f59e0b", white:"#f5f5f0", offWhite:"#e8e8e0",
+  slate:"#a8a89a", muted:"#6b6b60", mutedDk:"#4a4a42",
+  bg:"#0a0a0a", bgCard:"#1c1c1e", bgDeep:"#111111",
+  green:"#10b981", greenDk:"#065f46", red:"#ef4444", amber:"#f59e0b",
+  border:"rgba(255,255,255,0.08)", borderMd:"rgba(255,255,255,0.13)",
+  overlay:"rgba(255,255,255,0.06)", overlaySm:"rgba(255,255,255,0.03)",
+  headerBg:"rgba(0,0,0,0.4)", headerBgMd:"rgba(255,255,255,0.07)",
+};
+
+const Z_ARCTIC = { // Aurora — deep purple/indigo + cyan/green accents
+  navy:"#1a1033", navyDk:"#110a24", navyMd:"#201444",
+  blue:"#2d1b69", accent:"#06b6d4", accentLt:"#22d3ee",
+  gold:"#a78bfa", white:"#f0f4ff", offWhite:"#e0e7ff",
+  slate:"#a5b4fc", muted:"#7c7fa8", mutedDk:"#5b5e8a",
+  bg:"#0a0718", bgCard:"#1a1033", bgDeep:"#110a24",
+  green:"#10b981", greenDk:"#065f46", red:"#f43f5e", amber:"#f59e0b",
+  border:"rgba(167,139,250,0.12)", borderMd:"rgba(167,139,250,0.2)",
+  overlay:"rgba(167,139,250,0.07)", overlaySm:"rgba(167,139,250,0.04)",
+  headerBg:"rgba(0,0,0,0.35)", headerBgMd:"rgba(167,139,250,0.08)",
+};
+
+const Z_SAND = { // Warm Sand — cream + warm terracotta
+  navy:"#fdf8f0", navyDk:"#f5ede0", navyMd:"#faf4ec",
+  blue:"#7c3a1e", accent:"#c2522a", accentLt:"#b45309",
+  gold:"#92400e", white:"#1c0f05", offWhite:"#2d1a0e",
+  slate:"#78350f", muted:"#92400e", mutedDk:"#78350f",
+  bg:"#f0e6d3", bgCard:"#fdf8f0", bgDeep:"#f5ede0",
+  green:"#065f46", greenDk:"#064e3b", red:"#991b1b", amber:"#92400e",
+  border:"rgba(120,53,15,0.12)", borderMd:"rgba(120,53,15,0.18)",
+  overlay:"rgba(120,53,15,0.05)", overlaySm:"rgba(120,53,15,0.03)",
+  headerBg:"rgba(120,53,15,0.07)", headerBgMd:"rgba(120,53,15,0.1)",
+};
+
+const ALL_THEMES = {
+  dark:     { key:"dark",     label:"🌙 Dark Mode",       desc:"Default navy",         tokens:null },
+  light:    { key:"light",    label:"☀️ Light Mode",      desc:"Clean & bright",       tokens:null },
+  slate:    { key:"slate",    label:"◼ Midnight Slate",   desc:"Charcoal + teal",      tokens:null },
+  forest:   { key:"forest",   label:"🌲 Deep Forest",     desc:"Dark green + amber",   tokens:null },
+  graphite: { key:"graphite", label:"⬛ Graphite & Gold",  desc:"Near-black + gold",    tokens:null },
+  arctic:   { key:"arctic",   label:"🔷 Arctic",          desc:"Icy white & blue",     tokens:null },
+  sand:     { key:"sand",     label:"🏜 Warm Sand",       desc:"Cream & terracotta",   tokens:null },
+};
+
+function getThemeTokens(themeKey) {
+  switch(themeKey) {
+    case "light":    return Z_LIGHT;
+    case "slate":    return Z_SLATE;
+    case "forest":   return Z_FOREST;
+    case "graphite": return Z_GRAPHITE;
+    case "arctic":   return Z_ARCTIC;
+    case "sand":     return Z_SAND;
+    default:         return Z; // dark
+  }
+}
 
 // ─── Fake Data ────────────────────────────────────────────────────────────────
 const USERS = [
@@ -3217,7 +3302,7 @@ function StaffDSETab({ user, dseReports, adminResponses, setDseAnswers, setDseCo
 }
 
 // ─── Account Tab Component ───────────────────────────────────────────────────
-function AccountTab({ user, passwords, setPasswords, darkMode, setDarkMode, Z, font }) {
+function AccountTab({ user, passwords, setPasswords, darkMode, setDarkMode, theme, setTheme, onSaveTheme, Z, font }) {
   const isMobile = useWindowWidth() <= 1024;
   const [oldPw,    setOldPw]    = useState("");
   const [newPw,    setNewPw]    = useState("");
@@ -3327,18 +3412,30 @@ function AccountTab({ user, passwords, setPasswords, darkMode, setDarkMode, Z, f
           {/* Theme toggle — spans full width of grid */}
         <div style={{...card,gridColumn:isMobile?"1":"1 / -1",padding:24}}>
           <h3 style={{fontSize:13,fontWeight:700,letterSpacing:.5,color:Z.muted,margin:"0 0 16px",textTransform:"uppercase"}}>Display Theme</h3>
-          <div style={{display:"flex",gap:12}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
             {[
-              {id:true,  label:"🌙 Dark Mode",  desc:"Default — dark navy interface"},
-              {id:false, label:"☀️ Light Mode", desc:"Clean light interface"},
-            ].map(opt=>(
-              <button key={String(opt.id)} onClick={()=>setDarkMode(opt.id)}
-                style={{flex:1,padding:"14px 18px",borderRadius:12,border:`2px solid ${darkMode===opt.id?Z.accent:Z.border}`,background:darkMode===opt.id?`linear-gradient(135deg,${Z.accent}22,${Z.blue}11)`:Z.headerBg,cursor:"pointer",textAlign:"left",fontFamily:font,transition:"all .2s"}}>
-                <div style={{fontWeight:800,fontSize:15,color:darkMode===opt.id?Z.accentLt:Z.muted,marginBottom:3}}>{opt.label}</div>
-                <div style={{fontSize:12,color:Z.muted}}>{opt.desc}</div>
-                {darkMode===opt.id && <div style={{marginTop:6,fontSize:11,color:Z.accentLt,fontWeight:700}}>✓ Active</div>}
-              </button>
-            ))}
+              {key:"dark",     label:"🌙 Dark Mode",      desc:"Default navy",       preview:["#060d2e","#0d1f5c","#2563eb"]},
+              {key:"light",    label:"☀️ Light Mode",     desc:"Clean & bright",     preview:["#e8edf7","#ffffff","#2563eb"]},
+              {key:"slate",    label:"◼ Midnight Slate",  desc:"Charcoal + teal",    preview:["#0d1117","#1a1f2e","#0d9488"]},
+              {key:"forest",   label:"🌲 Deep Forest",    desc:"Dark green + amber", preview:["#0a150a","#1a2e1a","#16a34a"]},
+              {key:"graphite", label:"⬛ Graphite & Gold", desc:"Near-black + gold",  preview:["#0a0a0a","#1c1c1e","#f59e0b"]},
+              {key:"arctic",   label:"🌌 Aurora",          desc:"Deep purple + cyan",  preview:["#0a0718","#1a1033","#06b6d4"]},
+              {key:"sand",     label:"🏜 Warm Sand",      desc:"Cream & terracotta", preview:["#f0e6d3","#fdf8f0","#c2522a"]},
+            ].map(opt=>{
+              const isActive = theme===opt.key;
+              return (
+                <button key={opt.key} onClick={()=>{ setTheme(opt.key); setDarkMode(opt.key==="dark"||opt.key==="slate"||opt.key==="forest"||opt.key==="graphite"||opt.key==="arctic"); if(onSaveTheme) onSaveTheme(opt.key); }}
+                  style={{padding:"12px 14px",borderRadius:12,border:`2px solid ${isActive?Z.accent:Z.border}`,background:isActive?`rgba(37,99,235,0.12)`:Z.overlay,cursor:"pointer",textAlign:"left",fontFamily:font,transition:"all .2s"}}>
+                  {/* Colour swatch */}
+                  <div style={{display:"flex",gap:4,marginBottom:8}}>
+                    {opt.preview.map((c,i)=><div key={i} style={{width:18,height:18,borderRadius:4,background:c,border:"1px solid rgba(255,255,255,0.15)"}}/>)}
+                  </div>
+                  <div style={{fontWeight:700,fontSize:13,color:isActive?Z.accentLt:Z.white,marginBottom:2}}>{opt.label}</div>
+                  <div style={{fontSize:11,color:Z.muted}}>{opt.desc}</div>
+                  {isActive && <div style={{marginTop:5,fontSize:10,color:Z.accentLt,fontWeight:700,letterSpacing:.5}}>✓ ACTIVE</div>}
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -10970,8 +11067,9 @@ function DocAssignPanel({ d, staff, assignedIds, docAcknowledgements, setDocAssi
 }
 
 export default function App() {
-  const [darkMode, setDarkMode] = useState(true);
-  const T = darkMode ? Z : Z_LIGHT; // active theme — used everywhere Z was used
+  const [darkMode, setDarkMode] = useState(true); // kept for backward compat
+  const [theme, setTheme] = useState("dark"); // "dark"|"light"|"slate"|"forest"|"graphite"|"arctic"|"sand"
+  const T = getThemeTokens(theme); // active theme tokens
   const [user,    setUser]    = useState(null);
   const [view,    setView]    = useState("login");
   const [allUsers,setAllUsers]= useState(USERS);
@@ -11207,14 +11305,18 @@ export default function App() {
           setPasswords(map);
         }
 
-        // User profiles (role, jobTitle, manager etc overrides)
+        // User profiles (role, jobTitle, manager etc overrides + theme preference)
         const { data: upRows } = await sb.from("user_profiles").select("*");
         if (upRows && upRows.length) {
           setAllUsers(prev => prev.map(u => {
             const saved = upRows.find(r => r.user_id === u.id);
             return saved ? { ...u, ...saved.data } : u;
           }));
+          // Restore theme for the logged-in user (if already logged in on reload)
+          // We'll handle this at login time instead
         }
+        // Store profile rows for theme restoration at login
+        window.__userProfiles = upRows || [];
 
         // External certificates
         const { data: ecRows } = await sb.from("ext_certs").select("*");
@@ -11461,6 +11563,17 @@ export default function App() {
     await sb.from("user_passwords").upsert({ user_id: userId, password: hashed }, { onConflict: "user_id" });
   }
 
+  async function dbSaveTheme(userId, themeKey) {
+    // Use window.__userProfiles cache to get existing data without an extra query
+    const profiles = window.__userProfiles || [];
+    const existing = profiles.find(r => r.user_id === userId);
+    const merged = { ...(existing?.data || {}), theme: themeKey };
+    // Update cache
+    window.__userProfiles = profiles.map(r => r.user_id===userId ? {...r, data:merged} : r);
+    if (!existing) window.__userProfiles.push({ user_id: userId, data: merged });
+    await sb.from("user_profiles").upsert({ user_id: userId, data: merged }, { onConflict: "user_id" });
+  }
+
   async function dbSaveUserProfile(user) {
     await sb.from("user_profiles").upsert({ user_id: user.id, data: user }, { onConflict: "user_id" });
   }
@@ -11565,6 +11678,13 @@ export default function App() {
     const ts = new Date().toISOString().slice(0,16).replace("T"," ");
     setLastLoginMap(p=>({...p, [u.id]: ts}));
     dbRecordLogin(u.id, ts);
+    // Restore saved theme for this user
+    const profiles = window.__userProfiles || [];
+    const profile = profiles.find(r => r.user_id === u.id);
+    if (profile?.data?.theme) {
+      setTheme(profile.data.theme);
+      setDarkMode(["dark","slate","forest","graphite"].includes(profile.data.theme));
+    }
     setUser(u); setView(u.role==="admin"?"admin":"staff"); setErr("");
   }
 
@@ -11615,42 +11735,42 @@ export default function App() {
   // LOGIN
   // ══════════════════════════════════════════════════════════════════════════
   if (view==="login") return (
-    <div style={{minHeight:"100vh",background:Z.bg,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:font,padding:20,position:"relative",overflow:"hidden"}}>
-      {/* background grid */}
-      <div style={{position:"absolute",inset:0,backgroundImage:"linear-gradient(T.border 1px,transparent 1px),linear-gradient(90deg,T.border 1px,transparent 1px)",backgroundSize:"40px 40px",pointerEvents:"none"}}/>
-      <div style={{position:"absolute",top:"-30%",right:"-10%",width:600,height:600,borderRadius:"50%",background:`radial-gradient(circle,${Z.blue}22,transparent 70%)`,pointerEvents:"none"}}/>
+    <div style={{minHeight:"100vh",background:"#060d2e",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:font,padding:20,position:"relative",overflow:"hidden"}}>
+      {/* background grid — always dark navy, never themed */}
 
-      <div style={{background:`linear-gradient(160deg,${Z.navyMd},${Z.navy})`,borderRadius:isMobile?16:24,padding:isMobile?"28px 20px":"48px 44px",width:"100%",maxWidth:440,boxShadow:"0 30px 80px rgba(0,0,0,.6)",border:`1px solid ${T.border}`,position:"relative",zIndex:1}}>
+      <div style={{position:"absolute",top:"-30%",right:"-10%",width:600,height:600,borderRadius:"50%",background:"radial-gradient(circle,#1a3a9e22,transparent 70%)",pointerEvents:"none"}}/>
+
+      <div style={{background:"linear-gradient(160deg,#152370,#0d1f5c)",borderRadius:isMobile?16:24,padding:isMobile?"28px 20px":"48px 44px",width:"100%",maxWidth:440,boxShadow:"0 30px 80px rgba(0,0,0,.6)",border:"1px solid rgba(255,255,255,0.08)",position:"relative",zIndex:1}}>
         {/* Logo */}
-        <div style={{marginBottom:32,paddingBottom:24,borderBottom:`1px solid ${T.borderMd}`}}>
+        <div style={{marginBottom:32,paddingBottom:24,borderBottom:"1px solid rgba(255,255,255,0.10)"}}>
           <ZeusProtectLogo/>
         </div>
 
         <div style={{marginBottom:28}}>
-          <h3 style={{margin:0,fontSize:16,fontWeight:600,color:Z.muted,letterSpacing:-.3}}>Health & Safety Hub</h3>
+          <h3 style={{margin:0,fontSize:16,fontWeight:600,color:"#94a3b8",letterSpacing:-.3}}>Health & Safety Hub</h3>
         </div>
 
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
           <div>
-            <label style={{color:T.muted,fontSize:11,fontWeight:700,letterSpacing:1}}>EMAIL ADDRESS</label>
+            <label style={{color:"#94a3b8",fontSize:11,fontWeight:700,letterSpacing:1}}>EMAIL ADDRESS</label>
             <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@zeus.com"
-              style={{width:"100%",marginTop:6,padding:"11px 14px",background:T.headerBg,border:`1px solid ${T.borderMd}`,borderRadius:10,color:Z.white,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:font}}/>
+              style={{width:"100%",marginTop:6,padding:"11px 14px",background:"rgba(0,0,0,0.3)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#ffffff",fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:font}}/>
           </div>
           <div>
-            <label style={{color:T.muted,fontSize:11,fontWeight:700,letterSpacing:1}}>PASSWORD</label>
+            <label style={{color:"#94a3b8",fontSize:11,fontWeight:700,letterSpacing:1}}>PASSWORD</label>
             <input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••"
               onKeyDown={e=>e.key==="Enter"&&login()}
-              style={{width:"100%",marginTop:6,padding:"11px 14px",background:T.headerBg,border:`1px solid ${T.borderMd}`,borderRadius:10,color:Z.white,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:font}}/>
+              style={{width:"100%",marginTop:6,padding:"11px 14px",background:"rgba(0,0,0,0.3)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#ffffff",fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:font}}/>
           </div>
           {err && <p style={{color:"#f87171",fontSize:13,margin:0}}>{err}</p>}
-          <button onClick={login} style={{marginTop:4,background:`linear-gradient(135deg,${Z.accent},${Z.navyMd})`,color:Z.white,border:"none",borderRadius:10,padding:"13px",fontWeight:800,fontSize:15,cursor:"pointer",letterSpacing:.5,fontFamily:font,boxShadow:"0 4px 20px rgba(37,99,235,.4)"}}>
+          <button onClick={login} style={{marginTop:4,background:"linear-gradient(135deg,#2563eb,#152370)",color:"#ffffff",border:"none",borderRadius:10,padding:"13px",fontWeight:800,fontSize:15,cursor:"pointer",letterSpacing:.5,fontFamily:font,boxShadow:"0 4px 20px rgba(37,99,235,.4)"}}>
             Sign In →
           </button>
         </div>
 
-        <div style={{marginTop:28,padding:16,background:T.overlay,borderRadius:12,fontSize:12,color:T.muted}}>
-          <strong style={{color:T.muted,letterSpacing:.5,fontSize:11}}>NEED HELP?</strong>
-          <div style={{marginTop:6,color:T.muted,fontSize:11,lineHeight:1.6}}>Contact your Health &amp; Safety Manager or IT administrator if you have forgotten your password or cannot access your account.</div>
+        <div style={{marginTop:28,padding:16,background:"rgba(255,255,255,0.04)",borderRadius:12,fontSize:12}}>
+          <strong style={{color:"#94a3b8",letterSpacing:.5,fontSize:11}}>NEED HELP?</strong>
+          <div style={{marginTop:6,color:"#94a3b8",fontSize:11,lineHeight:1.6}}>Contact your Health &amp; Safety Manager or IT administrator if you have forgotten your password or cannot access your account.</div>
         </div>
       </div>
       <style>{`@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.85)}}`}</style>
@@ -12455,7 +12575,7 @@ export default function App() {
             </div>
           )}
 
-          {stab==="account" && <AccountTab user={user} passwords={passwords} setPasswords={setPasswords} darkMode={darkMode} setDarkMode={setDarkMode} Z={T} font={font}/>}
+          {stab==="account" && <AccountTab user={user} passwords={passwords} setPasswords={setPasswords} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} onSaveTheme={k=>dbSaveTheme(user.id,k)} Z={T} font={font}/>}
 
           {/* Floating hazard report button — mobile only */}
           {isMobile && stab!=="dashboard" && (
@@ -13667,7 +13787,7 @@ export default function App() {
             <SiteInspectionsTab inspections={siteInspections} setInspections={setSiteInspections} staff={staff} Z={T} font={font}/>
           )}
           {atab==="account" && (
-            <AccountTab user={user} passwords={passwords} setPasswords={setPasswords} darkMode={darkMode} setDarkMode={setDarkMode} Z={T} font={font}/>
+            <AccountTab user={user} passwords={passwords} setPasswords={setPasswords} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} onSaveTheme={k=>dbSaveTheme(user.id,k)} Z={T} font={font}/>
           )}
         </div>
         <style>{`
