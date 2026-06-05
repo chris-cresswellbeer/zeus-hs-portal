@@ -1780,6 +1780,8 @@ function generateStaffPDF(u, allModules, assigns, comps, docs, docAssignments, d
 function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledgements, reportView, setReportView, dseReports, adminResponses, setAdminResponses, darkMode, Z, font, modules, machineComps, lastLoginMap, extCerts, quizFailures, setQuizFailures, incidents, onExportPDF }) {
   const isMobile = useWindowWidth() <= 1024;
   const [rptFilterSearch, setRptFilterSearch] = React.useState("");
+  const [showTeamExport, setShowTeamExport] = React.useState(false);
+  const [exportManager, setExportManager] = React.useState("");
   const [rptFilterManager, setRptFilterManager] = React.useState("all");
   const [rptFilterProgress, setRptFilterProgress] = React.useState("all");
   const allModules = modules || TRAINING_MODULES;
@@ -1917,8 +1919,123 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
             style={{padding:"8px 18px",borderRadius:10,border:"1px solid rgba(16,185,129,0.35)",background:"rgba(16,185,129,0.12)",color:Z.green,fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:13,display:"flex",alignItems:"center",gap:6,transition:"all .2s"}}>
             ↓ Export {reportView==="staff"?"Staff":"Manager"} Report
           </button>
+          <button onClick={()=>setShowTeamExport(v=>!v)}
+            style={{padding:"8px 18px",borderRadius:10,border:"1px solid rgba(37,99,235,0.35)",background:showTeamExport?"rgba(37,99,235,0.2)":"rgba(37,99,235,0.1)",color:Z.accentLt,fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:13,display:"flex",alignItems:"center",gap:6,transition:"all .2s"}}>
+            🖨 Team PDF Export
+          </button>
         </div>
       </div>
+
+      {/* ── TEAM PDF EXPORT PANEL ── */}
+      {showTeamExport && (() => {
+        const managers = [...new Set(staff.map(u=>u.manager||"").filter(Boolean))].sort();
+        const teamStaff = exportManager ? staff.filter(u=>u.manager===exportManager) : [];
+        return (
+          <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:14,padding:20,marginBottom:20,border:`1px solid ${Z.accent}44`}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:10}}>
+              <div>
+                <h4 style={{margin:0,fontSize:14,fontWeight:700,color:Z.white}}>🖨 Team Compliance PDF Export</h4>
+                <p style={{margin:"3px 0 0",fontSize:12,color:Z.muted}}>Select a manager to export individual compliance reports for all of their staff as separate PDF pages.</p>
+              </div>
+              <button onClick={()=>setShowTeamExport(false)} style={{background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"5px 12px",color:Z.muted,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700}}>✕ Close</button>
+            </div>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+              <select value={exportManager} onChange={e=>setExportManager(e.target.value)}
+                style={{flex:"1 1 220px",background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:10,padding:"9px 13px",color:exportManager?Z.white:Z.muted,fontSize:13,outline:"none",fontFamily:font,cursor:"pointer"}}>
+                <option value="">Select a manager...</option>
+                {managers.map(m=>{
+                  const count = staff.filter(u=>u.manager===m).length;
+                  return <option key={m} value={m}>{m} ({count} staff)</option>;
+                })}
+              </select>
+              {exportManager && teamStaff.length>0 && (
+                <button
+                  onClick={()=>{
+                    // Open a single print window with all team members' reports
+                    const allHtml = teamStaff.map(u=>{
+                      const assignedIds = assigns[u.id]||[];
+                      const userComps = comps[u.id]||{};
+                      const a = assignedIds.length;
+                      const d = assignedIds.filter(mid=>userComps[mid]).length;
+                      const pct = a ? Math.min(100,Math.round(d/a*100)) : 0;
+                      const status = pct===100?"Compliant":pct>=50?"In Progress":"Overdue";
+                      const today = new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"});
+                      const statusColor = pct===100?"#15803d":pct>=50?"#b45309":"#dc2626";
+                      const trainingRows = assignedIds.map(mid=>{
+                        const m = allModules.find(x=>x.id===mid); if(!m) return "";
+                        const c = userComps[mid];
+                        const passed = c&&c.score>=70;
+                        return `<tr style="background:${!c?"#fff2f2":passed?"#f0fff4":"#fff8f0"}">
+                          <td>${m.icon||""} ${m.title}</td>
+                          <td style="color:${!c?"#999":passed?"#15803d":"#b45309"};font-weight:600">${!c?"Not started":passed?"Passed":"Failed"}</td>
+                          <td style="text-align:center">${c?c.score+"%":"—"}</td>
+                          <td>${c?c.date:"—"}</td>
+                          <td style="font-family:monospace;font-size:11px">${c?.certId||"—"}</td>
+                        </tr>`;
+                      }).join("");
+                      const docRows = (docs||[]).filter(doc=>(docAssignments[doc.id]||[]).includes(u.id)).map(doc=>{
+                        const ack=(docAcknowledgements[u.id]||{})[doc.id];
+                        return `<tr style="background:${ack?"#f0fff4":"#fff2f2"}"><td>${doc.title}</td><td>${doc.type||"—"}</td><td style="color:${ack?"#15803d":"#dc2626"};font-weight:600">${ack?`✓ ${ack.date}`:"⏳ Pending"}</td></tr>`;
+                      }).join("");
+                      return `<div class="page-break">
+                        <div class="header">
+                          <div><h1>${u.name}</h1><p>${u.jobTitle||""}${u.manager?" · Manager: "+u.manager:""}</p><p style="color:#94a3b8;font-size:12px">Generated: ${today}</p></div>
+                          <div style="text-align:right"><div style="font-size:11px;color:#94a3b8;margin-bottom:6px">Zeus Protect H&S Portal</div><div class="status-badge" style="color:${statusColor};border-color:${statusColor};background:${pct===100?"#f0fff4":pct>=50?"#fff8f0":"#fff2f2"}">${status} — ${pct}%</div></div>
+                        </div>
+                        <div class="meta-grid">
+                          <div class="meta-card"><div class="label">Assigned</div><div class="value">${a}</div></div>
+                          <div class="meta-card"><div class="label">Completed</div><div class="value">${d}</div></div>
+                          <div class="meta-card"><div class="label">Compliance</div><div class="value" style="color:${statusColor}">${pct}%</div></div>
+                        </div>
+                        <h2>📚 Training</h2>
+                        ${a===0?'<div class="no-data">No modules assigned</div>':`<table><thead><tr><th>Module</th><th>Status</th><th>Score</th><th>Date</th><th>Certificate</th></tr></thead><tbody>${trainingRows}</tbody></table>`}
+                        ${docRows?`<h2>📄 Document Acknowledgements</h2><table><thead><tr><th>Document</th><th>Type</th><th>Status</th></tr></thead><tbody>${docRows}</tbody></table>`:""}
+                      </div>`;
+                    }).join("");
+
+                    const win = window.open("","_blank","width=900,height=700");
+                    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+                      <title>Team Compliance Report — ${exportManager}</title>
+                      <style>
+                        *{margin:0;padding:0;box-sizing:border-box}
+                        body{font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;background:#fff;padding:32px;font-size:13px}
+                        @media print{body{padding:20px}@page{margin:15mm;size:A4}.page-break{page-break-after:always}}
+                        .page-break{padding-bottom:32px;margin-bottom:32px;border-bottom:2px dashed #e2e8f0}
+                        .page-break:last-child{border-bottom:none}
+                        .header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid #0d1f5c}
+                        .header h1{font-size:20px;font-weight:900;color:#0d1f5c;margin-bottom:3px}
+                        .header p{color:#64748b;font-size:12px;margin-top:2px}
+                        .status-badge{display:inline-block;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700;border:2px solid}
+                        .meta-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
+                        .meta-card{background:#f8fafc;border-radius:8px;padding:10px 14px;border:1px solid #e2e8f0}
+                        .meta-card .label{font-size:10px;font-weight:700;letter-spacing:.5px;color:#94a3b8;text-transform:uppercase;margin-bottom:3px}
+                        .meta-card .value{font-size:18px;font-weight:900;color:#0d1f5c}
+                        h2{font-size:13px;font-weight:800;color:#0d1f5c;margin:14px 0 8px;padding-bottom:4px;border-bottom:2px solid #e2e8f0;text-transform:uppercase;letter-spacing:.5px}
+                        table{width:100%;border-collapse:collapse;margin-bottom:4px;font-size:12px}
+                        th{background:#0d1f5c;color:#fff;padding:7px 10px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.3px}
+                        td{padding:7px 10px;border-bottom:1px solid #e2e8f0}
+                        .no-data{padding:10px;color:#94a3b8;font-style:italic;background:#f8fafc;border-radius:6px}
+                      </style></head><body>
+                      <div style="text-align:center;padding:16px 0 24px;border-bottom:3px solid #0d1f5c;margin-bottom:28px">
+                        <h1 style="font-size:22px;font-weight:900;color:#0d1f5c;margin-bottom:4px">Team Compliance Report</h1>
+                        <p style="color:#64748b;font-size:13px">Manager: ${exportManager} · ${teamStaff.length} staff members · Generated ${new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})}</p>
+                      </div>
+                      ${allHtml}
+                      <script>window.onload=()=>window.print()<\/script>
+                    </body></html>`);
+                    win.document.close();
+                  }}
+                  style={{background:`linear-gradient(135deg,${Z.accent},${Z.blue})`,color:"#fff",border:"none",borderRadius:10,padding:"10px 20px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13,boxShadow:`0 4px 14px ${Z.accent}44`,whiteSpace:"nowrap"}}>
+                  🖨 Export {teamStaff.length} Report{teamStaff.length!==1?"s":""} for {exportManager.split(" ")[0]}'s Team
+                </button>
+              )}
+            </div>
+            {exportManager && teamStaff.length===0 && (
+              <p style={{color:Z.muted,fontSize:12,marginTop:10}}>No staff found reporting to {exportManager}.</p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── STAFF OVERVIEW ── */}
       {reportView === "staff" && (
@@ -6048,6 +6165,9 @@ function InvestigationTab({ incidents, setIncidents, staff, investigations, setI
                       <span style={{fontSize:11,fontWeight:800,color:ti.col}}>{inc.type.replace("_"," ").toUpperCase()}</span>
                       <span style={{fontSize:11,color:Z.muted}}>📍 {inc.location}</span>
                       <span style={{fontSize:11,color:Z.muted}}>{inc.date}</span>
+                      {inc.quickReport && (
+                        <span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:6,color:"#f59e0b",background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.25)"}}>⚡ Quick Report</span>
+                      )}
                       {inc.riddor && (
                         <span style={{fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:6,
                           color:inc.riddorReported?"#10b981":"#f87171",
@@ -10686,6 +10806,119 @@ function ExternalCertsSection({ staff, extCerts, setExtCerts, dbSaveExtCert, dbD
   );
 }
 
+// ─── Quick Hazard Report Modal ───────────────────────────────────────────────
+const QUICK_LOCATIONS = [
+  "Warehouse","Loading Bay","Production Floor","Goods-In","Dispatch Bay",
+  "Staff Canteen","Car Park","Offices","Racking Aisle","Machinery Area",
+  "Fire Exit","Toilets","Reception","Electrical Room","Other"
+];
+
+function QuickReportModal({ user, onSubmit, onClose, Z, font }) {
+  const [what, setWhat] = React.useState("");
+  const [where, setWhere] = React.useState("");
+  const [whereOther, setWhereOther] = React.useState("");
+  const [urgency, setUrgency] = React.useState("");
+  const [submitted, setSubmitted] = React.useState(false);
+
+  const URGENCY_OPTIONS = [
+    { id:"low",    label:"Safe to leave",         desc:"Not an immediate risk — log for awareness", icon:"🟡", color:"#f59e0b", bg:"rgba(245,158,11,0.1)", border:"rgba(245,158,11,0.3)" },
+    { id:"medium", label:"Needs attention",        desc:"Should be fixed today",                     icon:"🟠", color:"#f97316", bg:"rgba(249,115,22,0.1)", border:"rgba(249,115,22,0.3)" },
+    { id:"high",   label:"STOP WORK — Urgent",     desc:"Immediate risk — escalate now",             icon:"🔴", color:"#ef4444", bg:"rgba(239,68,68,0.12)", border:"rgba(239,68,68,0.4)" },
+  ];
+
+  function submit() {
+    if (!what.trim() || !where || !urgency) return;
+    const location = where === "Other" ? (whereOther.trim()||"Other") : where;
+    const urgencyOpt = URGENCY_OPTIONS.find(o=>o.id===urgency);
+    const rec = {
+      id: "qr_" + Date.now(),
+      date: new Date().toISOString().slice(0,10),
+      time: new Date().toTimeString().slice(0,5),
+      type: urgency==="high" ? "unsafe_condition" : "near_miss",
+      location,
+      description: what.trim(),
+      reportedBy: user.id,
+      injuryType: "None / No injury",
+      riddor: false,
+      closed: false,
+      quickReport: true,
+      urgency: urgency,
+      photos: [],
+    };
+    onSubmit(rec);
+    setSubmitted(true);
+  }
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:20,padding:28,maxWidth:480,width:"100%",border:"1px solid rgba(245,158,11,0.3)",boxShadow:"0 24px 64px rgba(0,0,0,0.6)"}}>
+        {submitted ? (
+          <div style={{textAlign:"center",padding:"12px 0"}}>
+            <div style={{fontSize:48,marginBottom:12}}>✅</div>
+            <h3 style={{fontSize:20,fontWeight:800,color:"#fff",marginBottom:8}}>Hazard Reported</h3>
+            <p style={{color:Z.muted,fontSize:13,marginBottom:24}}>Your report has been logged and your H&S manager has been notified. Thank you for keeping the site safe.</p>
+            <button onClick={onClose} style={{background:`linear-gradient(135deg,${Z.accent},${Z.blue})`,color:"#fff",border:"none",borderRadius:10,padding:"11px 32px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:14}}>Done</button>
+          </div>
+        ) : (
+          <>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+              <div>
+                <h3 style={{margin:0,fontSize:18,fontWeight:900,color:"#fff"}}>⚠ Report a Hazard</h3>
+                <p style={{margin:"3px 0 0",fontSize:12,color:Z.muted}}>Quick report — takes 30 seconds</p>
+              </div>
+              <button onClick={onClose} style={{background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"6px 12px",color:Z.muted,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700}}>✕</button>
+            </div>
+
+            {/* What did you see */}
+            <div style={{marginBottom:16}}>
+              <label style={{fontSize:11,fontWeight:700,color:Z.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:6}}>What did you see? *</label>
+              <textarea value={what} onChange={e=>setWhat(e.target.value)} rows={3}
+                placeholder="Describe the hazard or unsafe condition briefly..."
+                style={{width:"100%",background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:10,padding:"10px 14px",color:"#fff",fontSize:13,outline:"none",fontFamily:font,resize:"none",boxSizing:"border-box",lineHeight:1.5}}/>
+            </div>
+
+            {/* Where */}
+            <div style={{marginBottom:16}}>
+              <label style={{fontSize:11,fontWeight:700,color:Z.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:6}}>Where was it? *</label>
+              <select value={where} onChange={e=>{setWhere(e.target.value);setWhereOther("");}}
+                style={{width:"100%",background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:10,padding:"10px 14px",color:where?"#fff":Z.muted,fontSize:13,outline:"none",fontFamily:font,cursor:"pointer",boxSizing:"border-box"}}>
+                <option value="">Select location...</option>
+                {QUICK_LOCATIONS.map(l=><option key={l} value={l}>{l}</option>)}
+              </select>
+              {where==="Other" && (
+                <input value={whereOther} onChange={e=>setWhereOther(e.target.value)} placeholder="Describe the location..."
+                  style={{width:"100%",background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:10,padding:"10px 14px",color:"#fff",fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box",marginTop:8}}/>
+              )}
+            </div>
+
+            {/* Urgency */}
+            <div style={{marginBottom:24}}>
+              <label style={{fontSize:11,fontWeight:700,color:Z.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:8}}>How urgent is it? *</label>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {URGENCY_OPTIONS.map(opt=>(
+                  <button key={opt.id} onClick={()=>setUrgency(opt.id)}
+                    style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",borderRadius:10,border:`2px solid ${urgency===opt.id?opt.border:"rgba(255,255,255,0.08)"}`,background:urgency===opt.id?opt.bg:Z.overlay,cursor:"pointer",fontFamily:font,textAlign:"left",transition:"all .15s"}}>
+                    <span style={{fontSize:20,flexShrink:0}}>{opt.icon}</span>
+                    <div>
+                      <div style={{fontWeight:700,fontSize:13,color:urgency===opt.id?opt.color:"#fff"}}>{opt.label}</div>
+                      <div style={{fontSize:11,color:Z.muted,marginTop:1}}>{opt.desc}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={submit} disabled={!what.trim()||!where||!urgency}
+              style={{width:"100%",background:(!what.trim()||!where||!urgency)?"rgba(37,99,235,0.3)":`linear-gradient(135deg,${Z.accent},${Z.blue})`,color:"#fff",border:"none",borderRadius:10,padding:"13px",fontWeight:800,cursor:(!what.trim()||!where||!urgency)?"not-allowed":"pointer",fontFamily:font,fontSize:14,opacity:(!what.trim()||!where||!urgency)?.5:1,boxShadow:(!what.trim()||!where||!urgency)?"none":`0 4px 16px ${Z.accent}44`}}>
+              Submit Hazard Report →
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DocAssignPanel({ d, staff, assignedIds, docAcknowledgements, setDocAssignments, dbSaveDocAssignments, T, font }) {
   const [docSearch, setDocSearch] = React.useState("");
   const filteredForDoc = staff.filter(u=>
@@ -10787,6 +11020,7 @@ export default function App() {
   const [staffFilterManager,  setStaffFilterManager]  = useState("all");
   const [staffFilterSearch,   setStaffFilterSearch]   = useState("");
   const [showBulkReset, setShowBulkReset] = useState(false);
+  const [showQuickReport, setShowQuickReport] = useState(false);
   const [bulkResetPw, setBulkResetPw] = useState("");
   const [bulkResetScope, setBulkResetScope] = useState("all"); // "all" | "selected"
   const [bulkResetSelected, setBulkResetSelected] = useState([]);
@@ -11902,10 +12136,25 @@ export default function App() {
         )}
         <div style={{maxWidth:1100,margin:"0 auto",padding:isMobile?"16px 12px":"36px 28px"}}>
 
+          {showQuickReport && (
+            <QuickReportModal user={user} Z={T} font={font}
+              onClose={()=>setShowQuickReport(false)}
+              onSubmit={rec=>{
+                setIncidents(p=>[rec,...p]);
+                dbSaveIncident(rec);
+              }}/>
+          )}
+
           {stab==="dashboard" && (
             <div>
-              <div style={{marginBottom:28}}>
-                <h1 style={{fontSize:26,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Welcome back, {user.name.split(" ")[0]} <HelpTip dark={true} text="Your personal H&S summary. The tiles show outstanding training, documents awaiting your confirmation, and any open actions assigned to you. Overdue items are highlighted — complete them to keep your record up to date."/></h1>
+              <div style={{marginBottom:20}}>
+                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:4}}>
+                  <h1 style={{fontSize:26,fontWeight:900,letterSpacing:-.5,margin:0}}>Welcome back, {user.name.split(" ")[0]} <HelpTip dark={true} text="Your personal H&S summary. The tiles show outstanding training, documents awaiting your confirmation, and any open actions assigned to you. Overdue items are highlighted — complete them to keep your record up to date."/></h1>
+                  <button onClick={()=>setShowQuickReport(true)}
+                    style={{display:"flex",alignItems:"center",gap:8,background:"linear-gradient(135deg,#f59e0b,#d97706)",color:"#fff",border:"none",borderRadius:12,padding:"11px 20px",cursor:"pointer",fontFamily:font,fontWeight:800,fontSize:13,boxShadow:"0 4px 16px rgba(245,158,11,0.4)",flexShrink:0,whiteSpace:"nowrap"}}>
+                    ⚠ Report a Hazard
+                  </button>
+                </div>
                 <p style={{color:T.muted,margin:"0 0 28px",fontSize:13}}>{user.jobTitle||""}{user.jobTitle?" · ":""}{user.email}</p>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:28}}>
@@ -12207,6 +12456,14 @@ export default function App() {
           )}
 
           {stab==="account" && <AccountTab user={user} passwords={passwords} setPasswords={setPasswords} darkMode={darkMode} setDarkMode={setDarkMode} Z={T} font={font}/>}
+
+          {/* Floating hazard report button — mobile only */}
+          {isMobile && stab!=="dashboard" && (
+            <button onClick={()=>setShowQuickReport(true)}
+              style={{position:"fixed",bottom:24,right:20,zIndex:90,background:"linear-gradient(135deg,#f59e0b,#d97706)",color:"#fff",border:"none",borderRadius:"50%",width:56,height:56,cursor:"pointer",fontSize:22,boxShadow:"0 6px 20px rgba(245,158,11,0.5)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              ⚠
+            </button>
+          )}
 
           {stab==="machinery" && isWarehouseWorker(user) && (
             <MachineryCompetenceTab user={user} machineComps={machineComps} setMachineComps={setMachineComps} Z={T} font={font}/>
