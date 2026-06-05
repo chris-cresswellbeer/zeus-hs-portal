@@ -11130,6 +11130,423 @@ function DocAssignPanel({ d, staff, assignedIds, docAcknowledgements, setDocAssi
   );
 }
 
+// ─── Contractor Management Components ────────────────────────────────────────
+const INDUCTION_ITEMS = [
+  {id:"site_rules",  label:"Site rules & access procedures"},
+  {id:"emergency",   label:"Emergency procedures & muster points"},
+  {id:"ppe",         label:"PPE requirements for work area"},
+  {id:"hazards",     label:"Specific hazards & COSHH substances"},
+  {id:"first_aid",   label:"First aid locations & contacts"},
+  {id:"reporting",   label:"Incident & near miss reporting"},
+  {id:"welfare",     label:"Welfare facilities & site etiquette"},
+  {id:"permits",     label:"Permit to work procedures (if applicable)"},
+];
+const CONTRACTOR_TYPES = ["Contractor","Agency Worker","Visitor","Delivery Driver"];
+const CONTRACTOR_CERT_TYPES = [
+  {id:"cscs",  label:"CSCS Card",      icon:"🪪"},
+  {id:"ipaf",  label:"IPAF",           icon:"🏗"},
+  {id:"pasma", label:"PASMA",          icon:"🪜"},
+  {id:"gas",   label:"Gas Safe",       icon:"🔥"},
+  {id:"elect", label:"NICEIC/NAPIT",   icon:"⚡"},
+  {id:"asb",   label:"Asbestos Aware", icon:"⚠️"},
+  {id:"other", label:"Other",          icon:"📋"},
+];
+
+function ContractorForm({ existing, onSave, onCancel, T, font }) {
+  const today = new Date().toISOString().slice(0,10);
+  const [form, setForm] = React.useState(existing || {id:"con_"+Date.now(),name:"",company:"",email:"",phone:"",type:"Contractor",status:"active",accessFrom:today,notes:""});
+  const inp = {width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"9px 13px",color:T.white,fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box"};
+  const lbl = {fontSize:11,fontWeight:700,color:T.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:5};
+  return (
+    <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${T.borderMd}`,marginBottom:20}}>
+      <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:800,color:T.white}}>{existing?"Edit":"Add"} Contractor</h3>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+        <div><label style={lbl}>Full Name *</label><input style={inp} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+        <div><label style={lbl}>Company</label><input style={inp} value={form.company} onChange={e=>setForm(p=>({...p,company:e.target.value}))}/></div>
+        <div><label style={lbl}>Email</label><input style={inp} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></div>
+        <div><label style={lbl}>Phone</label><input style={inp} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/></div>
+        <div><label style={lbl}>Type</label>
+          <select style={inp} value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))}>
+            {CONTRACTOR_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div><label style={lbl}>Status</label>
+          <select style={inp} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}>
+            <option value="active">Active</option>
+            <option value="expired">Expired</option>
+            <option value="banned">Banned</option>
+          </select>
+        </div>
+      </div>
+      <div style={{marginBottom:14}}><label style={lbl}>Notes</label><textarea style={{...inp,minHeight:50,resize:"vertical"}} value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+      <div style={{display:"flex",gap:10}}>
+        <button onClick={()=>onSave(form)} disabled={!form.name.trim()} style={{background:form.name.trim()?`linear-gradient(135deg,${T.accent},${T.blue})`:"rgba(37,99,235,0.3)",color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",cursor:form.name.trim()?"pointer":"not-allowed",fontFamily:font,fontWeight:700,fontSize:13}}>Save</button>
+        <button onClick={onCancel} style={{background:T.overlay,color:T.muted,border:`1px solid ${T.borderMd}`,borderRadius:10,padding:"10px 18px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function ContractorDetail({ selCon, contractorInductions, setContractorInductions, contractorCerts, setContractorCerts, contractorVisits, setContractorVisits, contractors, setContractors, dbSaveContractor, dbDeleteContractor, dbSaveContractorInductions, dbSaveContractorCerts, dbSaveContractorVisits, staff, isMobile, setView, T, font }) {
+  const today = new Date().toISOString().slice(0,10);
+  const [detailTab, setDetailTab] = React.useState("overview");
+  const [editingCon, setEditingCon] = React.useState(null);
+  const [showVisitForm, setShowVisitForm] = React.useState(false);
+  const [visitForm, setVisitForm] = React.useState({id:"",date:today,timeIn:"",timeOut:"",purpose:"",areas:"",inductedBy:"",permitRequired:false,notes:""});
+  const [certUploading, setCertUploading] = React.useState(null);
+
+  const ind = contractorInductions[selCon.id]||{};
+  const certs = contractorCerts[selCon.id]||{};
+  const visits = (contractorVisits[selCon.id]||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const indDone = INDUCTION_ITEMS.filter(item=>ind[item.id]?.done).length;
+  const indPct = Math.round(indDone/INDUCTION_ITEMS.length*100);
+  const ss = selCon.status==="active"?{color:"#10b981",bg:"rgba(16,185,129,0.12)",border:"rgba(16,185,129,0.3)"}:selCon.status==="banned"?{color:"#f87171",bg:"rgba(239,68,68,0.12)",border:"rgba(239,68,68,0.3)"}:{color:T.muted,bg:T.overlay,border:T.borderMd};
+  const inp2 = {width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"9px 13px",color:T.white,fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box"};
+  const lbl2 = {fontSize:11,fontWeight:700,color:T.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:5};
+
+  function saveVisit() {
+    const v = {...visitForm, id:"v_"+Date.now()};
+    const newVisits = [v, ...visits];
+    setContractorVisits(p=>({...p,[selCon.id]:newVisits}));
+    dbSaveContractorVisits(selCon.id, newVisits);
+    setShowVisitForm(false);
+    setVisitForm({id:"",date:today,timeIn:"",timeOut:"",purpose:"",areas:"",inductedBy:"",permitRequired:false,notes:""});
+  }
+
+  function deleteVisit(vid) {
+    const newVisits = visits.filter(v=>v.id!==vid);
+    setContractorVisits(p=>({...p,[selCon.id]:newVisits}));
+    dbSaveContractorVisits(selCon.id, newVisits);
+  }
+
+  return (
+    <div>
+      <button onClick={()=>setView("list")} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"7px 14px",color:T.muted,cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13,marginBottom:20}}>← Back to Register</button>
+      {editingCon && <ContractorForm existing={editingCon} onSave={c=>{setContractors(p=>p.map(x=>x.id===c.id?c:x));dbSaveContractor(c);setEditingCon(null);}} onCancel={()=>setEditingCon(null)} T={T} font={font}/>}
+
+      {/* Profile header */}
+      <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${T.borderMd}`,marginBottom:4}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:12}}>
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
+              <h2 style={{margin:0,fontSize:20,fontWeight:900,color:T.white}}>{selCon.name}</h2>
+              <span style={{fontSize:11,fontWeight:700,padding:"2px 9px",borderRadius:20,background:ss.bg,color:ss.color,border:`1px solid ${ss.border}`,textTransform:"capitalize"}}>{selCon.status}</span>
+            </div>
+            <p style={{margin:0,fontSize:13,color:T.muted}}>{selCon.company||"Independent"} · {selCon.type}</p>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={()=>setEditingCon(selCon)} style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:"1px solid rgba(37,99,235,0.25)",borderRadius:9,padding:"7px 14px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:12}}>✏ Edit</button>
+            <button onClick={()=>{if(window.confirm(`Remove ${selCon.name}?`)){setContractors(p=>p.filter(c=>c.id!==selCon.id));dbDeleteContractor(selCon.id);setView("list");}}} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:9,padding:"7px 14px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:12}}>🗑 Remove</button>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8}}>
+          {[{l:"Email",v:selCon.email||"—"},{l:"Phone",v:selCon.phone||"—"},{l:"Total Visits",v:visits.length},{l:"Last Visit",v:visits[0]?.date||"Never"},{l:"Induction",v:`${indPct}%`},{l:"Certs",v:`${Object.keys(certs).length}/${CONTRACTOR_CERT_TYPES.length}`}].map((r,i)=>(
+            <div key={i} style={{background:T.overlay,borderRadius:8,padding:"8px 12px"}}>
+              <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:2}}>{r.l}</div>
+              <div style={{fontSize:12,color:T.white,fontWeight:600}}>{r.v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{display:"flex",borderBottom:`1px solid ${T.border}`,marginBottom:20}}>
+        {[["overview","📋 Overview"],["visits",`🗓 Visits (${visits.length})`],["induction","✅ Induction"],["certs","🪪 Certs"]].map(([id,label])=>(
+          <button key={id} onClick={()=>setDetailTab(id)} style={{padding:"11px 18px",background:"none",border:"none",borderBottom:`2px solid ${detailTab===id?T.gold:"transparent"}`,color:detailTab===id?T.white:T.muted,fontWeight:detailTab===id?700:400,cursor:"pointer",fontFamily:font,fontSize:13}}>{label}</button>
+        ))}
+      </div>
+
+      {/* Overview tab */}
+      {detailTab==="overview" && (
+        <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:20,border:`1px solid ${T.border}`,color:T.muted,fontSize:13,lineHeight:1.7}}>
+          {selCon.notes ? <p style={{margin:0}}>{selCon.notes}</p> : <p style={{margin:0,fontStyle:"italic"}}>No notes recorded.</p>}
+        </div>
+      )}
+
+      {/* Visits tab */}
+      {detailTab==="visits" && (
+        <div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:10}}>
+            <h3 style={{margin:0,fontSize:15,fontWeight:800,color:T.white}}>Visit Log</h3>
+            <button onClick={()=>setShowVisitForm(v=>!v)} style={{background:showVisitForm?"rgba(239,68,68,0.1)":`linear-gradient(135deg,${T.accent},${T.blue})`,color:showVisitForm?"#f87171":"#fff",border:showVisitForm?"1px solid rgba(239,68,68,0.2)":"none",borderRadius:10,padding:"9px 18px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>
+              {showVisitForm?"✕ Cancel":"+ Log Visit"}
+            </button>
+          </div>
+          {showVisitForm && (
+            <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:20,border:`1px solid ${T.borderMd}`,marginBottom:16}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
+                <div><label style={lbl2}>Date *</label><input type="date" style={inp2} value={visitForm.date} onChange={e=>setVisitForm(p=>({...p,date:e.target.value}))}/></div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <div><label style={lbl2}>Time In</label><input type="time" style={inp2} value={visitForm.timeIn} onChange={e=>setVisitForm(p=>({...p,timeIn:e.target.value}))}/></div>
+                  <div><label style={lbl2}>Time Out</label><input type="time" style={inp2} value={visitForm.timeOut} onChange={e=>setVisitForm(p=>({...p,timeOut:e.target.value}))}/></div>
+                </div>
+                <div><label style={lbl2}>Purpose / Job Description *</label><input style={inp2} value={visitForm.purpose} onChange={e=>setVisitForm(p=>({...p,purpose:e.target.value}))} placeholder="e.g. Annual boiler service"/></div>
+                <div><label style={lbl2}>Areas Accessed</label><input style={inp2} value={visitForm.areas} onChange={e=>setVisitForm(p=>({...p,areas:e.target.value}))} placeholder="e.g. Boiler room, Plant room"/></div>
+                <div><label style={lbl2}>Signed In By (Zeus Staff)</label>
+                  <select style={inp2} value={visitForm.inductedBy} onChange={e=>setVisitForm(p=>({...p,inductedBy:e.target.value}))}>
+                    <option value="">Select staff member...</option>
+                    {staff.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}
+                  </select>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:10,paddingTop:22}}>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13,color:T.white}}>
+                    <input type="checkbox" checked={visitForm.permitRequired} onChange={e=>setVisitForm(p=>({...p,permitRequired:e.target.checked}))} style={{accentColor:T.accent,width:16,height:16}}/>
+                    Permit to Work required
+                  </label>
+                </div>
+              </div>
+              <div style={{marginBottom:12}}><label style={lbl2}>Notes</label><textarea style={{...inp2,minHeight:50,resize:"vertical"}} value={visitForm.notes} onChange={e=>setVisitForm(p=>({...p,notes:e.target.value}))}/></div>
+              <button onClick={saveVisit} disabled={!visitForm.date||!visitForm.purpose.trim()} style={{background:(!visitForm.date||!visitForm.purpose.trim())?"rgba(37,99,235,0.3)":`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",cursor:(!visitForm.date||!visitForm.purpose.trim())?"not-allowed":"pointer",fontFamily:font,fontWeight:700,fontSize:13,opacity:(!visitForm.date||!visitForm.purpose.trim())?.5:1}}>
+                ✓ Save Visit
+              </button>
+            </div>
+          )}
+          {visits.length===0
+            ? <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:"32px 20px",textAlign:"center",border:`1px solid ${T.border}`,color:T.muted,fontSize:14}}>No visits logged yet.</div>
+            : <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {visits.map((v,i)=>(
+                <div key={v.id||i} style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:"16px 20px",border:`1px solid ${T.border}`}}>
+                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+                    <div style={{flex:1}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:14,fontWeight:800,color:T.white}}>{v.date}</span>
+                        {v.timeIn && <span style={{fontSize:12,color:T.muted}}>{v.timeIn}{v.timeOut?` – ${v.timeOut}`:""}</span>}
+                        {v.permitRequired && <span style={{fontSize:10,fontWeight:700,color:"#f59e0b",background:"rgba(245,158,11,0.12)",padding:"1px 7px",borderRadius:20,border:"1px solid rgba(245,158,11,0.3)"}}>⚠ Permit</span>}
+                        {v.date===today && <span style={{fontSize:10,fontWeight:700,color:"#10b981",background:"rgba(16,185,129,0.12)",padding:"1px 7px",borderRadius:20,border:"1px solid rgba(16,185,129,0.3)"}}>TODAY</span>}
+                      </div>
+                      <div style={{fontSize:13,fontWeight:700,color:T.white,marginBottom:4}}>{v.purpose}</div>
+                      <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+                        {v.areas && <span style={{fontSize:11,color:T.muted}}>📍 {v.areas}</span>}
+                        {v.inductedBy && <span style={{fontSize:11,color:T.muted}}>✍ {v.inductedBy}</span>}
+                      </div>
+                      {v.notes && <div style={{marginTop:4,fontSize:11,color:T.muted,fontStyle:"italic"}}>{v.notes}</div>}
+                    </div>
+                    <button onClick={()=>{if(window.confirm("Delete this visit?")) deleteVisit(v.id||i);}} style={{background:"rgba(239,68,68,0.08)",color:"#f87171",border:"1px solid rgba(239,68,68,0.15)",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontFamily:font,fontWeight:700}}>🗑</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          }
+        </div>
+      )}
+
+      {/* Induction tab */}
+      {detailTab==="induction" && (
+        <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${T.borderMd}`}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
+            <div>
+              <h3 style={{margin:"0 0 2px",fontSize:15,fontWeight:800,color:T.white}}>Site Induction</h3>
+              <p style={{margin:0,fontSize:12,color:T.muted}}>{indDone} of {INDUCTION_ITEMS.length} items completed</p>
+            </div>
+            <span style={{fontSize:13,fontWeight:800,color:indPct===100?T.green:indPct>0?"#f59e0b":"#f87171"}}>{indPct===100?"✓ Fully Inducted":`${indPct}% Complete`}</span>
+          </div>
+          <div style={{height:4,background:T.border,borderRadius:99,marginBottom:16,overflow:"hidden"}}>
+            <div style={{height:"100%",width:`${indPct}%`,background:indPct===100?T.green:"#f59e0b",borderRadius:99,transition:"width .4s"}}/>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {INDUCTION_ITEMS.map(item=>{
+              const done=ind[item.id]?.done;
+              const dt=ind[item.id]?.date;
+              return (
+                <div key={item.id} onClick={()=>{
+                  const newInd={...ind,[item.id]:{done:!done,date:new Date().toISOString().slice(0,10),by:"Admin"}};
+                  setContractorInductions(p=>({...p,[selCon.id]:newInd}));
+                  dbSaveContractorInductions(selCon.id,newInd);
+                }} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,background:done?"rgba(16,185,129,0.07)":T.overlay,border:`1px solid ${done?"rgba(16,185,129,0.2)":T.border}`,cursor:"pointer"}}>
+                  <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${done?"#10b981":T.borderMd}`,background:done?"#10b981":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {done && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>✓</span>}
+                  </div>
+                  <span style={{flex:1,fontSize:13,color:done?T.white:T.muted,fontWeight:done?600:400}}>{item.label}</span>
+                  {done && dt && <span style={{fontSize:10,color:T.green,flexShrink:0}}>{dt}</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Certs tab */}
+      {detailTab==="certs" && (
+        <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${T.borderMd}`}}>
+          <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:800,color:T.white}}>Certificates & Qualifications</h3>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
+            {CONTRACTOR_CERT_TYPES.map(ct=>{
+              const cert=certs[ct.id];
+              const today2=new Date().toISOString().slice(0,10);
+              const expired=cert?.expiryDate&&cert.expiryDate<today2;
+              const daysLeft=cert?.expiryDate?Math.ceil((new Date(cert.expiryDate)-new Date())/86400000):null;
+              return (
+                <div key={ct.id} style={{background:cert?(expired?"rgba(239,68,68,0.07)":"rgba(16,185,129,0.07)"):T.overlay,borderRadius:12,padding:"14px 16px",border:`1px solid ${cert?(expired?"rgba(239,68,68,0.25)":"rgba(16,185,129,0.25)"):T.border}`}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontSize:20}}>{ct.icon}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:700,color:T.white}}>{ct.label}</div>
+                      {cert && <div style={{fontSize:10,color:expired?"#f87171":daysLeft<=30?"#f59e0b":T.green,marginTop:1}}>{expired?`⚠ Expired ${cert.expiryDate}`:daysLeft<=30?`⏳ ${daysLeft}d left`:`✓ Valid to ${cert.expiryDate}`}</div>}
+                    </div>
+                    {cert ? (
+                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                        {cert.fileUrl && <a href={cert.fileUrl} target="_blank" rel="noreferrer" style={{fontSize:11,color:T.accentLt,textDecoration:"none",fontWeight:700}}>View</a>}
+                        <button onClick={()=>{const n={...certs};delete n[ct.id];setContractorCerts(p=>({...p,[selCon.id]:n}));dbSaveContractorCerts(selCon.id,n);}} style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>✕</button>
+                      </div>
+                    ) : (
+                      <label style={{background:`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",border:"none",borderRadius:7,padding:"5px 10px",cursor:certUploading===ct.id?"wait":"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>
+                        {certUploading===ct.id?"⏳":"↑ Upload"}
+                        <input type="file" accept={ACCEPT_IMG_DOCS} style={{display:"none"}} disabled={!!certUploading}
+                          onChange={async e=>{
+                            const file=e.target.files[0]; if(!file) return;
+                            setCertUploading(ct.id);
+                            const path=`contractor_certs/${selCon.id}_${ct.id}_${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
+                            await sb.storage.upload("documents",path,file);
+                            const fileUrl=sb.storage.getPublicUrl("documents",path);
+                            const issued=prompt("Issue date (YYYY-MM-DD):","")||"";
+                            const expiry=prompt("Expiry date (YYYY-MM-DD):","")||"";
+                            const newCerts={...certs,[ct.id]:{fileName:file.name,fileUrl,issuedDate:issued,expiryDate:expiry}};
+                            setContractorCerts(p=>({...p,[selCon.id]:newCerts}));
+                            dbSaveContractorCerts(selCon.id,newCerts);
+                            setCertUploading(null);
+                            e.target.value="";
+                          }}/>
+                      </label>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ContractorsTab({ contractors, setContractors, contractorInductions, setContractorInductions, contractorCerts, setContractorCerts, contractorVisits, setContractorVisits, dbSaveContractor, dbDeleteContractor, dbSaveContractorInductions, dbSaveContractorCerts, dbSaveContractorVisits, staff, T, font }) {
+  const isMobile = useWindowWidth() <= 1024;
+  const [view, setView] = React.useState("list");
+  const [selected, setSelected] = React.useState(null);
+  const [showForm, setShowForm] = React.useState(false);
+  const [filterStatus, setFilterStatus] = React.useState("all");
+  const [filterType, setFilterType] = React.useState("all");
+  const [search, setSearch] = React.useState("");
+  const today = new Date().toISOString().slice(0,10);
+
+  const selCon = contractors.find(c=>c.id===selected);
+
+  const filtered = contractors.filter(c=>{
+    if (filterStatus!=="all"&&c.status!==filterStatus) return false;
+    if (filterType!=="all"&&c.type!==filterType) return false;
+    if (search) { const q=search.toLowerCase(); if(!c.name.toLowerCase().includes(q)&&!(c.company||"").toLowerCase().includes(q)) return false; }
+    return true;
+  });
+
+  const activeToday = contractors.filter(c=>{
+    const cv=contractorVisits[c.id]||[];
+    return c.status==="active"&&cv.some(v=>v.date===today);
+  });
+
+  const getStatusStyle = s => s==="active"?{color:"#10b981",bg:"rgba(16,185,129,0.12)",border:"rgba(16,185,129,0.3)"}:s==="banned"?{color:"#f87171",bg:"rgba(239,68,68,0.12)",border:"rgba(239,68,68,0.3)"}:{color:T.muted,bg:T.overlay,border:T.borderMd};
+
+  if (view==="detail"&&selCon) {
+    return <ContractorDetail
+      selCon={selCon} contractorInductions={contractorInductions} setContractorInductions={setContractorInductions}
+      contractorCerts={contractorCerts} setContractorCerts={setContractorCerts}
+      contractorVisits={contractorVisits} setContractorVisits={setContractorVisits}
+      contractors={contractors} setContractors={setContractors}
+      dbSaveContractor={dbSaveContractor} dbDeleteContractor={dbDeleteContractor}
+      dbSaveContractorInductions={dbSaveContractorInductions} dbSaveContractorCerts={dbSaveContractorCerts}
+      dbSaveContractorVisits={dbSaveContractorVisits} staff={staff}
+      isMobile={isMobile} setView={setView} T={T} font={font}/>;
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:12}}>
+        <div>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Contractor Register</h2>
+          <p style={{color:T.muted,fontSize:13,margin:0}}>{activeToday.length} on site today · {contractors.length} total</p>
+        </div>
+        <button onClick={()=>setShowForm(v=>!v)} style={{background:showForm?"rgba(239,68,68,0.1)":`linear-gradient(135deg,${T.accent},${T.blue})`,color:showForm?"#f87171":"#fff",border:showForm?"1px solid rgba(239,68,68,0.2)":"none",borderRadius:10,padding:"10px 20px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>
+          {showForm?"✕ Cancel":"+ Add Contractor"}
+        </button>
+      </div>
+
+      {showForm && <ContractorForm onSave={c=>{setContractors(p=>[c,...p]);dbSaveContractor(c);setShowForm(false);}} onCancel={()=>setShowForm(false)} T={T} font={font}/>}
+
+      {/* Filters */}
+      <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:12,padding:"12px 16px",marginBottom:16,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",border:`1px solid ${T.border}`}}>
+        <div style={{position:"relative",flex:"1 1 180px"}}>
+          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:T.muted,pointerEvents:"none"}}>🔍</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or company..."
+            style={{width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"8px 10px 8px 32px",color:T.white,fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box"}}/>
+        </div>
+        {[["all","All"],["active","Active"],["expired","Expired"],["banned","Banned"]].map(([val,lbl])=>(
+          <button key={val} onClick={()=>setFilterStatus(val)} style={{padding:"7px 14px",borderRadius:9,border:`1px solid ${filterStatus===val?T.accent:T.borderMd}`,background:filterStatus===val?`rgba(37,99,235,0.15)`:T.overlay,color:filterStatus===val?T.accentLt:T.muted,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:filterStatus===val?700:400}}>{lbl}</button>
+        ))}
+        <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"8px 12px",color:T.white,fontSize:12,outline:"none",fontFamily:font,cursor:"pointer"}}>
+          <option value="all">All Types</option>
+          {CONTRACTOR_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+        <span style={{color:T.muted,fontSize:12,marginLeft:"auto"}}>{filtered.length} of {contractors.length}</span>
+      </div>
+
+      {/* Table */}
+      <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,overflow:"hidden",border:`1px solid ${T.border}`}}>
+        {!isMobile && (
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr 80px",padding:"10px 20px",background:T.headerBg,fontSize:11,fontWeight:700,letterSpacing:1,color:T.muted,textTransform:"uppercase"}}>
+            <span>Name / Company</span><span>Type</span><span>Status</span><span>Induction</span><span>Visits</span><span></span>
+          </div>
+        )}
+        {filtered.length===0 && <div style={{padding:"32px 20px",textAlign:"center",color:T.muted,fontSize:14}}>No contractors found.</div>}
+        {filtered.map((c,i)=>{
+          const ss=getStatusStyle(c.status);
+          const cv=contractorVisits[c.id]||[];
+          const indDone2=INDUCTION_ITEMS.filter(item=>(contractorInductions[c.id]||{})[item.id]?.done).length;
+          const indPct2=Math.round(indDone2/INDUCTION_ITEMS.length*100);
+          const onSiteNow=c.status==="active"&&cv.some(v=>v.date===today);
+          const hasCertExpiry=Object.values(contractorCerts[c.id]||{}).some(cert=>cert.expiryDate&&cert.expiryDate<today);
+          const lastVisit=cv.slice().sort((a,b)=>b.date.localeCompare(a.date))[0]?.date;
+          return isMobile ? (
+            <div key={c.id} onClick={()=>{setSelected(c.id);setView("detail");}} style={{padding:"14px 16px",borderTop:i>0?`1px solid ${T.border}`:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
+              <Avatar name={c.name} size={30}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:700,color:T.white}}>{c.name}</div>
+                <div style={{fontSize:11,color:T.muted}}>{c.company||"Independent"} · {c.type}</div>
+              </div>
+              <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:ss.bg,color:ss.color,border:`1px solid ${ss.border}`,textTransform:"capitalize"}}>{c.status}</span>
+            </div>
+          ) : (
+            <div key={c.id} style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr 80px",padding:"14px 20px",borderTop:i>0?`1px solid ${T.border}`:"none",alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <Avatar name={c.name} size={30}/>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:T.white,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                    {c.name}
+                    {onSiteNow && <span style={{fontSize:9,fontWeight:700,color:"#10b981",background:"rgba(16,185,129,0.12)",padding:"1px 6px",borderRadius:20,border:"1px solid rgba(16,185,129,0.3)"}}>ON SITE</span>}
+                    {hasCertExpiry && <span style={{fontSize:9,fontWeight:700,color:"#f87171",background:"rgba(239,68,68,0.1)",padding:"1px 6px",borderRadius:20,border:"1px solid rgba(239,68,68,0.2)"}}>CERT EXPIRED</span>}
+                  </div>
+                  <div style={{fontSize:11,color:T.muted}}>{c.company||"Independent"}</div>
+                </div>
+              </div>
+              <span style={{fontSize:12,color:T.muted}}>{c.type}</span>
+              <span style={{fontSize:11,fontWeight:700,padding:"2px 9px",borderRadius:20,background:ss.bg,color:ss.color,border:`1px solid ${ss.border}`,textTransform:"capitalize",display:"inline-block"}}>{c.status}</span>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:indPct2===100?T.green:indPct2>0?"#f59e0b":"#f87171",marginBottom:3}}>{indPct2}%</div>
+                <div style={{height:4,background:T.border,borderRadius:99,overflow:"hidden",width:60}}>
+                  <div style={{height:"100%",width:`${indPct2}%`,background:indPct2===100?T.green:"#f59e0b",borderRadius:99}}/>
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:T.white}}>{cv.length} visit{cv.length!==1?"s":""}</div>
+                {lastVisit && <div style={{fontSize:10,color:T.muted}}>Last: {lastVisit}</div>}
+              </div>
+              <button onClick={()=>{setSelected(c.id);setView("detail");}} style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:"1px solid rgba(37,99,235,0.25)",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>View →</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ModulePreviewModal({ m, staff, assigns, comps, isMobile, setAtab, onClose, T, font }) {
   const [previewSlide, setPreviewSlide] = React.useState(0);
   const [previewTab, setPreviewTab] = React.useState("overview");
@@ -11244,6 +11661,7 @@ export default function App() {
   const [step,    setStep]    = useState(0);
   const [qans,    setQans]    = useState({});
   const [qsub,    setQsub]    = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
   const [atab,    setAtab]    = useState("dashboard");
   const [adminReportView, setAdminReportView] = useState("staff");
   const [stab,    setStab]    = useState("dashboard");
@@ -11269,7 +11687,11 @@ export default function App() {
   const [machineComps, setMachineComps] = useState(INIT_MACHINE_COMPS);
   const [siteInspections, setSiteInspections] = useState(INIT_SITE_INSPECTIONS);
   const [customModules, setCustomModules] = useState([]); // admin-created training modules
-  const [ras, setRas] = useState(INIT_RAS); // risk assessments
+  const [ras, setRas] = useState(INIT_RAS);
+  const [contractors, setContractors] = useState([]);
+  const [contractorInductions, setContractorInductions] = useState({});
+  const [contractorCerts, setContractorCerts] = useState({});
+  const [contractorVisits, setContractorVisits] = useState({}); // risk assessments
   const [quizFailures, setQuizFailures] = useState([]); // [{ userId, userName, moduleId, moduleTitle, score, date }]
   const [extCerts, setExtCerts] = useState({}); // { userId: { certType: { fileName, fileUrl, issuedDate, expiryDate, uploadedAt } } }
   const [msdsFiles, setMsdsFiles] = useState({}); // { [chemCode]: { fileName, fileData, fileUrl, uploadedAt } }
@@ -11501,6 +11923,16 @@ export default function App() {
         if (qfRows && qfRows.length) {
           setQuizFailures(qfRows.map(r => r.data));
         }
+
+        // Contractors
+        const { data: conRows } = await sb.from("contractors").select("*");
+        if (conRows?.length) setContractors(conRows.map(r=>r.data));
+        const { data: conIndRows } = await sb.from("contractor_inductions").select("*");
+        if (conIndRows?.length) { const m={}; conIndRows.forEach(r=>{m[r.contractor_id]=r.data;}); setContractorInductions(m); }
+        const { data: conCertRows } = await sb.from("contractor_certs").select("*");
+        if (conCertRows?.length) { const m={}; conCertRows.forEach(r=>{m[r.contractor_id]=r.data;}); setContractorCerts(m); }
+        const { data: conVisitRows } = await sb.from("contractor_visits").select("*");
+        if (conVisitRows?.length) { const m={}; conVisitRows.forEach(r=>{m[r.contractor_id]=r.data;}); setContractorVisits(m); }
 
         // Risk assessments (custom/edited ones override INIT_RAS)
         const { data: raRows } = await sb.from("risk_assessments").select("*");
@@ -11749,6 +12181,12 @@ export default function App() {
     await sb.from("user_profiles").delete().eq("user_id", userId);
   }
 
+  async function dbSaveContractor(c) { await sb.from("contractors").upsert({id:c.id,data:c},{onConflict:"id"}); }
+  async function dbDeleteContractor(id) { await sb.from("contractors").delete().eq("id",id); }
+  async function dbSaveContractorInductions(cid,data) { await sb.from("contractor_inductions").upsert({contractor_id:cid,data},{onConflict:"contractor_id"}); }
+  async function dbSaveContractorCerts(cid,data) { await sb.from("contractor_certs").upsert({contractor_id:cid,data},{onConflict:"contractor_id"}); }
+  async function dbSaveContractorVisits(cid,data) { await sb.from("contractor_visits").upsert({contractor_id:cid,data},{onConflict:"contractor_id"}); }
+
   async function dbSaveRA(ra) {
     await sb.from("risk_assessments").upsert({ id: ra.id, data: ra }, { onConflict: "id" });
   }
@@ -11857,7 +12295,7 @@ export default function App() {
 
   function logout() { setUser(null); setView("login"); setMod(null); }
 
-  function startMod(m) { setMod(m); setStep(0); setQans({}); setQsub(false); }
+  function startMod(m) { setMod(m); setStep(0); setQans({}); setQsub(false); setShowCelebration(false); }
 
   function submitQuiz() {
     let score=0;
@@ -11865,6 +12303,7 @@ export default function App() {
     const pct=Math.round(score/mod.quiz.length*100);
     setQsub(true);
     const certId = pct>=70 ? "ZSL-" + (user.id.toString(36) + mod.id + Date.now().toString(36)).toUpperCase().slice(-8) : null;
+    if (pct>=70) setShowCelebration(true);
     const rec = {score:pct, date:new Date().toISOString().slice(0,10), answers:{...qans}, certId};
     setComps(p=>({...p,[user.id]:{...p[user.id],[mod.id]:rec}}));
     dbSaveCompletion(user.id, mod.id, rec);
@@ -11979,6 +12418,108 @@ export default function App() {
 
     return (
       <div style={{minHeight:"100vh",background:T.bg,fontFamily:font,color:T.white,overflowX:"hidden"}}>
+
+        {/* Celebration Overlay */}
+        {showCelebration && (
+          <div style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.75)",backdropFilter:"blur(4px)"}}>
+            {/* Confetti */}
+            <style>{`
+              @keyframes confettiFall {
+                0%   { transform: translateY(-20px) rotate(0deg);   opacity:1; }
+                100% { transform: translateY(110vh) rotate(720deg); opacity:0; }
+              }
+              @keyframes certBounce {
+                0%   { transform: scale(0.5) translateY(40px); opacity:0; }
+                60%  { transform: scale(1.05) translateY(-8px); opacity:1; }
+                100% { transform: scale(1) translateY(0);       opacity:1; }
+              }
+              @keyframes sealPulse {
+                0%,100% { transform: scale(1);    opacity:1; }
+                50%      { transform: scale(1.12); opacity:.85; }
+              }
+              @keyframes shimmer {
+                0%   { background-position: -200% center; }
+                100% { background-position:  200% center; }
+              }
+            `}</style>
+            {/* Confetti pieces */}
+            {Array.from({length:60}).map((_,i)=>{
+              const colors=["#f59e0b","#ffffff","#0d1f5c","#2563eb","#10b981","#f97316","#a78bfa"];
+              const size=Math.random()*10+4;
+              const left=Math.random()*100;
+              const delay=Math.random()*2;
+              const dur=Math.random()*2+2;
+              const color=colors[Math.floor(Math.random()*colors.length)];
+              const isRect=Math.random()>0.5;
+              return (
+                <div key={i} style={{
+                  position:"fixed",
+                  left:`${left}%`,
+                  top:"-20px",
+                  width:isRect?size:size/2,
+                  height:size,
+                  background:color,
+                  borderRadius:isRect?2:"50%",
+                  animation:`confettiFall ${dur}s ${delay}s ease-in forwards`,
+                  zIndex:501,
+                  pointerEvents:"none",
+                }}/>
+              );
+            })}
+
+            {/* Certificate card */}
+            <div style={{animation:"certBounce .6s .3s cubic-bezier(.34,1.56,.64,1) both",zIndex:502,width:"100%",maxWidth:440,margin:"0 16px"}}>
+              <div style={{
+                background:"linear-gradient(160deg,#0d1f5c,#091548)",
+                borderRadius:20,
+                padding:"32px 36px",
+                border:"2px solid rgba(245,158,11,0.5)",
+                boxShadow:"0 0 0 4px rgba(245,158,11,0.08), 0 40px 80px rgba(0,0,0,0.8)",
+                textAlign:"center",
+                position:"relative",
+                overflow:"hidden",
+              }}>
+                {/* Shimmer bar */}
+                <div style={{
+                  position:"absolute",top:0,left:0,right:0,height:4,
+                  background:"linear-gradient(90deg,#f59e0b,#fbbf24,#f59e0b,#fbbf24)",
+                  backgroundSize:"200% auto",
+                  animation:"shimmer 2s linear infinite",
+                }}/>
+                {/* Corner ornaments */}
+                {[["top:10px","left:10px"],["top:10px","right:10px"],["bottom:10px","left:10px"],["bottom:10px","right:10px"]].map((pos,ci)=>{
+                  const transforms=["none","rotate(90deg)","rotate(-90deg)","rotate(180deg)"];
+                  const s={position:"absolute",width:16,height:16,zIndex:1,opacity:.6};
+                  pos.forEach(p=>{const[k,v]=p.split(":");s[k]=v;});
+                  return (<svg key={ci} style={{...s,transform:transforms[ci]}} viewBox="0 0 16 16"><path d="M0,0 L12,0 L12,2 L2,2 L2,12 L0,12 Z" fill="#f59e0b"/></svg>);
+                })}
+
+                <div style={{fontSize:56,marginBottom:8,animation:"sealPulse 1.5s ease-in-out infinite"}}>{mod?.icon||"🏅"}</div>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:3,color:"rgba(245,158,11,0.8)",textTransform:"uppercase",marginBottom:4}}>Certificate of Completion</div>
+                <div style={{fontSize:26,fontWeight:900,color:"#fff",marginBottom:4,letterSpacing:-.5}}>{user?.name}</div>
+                <div style={{fontSize:13,color:"rgba(255,255,255,0.5)",marginBottom:16}}>has successfully completed</div>
+                <div style={{background:"rgba(245,158,11,0.1)",border:"1px solid rgba(245,158,11,0.3)",borderRadius:10,padding:"12px 20px",marginBottom:20}}>
+                  <div style={{fontSize:18,fontWeight:800,color:"#f59e0b"}}>{mod?.title}</div>
+                  <div style={{fontSize:13,color:"rgba(255,255,255,0.5)",marginTop:4}}>Score: <span style={{color:"#10b981",fontWeight:700}}>{qPct}%</span></div>
+                </div>
+
+                <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+                  <button onClick={()=>{
+                    setShowCelebration(false);
+                    setCert({module:mod,score:qPct,date:new Date().toLocaleDateString(),certId:(comps[user.id]||{})[mod.id]?.certId||null});
+                  }} style={{background:"linear-gradient(135deg,#f59e0b,#d97706)",color:"#0d1f5c",border:"none",borderRadius:10,padding:"10px 22px",fontWeight:800,cursor:"pointer",fontFamily:font,fontSize:13}}>
+                    🎓 View Certificate
+                  </button>
+                  <button onClick={()=>setShowCelebration(false)}
+                    style={{background:"rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.7)",border:"1px solid rgba(255,255,255,0.2)",borderRadius:10,padding:"10px 18px",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:13}}>
+                    Continue
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div style={{background:`linear-gradient(90deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:"12px 24px",display:"flex",alignItems:"center",gap:16}}>
           <ZeusLogo darkMode={darkMode}/>
@@ -13069,6 +13610,7 @@ export default function App() {
               ); })()}
               {["incidents","ra"].map(t=>(<button key={t} onClick={()=>setAtab(t)} style={navBtn(atab===t,T.gold)}>{{incidents:"Incidents",ra:"Risk Assessments"}[t]}</button>))}
               <button onClick={()=>setAtab("inspections")} style={navBtn(atab==="inspections",T.gold)}>Inspections</button>
+              <button onClick={()=>setAtab("contractors")} style={navBtn(atab==="contractors",T.gold)}>Contractors</button>
               <div style={{position:"relative",display:"inline-block"}} onMouseEnter={e=>e.currentTarget.querySelector(".me-dd").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".me-dd").style.display="none"}>
                 <button style={{...navBtn(meActive,T.gold),display:"flex",alignItems:"center",gap:5}}>Machinery &amp; Equipment<span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span></button>
                 <div className="me-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:180,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
@@ -13134,6 +13676,11 @@ export default function App() {
               if(overdueRAs.length) notifications.push({type:"report",urgent:true,title:`${overdueRAs.length} risk assessment${overdueRAs.length!==1?"s":""} overdue for review`,detail:overdueRAs.map(r=>r.title).join(", "),nav:{tab:"ra"}});
               else if(soonRAs.length) notifications.push({type:"report",urgent:false,title:`${soonRAs.length} risk assessment${soonRAs.length!==1?"s":""} due for review soon`,detail:soonRAs.map(r=>r.title).join(", "),nav:{tab:"ra"}});
 
+              // Contractor alerts
+              const today3=new Date().toISOString().slice(0,10);
+              const expiredConCerts=(contractors||[]).filter(c=>Object.values(contractorCerts[c.id]||{}).some(cert=>cert.expiryDate&&cert.expiryDate<today3));
+              if(expiredConCerts.length) notifications.push({type:"document",urgent:true,title:`${expiredConCerts.length} contractor${expiredConCerts.length!==1?"s":""} with expired certificates`,detail:"Check Contractors tab",nav:{tab:"contractors"}});
+
               // Document review dates
               const overdueReviews = docs.filter(d=>d.reviewDate&&d.reviewDate<today2);
               const soonReviews = docs.filter(d=>d.reviewDate&&d.reviewDate>=today2&&Math.ceil((new Date(d.reviewDate)-new Date())/86400000)<=30);
@@ -13174,6 +13721,7 @@ export default function App() {
               ["incidents","⚠️ Incidents"],
               ["ra","🔍 Risk Assessments"],
               ["inspections","🏗️ Inspections"],
+              ["contractors","🪪 Contractors"],
               ["machinery","🔧 Machinery Competence"],
               ["equipment","📦 Equipment Register"],
               ["account","👤 My Account"],
@@ -13297,6 +13845,7 @@ export default function App() {
                   {card("📋","Out of Service",outOfService.length,"equipment items",null,false,()=>setAtab("equipment"))}
                   {card("❌","Quiz Failures",unreviewedFailures.length,"unreviewed",unreviewedFailures.length>0,false,()=>setAtab("reports"))}
                   {card("📅","Reviews Overdue",overdueDocReviews.length+overdueRAReviews.length,"docs & RAs",overdueDocReviews.length+overdueRAReviews.length>0,false,()=>setAtab("documents"))}
+                  {card("🪪","Contractors On Site",(contractors||[]).filter(c=>{const cv=contractorVisits[c.id]||[];return c.status==="active"&&cv.some(v=>v.date===today);}).length,"active today",null,false,()=>setAtab("contractors"))}
                 </div>
 
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20}}>
@@ -13999,6 +14548,19 @@ export default function App() {
 
           {atab==="equipment" && (
             <EquipmentTrackerTab equipment={equipment} setEquipment={setEquipment} staff={staff} Z={T} font={font}/>
+          )}
+
+          {atab==="contractors" && (
+            <ContractorsTab
+              contractors={contractors} setContractors={setContractors}
+              contractorInductions={contractorInductions} setContractorInductions={setContractorInductions}
+              contractorCerts={contractorCerts} setContractorCerts={setContractorCerts}
+              contractorVisits={contractorVisits} setContractorVisits={setContractorVisits}
+              dbSaveContractor={dbSaveContractor} dbDeleteContractor={dbDeleteContractor}
+              dbSaveContractorInductions={dbSaveContractorInductions}
+              dbSaveContractorCerts={dbSaveContractorCerts}
+              dbSaveContractorVisits={dbSaveContractorVisits}
+              staff={staff} T={T} font={font}/>
           )}
 
           {atab==="inspections" && (
