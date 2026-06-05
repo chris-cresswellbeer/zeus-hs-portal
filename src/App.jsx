@@ -9325,20 +9325,35 @@ function CoshhTab({ Z, font, msdsFiles, setMsdsFiles, customChemicals, setCustom
 }
 
 // ─── Create Training Module Tab ───────────────────────────────────────────────
-function CreateModuleTab({ onSave, Z, font }) {
+function CreateModuleTab({ onSave, editingModule, Z, font }) {
   const isMobile = useWindowWidth() <= 1024;
   const ICONS = ["📋","🔥","💪","🧠","⚡","🏥","🦺","🧯","☢️","🌿","🔧","📊","🚧","👁","🩺","🎓","⚠️","🔐","🚨","📡"];
   const CATEGORIES = ["Fire Safety","Physical Safety","Mental Health","Hazardous Substances","Electrical Safety","First Aid","Environmental","Equipment Safety","Manual Handling","General H&S","Food Safety","Compliance","Custom"];
   const LEVELS = ["Mandatory","Recommended","Optional"];
-  const BLANK_SLIDE = { heading:"", text:"", video:null }; // video: { name, data, type }
+  const BLANK_SLIDE = { heading:"", text:"", video:null, image:null }; // video/image: { name, data/url, type }
   const BLANK_Q = { q:"", options:["","","",""], answer:0 };
 
   const [step, setStep] = useState("details");
-  const [details, setDetails] = useState({ title:"", category:"General H&S", level:"Mandatory", duration:"30 min", icon:"📋", renewalMonths:12 });
-  const [slides, setSlides] = useState([{ heading:"", text:"", video:null }]);
-  const [quiz, setQuiz] = useState([{ q:"", options:["","","",""], answer:0 }]);
+  const [details, setDetails] = useState(editingModule ? {
+    title: editingModule.title||"",
+    category: editingModule.category||"General H&S",
+    level: editingModule.level||"Mandatory",
+    duration: editingModule.duration||"30 min",
+    icon: editingModule.icon||"📋",
+    renewalMonths: editingModule.renewalMonths||12,
+    passMark: editingModule.passMark||70,
+    description: editingModule.description||"",
+  } : { title:"", category:"General H&S", level:"Mandatory", duration:"30 min", icon:"📋", renewalMonths:12 });
+  const [slides, setSlides] = useState(editingModule ? (editingModule.slides||editingModule.content||[]).map(s=>({
+    heading: s.heading||"",
+    text: s.text||s.body||"",
+    video: s.video||null,
+    image: s.image||null,
+  })) : [{ heading:"", text:"", video:null, image:null }]);
+  const [quiz, setQuiz] = useState(editingModule ? (editingModule.quiz||[]).map(q=>({...q, options:[...q.options]})) : [{ q:"", options:["","","",""], answer:0 }]);
   const [err, setErr] = useState("");
   const videoInputRefs = useRef({});
+  const imageInputRefs = useRef({});
 
   const inp = {width:"100%",background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:10,padding:"9px 13px",color:Z.white,fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box"};
   const lbl = {fontSize:11,fontWeight:700,color:Z.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:5};
@@ -9393,7 +9408,7 @@ function CreateModuleTab({ onSave, Z, font }) {
         : null,
     }));
     const newModule = {
-      id: `custom_${Date.now()}`,
+      id: editingModule ? editingModule.id : `custom_${Date.now()}`,
       ...details,
       renewalMonths: Number(details.renewalMonths)||12,
       content: cleanSlides,
@@ -9409,7 +9424,7 @@ function CreateModuleTab({ onSave, Z, font }) {
 
   return (
     <div>
-      <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 6px"}}>Create Training Module <HelpTip dark={false} text="Build your own training module with slides, images and video. Set a pass mark for the quiz — 70% is the default. Set a renewal period in months if the training needs to be repeated periodically."/></h2>
+      <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 6px"}}>{editingModule?"Edit Training Module":"Create Training Module"} <HelpTip dark={false} text="Build your own training module with slides, images and video. Set a pass mark for the quiz — 70% is the default. Set a renewal period in months if the training needs to be repeated periodically."/></h2>
       <p style={{color:Z.muted,fontSize:13,margin:"0 0 24px"}}>Build a custom module with slides and a quiz that can be assigned to staff.</p>
 
       {/* Step progress */}
@@ -9499,6 +9514,40 @@ function CreateModuleTab({ onSave, Z, font }) {
               <div style={{marginBottom:12}}>
                 <label style={lbl}>Slide Heading *</label>
                 <input value={s.heading} onChange={e=>updateSlide(i,"heading",e.target.value)} placeholder="e.g. UK Legal Framework" style={inp}/>
+              </div>
+              {/* Image upload */}
+              <div style={{marginBottom:12}}>
+                <label style={lbl}>Image (optional)</label>
+                {s.image ? (
+                  <div style={{background:Z.overlaySm,borderRadius:10,padding:"12px 14px",border:`1px solid ${Z.borderMd}`,display:"flex",alignItems:"center",gap:12}}>
+                    <img src={s.image.data||s.image.url} alt={s.image.name} style={{width:64,height:48,objectFit:"cover",borderRadius:6,flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12,fontWeight:700,color:Z.white,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.image.name}</div>
+                      <div style={{fontSize:10,color:Z.muted,marginTop:2}}>✓ Uploaded</div>
+                    </div>
+                    <button onClick={()=>updateSlide(i,"image",null)} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.25)",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>Remove</button>
+                  </div>
+                ) : (
+                  <>
+                    <input ref={el=>imageInputRefs.current[i]=el} type="file" accept={ACCEPT_IMAGES}
+                      style={{display:"none"}}
+                      onChange={e=>{
+                        const file=e.target.files[0]; if(!file) return;
+                        const reader=new FileReader();
+                        reader.onload=ev=>updateSlide(i,"image",{name:file.name,type:file.type,data:ev.target.result,url:ev.target.result});
+                        reader.readAsDataURL(file);
+                        e.target.value="";
+                      }}/>
+                    <div onClick={()=>imageInputRefs.current[i]&&imageInputRefs.current[i].click()}
+                      style={{border:`2px dashed ${Z.borderMd}`,borderRadius:10,padding:"16px",cursor:"pointer",textAlign:"center",transition:"border-color .2s"}}
+                      onMouseEnter={e=>e.currentTarget.style.borderColor=Z.accent}
+                      onMouseLeave={e=>e.currentTarget.style.borderColor=Z.borderMd}>
+                      <div style={{fontSize:24,marginBottom:4}}>🖼️</div>
+                      <div style={{fontSize:12,fontWeight:700,color:Z.white,marginBottom:2}}>Upload Image</div>
+                      <div style={{fontSize:11,color:Z.muted}}>Click to browse · JPG, PNG, GIF, WebP</div>
+                    </div>
+                  </>
+                )}
               </div>
               {/* Video upload */}
               <div style={{marginBottom:12}}>
@@ -11066,6 +11115,103 @@ function DocAssignPanel({ d, staff, assignedIds, docAcknowledgements, setDocAssi
   );
 }
 
+function ModulePreviewModal({ m, staff, assigns, comps, isMobile, setAtab, onClose, T, font }) {
+  const [previewSlide, setPreviewSlide] = React.useState(0);
+  const [previewTab, setPreviewTab] = React.useState("overview");
+  const slides = m.slides||m.content||[];
+  const quiz = m.quiz||[];
+  const assignedCount = staff.filter(u=>(assigns[u.id]||[]).includes(m.id)).length;
+  const completedCount = staff.filter(u=>comps[u.id]?.[m.id]).length;
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflow:"auto"}}>
+      <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:20,width:"100%",maxWidth:680,maxHeight:"90vh",overflow:"auto",border:`1px solid ${T.borderMd}`,boxShadow:"0 32px 80px rgba(0,0,0,0.7)"}}>
+        <div style={{padding:"20px 24px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",gap:14,position:"sticky",top:0,background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,zIndex:1}}>
+          <span style={{fontSize:32,flexShrink:0}}>{m.icon||"📋"}</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <h3 style={{margin:0,fontSize:18,fontWeight:900,color:T.white}}>{m.title}</h3>
+              <Pill label={m.level} col={m.level==="Mandatory"?"red":"navy"}/>
+              {m._custom && <Pill label="Custom" col="amber"/>}
+            </div>
+            <p style={{margin:"3px 0 0",fontSize:12,color:T.muted}}>{m.category} · {m.duration} · {quiz.length} questions · {m.renewalMonths?`Renews every ${m.renewalMonths} months`:"No renewal"}</p>
+          </div>
+          <button onClick={onClose} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:10,padding:"8px 14px",color:T.muted,cursor:"pointer",fontFamily:font,fontSize:13,fontWeight:700,flexShrink:0}}>✕ Close</button>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:1,background:T.border}}>
+          {[{label:"Assigned",value:assignedCount,color:T.accentLt},{label:"Completed",value:completedCount,color:T.green},{label:"Slides",value:slides.length,color:"#a78bfa"},{label:"Pass Mark",value:`${m.passMark||70}%`,color:T.gold}].map((s,i)=>(
+            <div key={i} style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,padding:"12px 16px",textAlign:"center"}}>
+              <div style={{fontSize:20,fontWeight:900,color:s.color}}>{s.value}</div>
+              <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:.5,marginTop:2}}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{display:"flex",borderBottom:`1px solid ${T.border}`,padding:"0 24px"}}>
+          {[["overview","📋 Overview"],["slides",`🖼 Slides (${slides.length})`],["quiz",`❓ Quiz (${quiz.length})`]].map(([id,label])=>(
+            <button key={id} onClick={()=>{setPreviewTab(id);setPreviewSlide(0);}} style={{padding:"12px 16px",background:"none",border:"none",borderBottom:`2px solid ${previewTab===id?T.gold:"transparent"}`,color:previewTab===id?T.white:T.muted,fontWeight:previewTab===id?700:400,cursor:"pointer",fontFamily:font,fontSize:13}}>{label}</button>
+          ))}
+        </div>
+        <div style={{padding:24}}>
+          {previewTab==="overview" && (
+            <div>
+              {m.description && <p style={{color:T.muted,fontSize:14,marginBottom:20,lineHeight:1.6}}>{m.description}</p>}
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:20}}>
+                {[{label:"Category",value:m.category||"—"},{label:"Duration",value:m.duration||"—"},{label:"Level",value:m.level||"—"},{label:"Pass Mark",value:`${m.passMark||70}%`},{label:"Renewal",value:m.renewalMonths?`Every ${m.renewalMonths} months`:"Not required"},{label:"Questions",value:`${quiz.length} multiple choice`}].map((row,i)=>(
+                  <div key={i} style={{background:T.overlay,borderRadius:10,padding:"10px 14px",border:`1px solid ${T.border}`}}>
+                    <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:3}}>{row.label}</div>
+                    <div style={{fontSize:13,fontWeight:600,color:T.white}}>{row.value}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                <button onClick={()=>{onClose();setAtab("assign");}} style={{background:`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",border:"none",borderRadius:10,padding:"10px 20px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>→ Go to Assign Training</button>
+                <button onClick={()=>setPreviewTab("slides")} disabled={slides.length===0} style={{background:T.overlay,color:slides.length===0?T.muted:T.accentLt,border:`1px solid ${T.borderMd}`,borderRadius:10,padding:"10px 18px",cursor:slides.length===0?"not-allowed":"pointer",fontFamily:font,fontWeight:700,fontSize:13,opacity:slides.length===0?.5:1}}>🖼 Preview Slides</button>
+              </div>
+            </div>
+          )}
+          {previewTab==="slides" && (
+            <div>
+              {slides.length===0 ? <div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>No slides in this module.</div> : <>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                  <button onClick={()=>setPreviewSlide(p=>Math.max(0,p-1))} disabled={previewSlide===0} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"7px 14px",color:previewSlide===0?T.muted:T.white,cursor:previewSlide===0?"not-allowed":"pointer",fontFamily:font,fontWeight:700,fontSize:13,opacity:previewSlide===0?.4:1}}>← Prev</button>
+                  <span style={{fontSize:13,color:T.muted,fontWeight:600}}>Slide {previewSlide+1} of {slides.length}</span>
+                  <button onClick={()=>setPreviewSlide(p=>Math.min(slides.length-1,p+1))} disabled={previewSlide===slides.length-1} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"7px 14px",color:previewSlide===slides.length-1?T.muted:T.white,cursor:previewSlide===slides.length-1?"not-allowed":"pointer",fontFamily:font,fontWeight:700,fontSize:13,opacity:previewSlide===slides.length-1?.4:1}}>Next →</button>
+                </div>
+                <div style={{background:T.overlay,borderRadius:14,padding:24,border:`1px solid ${T.borderMd}`,minHeight:200}}>
+                  <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>{slides[previewSlide].type?.toUpperCase()||"CONTENT"} SLIDE</div>
+                  {slides[previewSlide].heading && <h4 style={{margin:"0 0 12px",fontSize:18,fontWeight:800,color:T.white}}>{slides[previewSlide].heading}</h4>}
+                  {(slides[previewSlide].body||slides[previewSlide].text) && <p style={{color:T.muted,fontSize:14,lineHeight:1.7,margin:0,whiteSpace:"pre-wrap"}}>{slides[previewSlide].body||slides[previewSlide].text}</p>}
+                  {(slides[previewSlide].image?.data||slides[previewSlide].image?.url||slides[previewSlide].imageData) && <img src={slides[previewSlide].image?.data||slides[previewSlide].image?.url||slides[previewSlide].imageData} alt="" style={{maxWidth:"100%",borderRadius:10,marginTop:12}}/>}
+                  {slides[previewSlide].videoUrl && <video controls style={{width:"100%",borderRadius:10,marginTop:12}}><source src={slides[previewSlide].videoUrl}/></video>}
+                </div>
+                <div style={{display:"flex",gap:6,marginTop:12,overflowX:"auto",paddingBottom:4}}>
+                  {slides.map((_,i)=>(<button key={i} onClick={()=>setPreviewSlide(i)} style={{flexShrink:0,width:44,height:32,borderRadius:6,border:`2px solid ${previewSlide===i?T.accent:T.border}`,background:previewSlide===i?"rgba(37,99,235,0.15)":T.overlay,cursor:"pointer",fontSize:10,color:previewSlide===i?T.accentLt:T.muted,fontWeight:previewSlide===i?700:400}}>{i+1}</button>))}
+                </div>
+              </>}
+            </div>
+          )}
+          {previewTab==="quiz" && (
+            <div>
+              {quiz.length===0 ? <div style={{textAlign:"center",padding:"32px 0",color:T.muted,fontSize:14}}>No quiz questions.</div> :
+                <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                  <div style={{padding:"10px 14px",background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,fontSize:12,color:T.gold}}>⚠ Admin preview — correct answers highlighted in green</div>
+                  {quiz.map((q,qi)=>(
+                    <div key={qi} style={{background:T.overlay,borderRadius:12,padding:"16px 18px",border:`1px solid ${T.border}`}}>
+                      <div style={{fontSize:13,fontWeight:700,color:T.white,marginBottom:12}}>Q{qi+1}. {q.q}</div>
+                      <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                        {q.options.map((opt,oi)=>(<div key={oi} style={{padding:"8px 12px",borderRadius:8,fontSize:12,background:oi===q.answer?"rgba(16,185,129,0.12)":T.overlaySm,border:`1px solid ${oi===q.answer?"rgba(16,185,129,0.35)":T.border}`,color:oi===q.answer?T.green:T.muted,fontWeight:oi===q.answer?700:400}}>{oi===q.answer?"✓ ":""}{opt}</div>))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              }
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [darkMode, setDarkMode] = useState(true); // kept for backward compat
   const [theme, setTheme] = useState("dark"); // "dark"|"light"|"slate"|"forest"|"graphite"|"arctic"|"sand"
@@ -11113,11 +11259,17 @@ export default function App() {
   const [extCerts, setExtCerts] = useState({}); // { userId: { certType: { fileName, fileUrl, issuedDate, expiryDate, uploadedAt } } }
   const [msdsFiles, setMsdsFiles] = useState({}); // { [chemCode]: { fileName, fileData, fileUrl, uploadedAt } }
   const [customChemicals, setCustomChemicals] = useState([]); // admin-added COSHH chemicals
-  const allModules = [...TRAINING_MODULES, ...customModules];
+  // allModules: custom overrides replace built-in modules with same id
+  const allModules = [
+    ...TRAINING_MODULES.map(m => customModules.find(c=>c.id===m.id&&c._override) || m),
+    ...customModules.filter(c=>!c._override),
+  ];
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [staffFilterManager,  setStaffFilterManager]  = useState("all");
   const [staffFilterSearch,   setStaffFilterSearch]   = useState("");
   const [showBulkReset, setShowBulkReset] = useState(false);
+  const [previewModule, setPreviewModule] = useState(null);
+  const [editingModule, setEditingModule] = useState(null); // module being edited // module being previewed
   const [showQuickReport, setShowQuickReport] = useState(false);
   const [bulkResetPw, setBulkResetPw] = useState("");
   const [bulkResetScope, setBulkResetScope] = useState("all"); // "all" | "selected"
@@ -11858,6 +12010,11 @@ export default function App() {
                     {slide.heading}
                   </h2>
                 )}
+                {(slide.image?.data||slide.image?.url) && (
+                  <div style={{marginBottom:20,textAlign:"center"}}>
+                    <img src={slide.image.data||slide.image.url} alt={slide.image.name||""} style={{maxWidth:"100%",maxHeight:360,borderRadius:12,border:`1px solid ${T.borderMd}`,objectFit:"contain"}}/>
+                  </div>
+                )}
                 {slide.video && (
                   <div style={{marginBottom:20,borderRadius:12,overflow:"hidden",background:"#000",border:`1px solid ${T.borderMd}`}}>
                     {slide.video.uploading
@@ -12243,7 +12400,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* Mobile nav drawer */}
+
+      {/* Mobile nav drawer */}
         {mobileMenuOpen && (
           <div className="mobile-nav-drawer" style={{position:"relative"}}>
             {["dashboard","training","history","documents","incidents","dse",...(isWarehouseWorker(user)?["machinery"]:[]),"actions"].map(t=>(
@@ -12981,6 +13139,11 @@ export default function App() {
           </div>
         </div>
 
+        {/* Module Preview Modal */}
+        {previewModule && (
+          <ModulePreviewModal m={previewModule} staff={staff} assigns={assigns} comps={comps} isMobile={isMobile} setAtab={setAtab} onClose={()=>setPreviewModule(null)} T={T} font={font}/>
+        )}
+
         {/* Mobile nav drawer */}
         {isMobile && mobileMenuOpen && (
           <div style={{background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:"8px 0",zIndex:300,position:"relative"}}>
@@ -13639,7 +13802,28 @@ export default function App() {
 
           {atab==="create" && (
             <CreateModuleTab
-              onSave={m=>{ setCustomModules(prev=>[...prev,m]); setAtab("modules"); }}
+              editingModule={editingModule}
+              onSave={m=>{
+                if (editingModule) {
+                  // Editing existing — update in customModules or TRAINING_MODULES override
+                  if (editingModule._custom) {
+                    setCustomModules(prev=>prev.map(x=>x.id===m.id?{...m,_custom:true}:x));
+                    dbSaveCustomModule({...m,_custom:true});
+                  } else {
+                    // Override built-in by adding to customModules with same id
+                    setCustomModules(prev=>{
+                      const exists = prev.find(x=>x.id===m.id);
+                      if (exists) return prev.map(x=>x.id===m.id?{...m,_custom:true,_override:true}:x);
+                      return [...prev, {...m,_custom:true,_override:true}];
+                    });
+                    dbSaveCustomModule({...m,_custom:true,_override:true});
+                  }
+                } else {
+                  setCustomModules(prev=>[...prev,m]);
+                }
+                setEditingModule(null);
+                setAtab("modules");
+              }}
               Z={T} font={font}/>
           )}
 
@@ -13662,15 +13846,34 @@ export default function App() {
                       <Pill label={`${staff.filter(u=>(assigns[u.id]||[]).includes(m.id)).length} assigned`} col="navy"/>
                       <Pill label={`${staff.filter(u=>comps[u.id]?.[m.id]).length} completed`} col="green"/>
                     </div>
-                    {m._custom && (
-                      <button onClick={()=>{
-                        setCustomModules(prev=>prev.filter(x=>x.id!==m.id));
-                        dbDeleteCustomModule(m.id);
-                        setAtab("modules");
-                      }} style={{marginTop:4,background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.25)",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>
-                        🗑 Delete Module
+                    <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
+                      <button onClick={()=>setPreviewModule(m)}
+                        style={{background:T.overlay,color:T.accentLt,border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font,display:"flex",alignItems:"center",gap:5}}>
+                        👁 Preview
                       </button>
-                    )}
+                      <button onClick={()=>{ setEditingModule(m); setAtab("create"); }}
+                        style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:`1px solid rgba(37,99,235,0.25)`,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>
+                        ✏ Edit
+                      </button>
+                      {m._custom && !m._override && (
+                        <button onClick={()=>{
+                          setCustomModules(prev=>prev.filter(x=>x.id!==m.id));
+                          dbDeleteCustomModule(m.id);
+                          setAtab("modules");
+                        }} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.25)",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>
+                          🗑 Delete
+                        </button>
+                      )}
+                      {m._override && (
+                        <button onClick={()=>{
+                          setCustomModules(prev=>prev.filter(x=>x.id!==m.id));
+                          dbDeleteCustomModule(m.id);
+                          setAtab("modules");
+                        }} style={{background:"rgba(245,158,11,0.1)",color:"#f59e0b",border:"1px solid rgba(245,158,11,0.25)",borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>
+                          ↩ Reset to Original
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
