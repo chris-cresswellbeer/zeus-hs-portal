@@ -251,6 +251,18 @@ const Z_SAND = { // Warm Sand — cream + warm terracotta
   headerBg:"rgba(120,53,15,0.07)", headerBgMd:"rgba(120,53,15,0.1)",
 };
 
+const Z_ROSE = { // Rose — blush/pink backgrounds + deep rose accents
+  navy:"#fff0f3", navyDk:"#ffe4ea", navyMd:"#fff5f7",
+  blue:"#881337", accent:"#e11d48", accentLt:"#be123c",
+  gold:"#9f1239", white:"#1a0810", offWhite:"#3b0f1e",
+  slate:"#4c0519", muted:"#9f5070", mutedDk:"#7f3050",
+  bg:"#fce7ed", bgCard:"#fff0f3", bgDeep:"#ffe4ea",
+  green:"#065f46", greenDk:"#064e3b", red:"#9f1239", amber:"#92400e",
+  border:"rgba(225,29,72,0.1)", borderMd:"rgba(225,29,72,0.16)",
+  overlay:"rgba(225,29,72,0.05)", overlaySm:"rgba(225,29,72,0.03)",
+  headerBg:"rgba(225,29,72,0.06)", headerBgMd:"rgba(225,29,72,0.09)",
+};
+
 const ALL_THEMES = {
   dark:     { key:"dark",     label:"🌙 Dark Mode",       desc:"Default navy",         tokens:null },
   light:    { key:"light",    label:"☀️ Light Mode",      desc:"Clean & bright",       tokens:null },
@@ -259,6 +271,7 @@ const ALL_THEMES = {
   graphite: { key:"graphite", label:"⬛ Graphite & Gold",  desc:"Near-black + gold",    tokens:null },
   arctic:   { key:"arctic",   label:"🔷 Arctic",          desc:"Icy white & blue",     tokens:null },
   sand:     { key:"sand",     label:"🏜 Warm Sand",       desc:"Cream & terracotta",   tokens:null },
+  rose:     { key:"rose",     label:"🌸 Rose",             desc:"Blush & deep rose",    tokens:null },
 };
 
 function getThemeTokens(themeKey) {
@@ -269,6 +282,7 @@ function getThemeTokens(themeKey) {
     case "graphite": return Z_GRAPHITE;
     case "arctic":   return Z_ARCTIC;
     case "sand":     return Z_SAND;
+    case "rose":     return Z_ROSE;
     default:         return Z; // dark
   }
 }
@@ -3421,6 +3435,7 @@ function AccountTab({ user, passwords, setPasswords, darkMode, setDarkMode, them
               {key:"graphite", label:"⬛ Graphite & Gold", desc:"Near-black + gold",  preview:["#0a0a0a","#1c1c1e","#f59e0b"]},
               {key:"arctic",   label:"🌌 Aurora",          desc:"Deep purple + cyan",  preview:["#0a0718","#1a1033","#06b6d4"]},
               {key:"sand",     label:"🏜 Warm Sand",      desc:"Cream & terracotta", preview:["#f0e6d3","#fdf8f0","#c2522a"]},
+              {key:"rose",     label:"🌸 Rose",             desc:"Blush & deep rose",   preview:["#fce7ed","#fff0f3","#e11d48"]},
             ].map(opt=>{
               const isActive = theme===opt.key;
               return (
@@ -3704,11 +3719,11 @@ function NotificationBell({ notifications, onNavigate, Z, font }) {
   const typeIcons = { module:"📚", document:"📄", dse:"🖥️", training:"🎓", report:"📊", staff:"👥" };
 
   // Use fixed colours so dropdown is readable in both light and dark mode
-  const dropBg    = "#1e2d5a";
-  const dropBorder= "rgba(255,255,255,0.12)";
-  const dropTitle = "#ffffff";
-  const dropMuted = "#94a3b8";
-  const dropHover = "rgba(255,255,255,0.06)";
+  const dropBg    = Z.navyMd || "#1e2d5a";
+  const dropBorder= Z.borderMd;
+  const dropTitle = Z.white;
+  const dropMuted = Z.muted;
+  const dropHover = Z.overlay;
   const dropHoverUrgent = "rgba(239,68,68,0.15)";
 
   const handleClick = (n) => {
@@ -3723,7 +3738,7 @@ function NotificationBell({ notifications, onNavigate, Z, font }) {
         style={{position:"relative",background:open?Z.borderMd:Z.overlay,border:`1px solid ${open?Z.muted:Z.borderMd}`,borderRadius:10,width:38,height:38,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,transition:"all .2s",flexShrink:0}}>
         🔔
         {count>0 && (
-          <span style={{position:"absolute",top:-4,right:-4,background:urgent>0?"#ef4444":Z.amber,color:"#fff",borderRadius:99,minWidth:18,height:18,fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",border:"2px solid "+Z.navyDk,lineHeight:1}}>
+          <span style={{position:"absolute",top:-4,right:-4,background:urgent>0?"#ef4444":Z.amber,color:"#fff",borderRadius:99,minWidth:18,height:18,fontSize:10,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px",border:`2px solid ${Z.bg||Z.navyDk}`,lineHeight:1}}>
             {count>9?"9+":count}
           </span>
         )}
