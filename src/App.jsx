@@ -11130,18 +11130,18 @@ function DocAssignPanel({ d, staff, assignedIds, docAcknowledgements, setDocAssi
   );
 }
 
-// ─── Contractor Management Components ────────────────────────────────────────
+// ─── Contractor Management ────────────────────────────────────────────────────
+// Structure: companies > workers (per company) > visits (per company, workers tagged)
 const INDUCTION_ITEMS = [
-  {id:"site_rules",  label:"Site rules & access procedures"},
-  {id:"emergency",   label:"Emergency procedures & muster points"},
-  {id:"ppe",         label:"PPE requirements for work area"},
-  {id:"hazards",     label:"Specific hazards & COSHH substances"},
-  {id:"first_aid",   label:"First aid locations & contacts"},
-  {id:"reporting",   label:"Incident & near miss reporting"},
-  {id:"welfare",     label:"Welfare facilities & site etiquette"},
-  {id:"permits",     label:"Permit to work procedures (if applicable)"},
+  {id:"site_rules", label:"Site rules & access procedures"},
+  {id:"emergency",  label:"Emergency procedures & muster points"},
+  {id:"ppe",        label:"PPE requirements for work area"},
+  {id:"hazards",    label:"Specific hazards & COSHH substances"},
+  {id:"first_aid",  label:"First aid locations & contacts"},
+  {id:"reporting",  label:"Incident & near miss reporting"},
+  {id:"welfare",    label:"Welfare facilities & site etiquette"},
+  {id:"permits",    label:"Permit to work procedures (if applicable)"},
 ];
-const CONTRACTOR_TYPES = ["Contractor","Agency Worker","Visitor","Delivery Driver"];
 const CONTRACTOR_CERT_TYPES = [
   {id:"cscs",  label:"CSCS Card",      icon:"🪪"},
   {id:"ipaf",  label:"IPAF",           icon:"🏗"},
@@ -11152,57 +11152,129 @@ const CONTRACTOR_CERT_TYPES = [
   {id:"other", label:"Other",          icon:"📋"},
 ];
 
-function ContractorForm({ existing, onSave, onCancel, T, font }) {
+// ── Worker detail modal ──────────────────────────────────────────────────────
+function WorkerDetailModal({ worker, companyId, contractorInductions, setContractorInductions, contractorCerts, setContractorCerts, dbSaveContractorInductions, dbSaveContractorCerts, onClose, T, font }) {
+  const isMobile = useWindowWidth() <= 1024;
   const today = new Date().toISOString().slice(0,10);
-  const [form, setForm] = React.useState(existing || {id:"con_"+Date.now(),name:"",company:"",email:"",phone:"",type:"Contractor",status:"active",accessFrom:today,notes:""});
-  const inp = {width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"9px 13px",color:T.white,fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box"};
-  const lbl = {fontSize:11,fontWeight:700,color:T.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:5};
+  const [tab, setTab] = React.useState("induction");
+  const [certUploading, setCertUploading] = React.useState(null);
+  const wid = `${companyId}_${worker.id}`;
+  const ind = contractorInductions[wid]||{};
+  const certs = contractorCerts[wid]||{};
+  const indDone = INDUCTION_ITEMS.filter(i=>ind[i.id]?.done).length;
+  const indPct = Math.round(indDone/INDUCTION_ITEMS.length*100);
   return (
-    <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${T.borderMd}`,marginBottom:20}}>
-      <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:800,color:T.white}}>{existing?"Edit":"Add"} Contractor</h3>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
-        <div><label style={lbl}>Full Name *</label><input style={inp} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
-        <div><label style={lbl}>Company</label><input style={inp} value={form.company} onChange={e=>setForm(p=>({...p,company:e.target.value}))}/></div>
-        <div><label style={lbl}>Email</label><input style={inp} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></div>
-        <div><label style={lbl}>Phone</label><input style={inp} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/></div>
-        <div><label style={lbl}>Type</label>
-          <select style={inp} value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))}>
-            {CONTRACTOR_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
-          </select>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflow:"auto"}}>
+      <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:20,width:"100%",maxWidth:560,maxHeight:"90vh",overflow:"auto",border:`1px solid ${T.borderMd}`,boxShadow:"0 32px 80px rgba(0,0,0,0.7)"}}>
+        <div style={{padding:"18px 24px",borderBottom:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:`linear-gradient(135deg,${T.navyMd},${T.navy})`}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <Avatar name={worker.name} size={36}/>
+            <div>
+              <div style={{fontSize:16,fontWeight:800,color:T.white}}>{worker.name}</div>
+              <div style={{fontSize:12,color:T.muted}}>{worker.role||"Worker"}{worker.phone?` · ${worker.phone}`:""}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"7px 13px",color:T.muted,cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>✕</button>
         </div>
-        <div><label style={lbl}>Status</label>
-          <select style={inp} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}>
-            <option value="active">Active</option>
-            <option value="expired">Expired</option>
-            <option value="banned">Banned</option>
-          </select>
+        <div style={{display:"flex",borderBottom:`1px solid ${T.border}`,padding:"0 24px"}}>
+          {[["induction",`✅ Induction (${indPct}%)`],["certs","🪪 Certs"]].map(([id,label])=>(
+            <button key={id} onClick={()=>setTab(id)} style={{padding:"11px 16px",background:"none",border:"none",borderBottom:`2px solid ${tab===id?T.gold:"transparent"}`,color:tab===id?T.white:T.muted,fontWeight:tab===id?700:400,cursor:"pointer",fontFamily:font,fontSize:13}}>{label}</button>
+          ))}
         </div>
-      </div>
-      <div style={{marginBottom:14}}><label style={lbl}>Notes</label><textarea style={{...inp,minHeight:50,resize:"vertical"}} value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
-      <div style={{display:"flex",gap:10}}>
-        <button onClick={()=>onSave(form)} disabled={!form.name.trim()} style={{background:form.name.trim()?`linear-gradient(135deg,${T.accent},${T.blue})`:"rgba(37,99,235,0.3)",color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",cursor:form.name.trim()?"pointer":"not-allowed",fontFamily:font,fontWeight:700,fontSize:13}}>Save</button>
-        <button onClick={onCancel} style={{background:T.overlay,color:T.muted,border:`1px solid ${T.borderMd}`,borderRadius:10,padding:"10px 18px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>Cancel</button>
+        <div style={{padding:24}}>
+          {tab==="induction" && (
+            <div>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:12}}>
+                <span style={{fontSize:13,color:T.muted}}>{indDone} of {INDUCTION_ITEMS.length} completed</span>
+                <span style={{fontSize:13,fontWeight:800,color:indPct===100?T.green:indPct>0?"#f59e0b":"#f87171"}}>{indPct===100?"✓ Inducted":`${indPct}%`}</span>
+              </div>
+              <div style={{height:4,background:T.border,borderRadius:99,marginBottom:14,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${indPct}%`,background:indPct===100?T.green:"#f59e0b",borderRadius:99}}/>
+              </div>
+              {INDUCTION_ITEMS.map(item=>{
+                const done=ind[item.id]?.done;
+                return (
+                  <div key={item.id} onClick={()=>{
+                    const newInd={...ind,[item.id]:{done:!done,date:today,by:"Admin"}};
+                    setContractorInductions(p=>({...p,[wid]:newInd}));
+                    dbSaveContractorInductions(wid,newInd);
+                  }} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,background:done?"rgba(16,185,129,0.07)":T.overlay,border:`1px solid ${done?"rgba(16,185,129,0.2)":T.border}`,cursor:"pointer",marginBottom:6}}>
+                    <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${done?"#10b981":T.borderMd}`,background:done?"#10b981":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {done && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>✓</span>}
+                    </div>
+                    <span style={{flex:1,fontSize:13,color:done?T.white:T.muted,fontWeight:done?600:400}}>{item.label}</span>
+                    {done && ind[item.id].date && <span style={{fontSize:10,color:T.green}}>{ind[item.id].date}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {tab==="certs" && (
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10}}>
+              {CONTRACTOR_CERT_TYPES.map(ct=>{
+                const cert=certs[ct.id];
+                const expired=cert?.expiryDate&&cert.expiryDate<today;
+                const daysLeft=cert?.expiryDate?Math.ceil((new Date(cert.expiryDate)-new Date())/86400000):null;
+                return (
+                  <div key={ct.id} style={{background:cert?(expired?"rgba(239,68,68,0.07)":"rgba(16,185,129,0.07)"):T.overlay,borderRadius:10,padding:"12px 14px",border:`1px solid ${cert?(expired?"rgba(239,68,68,0.25)":"rgba(16,185,129,0.25)"):T.border}`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:18}}>{ct.icon}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:12,fontWeight:700,color:T.white}}>{ct.label}</div>
+                        {cert && <div style={{fontSize:10,color:expired?"#f87171":daysLeft<=30?"#f59e0b":T.green}}>{expired?`⚠ Expired`:daysLeft<=30?`⏳ ${daysLeft}d`:`✓ ${cert.expiryDate}`}</div>}
+                      </div>
+                      {cert ? (
+                        <div style={{display:"flex",gap:5}}>
+                          {cert.fileUrl && <a href={cert.fileUrl} target="_blank" rel="noreferrer" style={{fontSize:11,color:T.accentLt,textDecoration:"none",fontWeight:700}}>View</a>}
+                          <button onClick={()=>{const n={...certs};delete n[ct.id];setContractorCerts(p=>({...p,[wid]:n}));dbSaveContractorCerts(wid,n);}} style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>✕</button>
+                        </div>
+                      ) : (
+                        <label style={{background:`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",borderRadius:6,padding:"4px 8px",cursor:certUploading===ct.id?"wait":"pointer",fontFamily:font,fontWeight:700,fontSize:10}}>
+                          {certUploading===ct.id?"⏳":"↑"}
+                          <input type="file" accept={ACCEPT_IMG_DOCS} style={{display:"none"}} disabled={!!certUploading}
+                            onChange={async e=>{
+                              const file=e.target.files[0]; if(!file) return;
+                              setCertUploading(ct.id);
+                              const path=`contractor_certs/${wid}_${ct.id}_${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
+                              await sb.storage.upload("documents",path,file);
+                              const fileUrl=sb.storage.getPublicUrl("documents",path);
+                              const issued=prompt("Issue date (YYYY-MM-DD):","")||"";
+                              const expiry=prompt("Expiry date (YYYY-MM-DD):","")||"";
+                              const newCerts={...certs,[ct.id]:{fileName:file.name,fileUrl,issuedDate:issued,expiryDate:expiry}};
+                              setContractorCerts(p=>({...p,[wid]:newCerts}));
+                              dbSaveContractorCerts(wid,newCerts);
+                              setCertUploading(null);
+                              e.target.value="";
+                            }}/>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
+// ── Company detail view ───────────────────────────────────────────────────────
 function ContractorDetail({ selCon, contractorInductions, setContractorInductions, contractorCerts, setContractorCerts, contractorVisits, setContractorVisits, contractors, setContractors, dbSaveContractor, dbDeleteContractor, dbSaveContractorInductions, dbSaveContractorCerts, dbSaveContractorVisits, staff, isMobile, setView, T, font }) {
   const today = new Date().toISOString().slice(0,10);
-  const [detailTab, setDetailTab] = React.useState("overview");
-  const [editingCon, setEditingCon] = React.useState(null);
+  const [tab, setTab] = React.useState("visits");
   const [showVisitForm, setShowVisitForm] = React.useState(false);
-  const [visitForm, setVisitForm] = React.useState({id:"",date:today,timeIn:"",timeOut:"",purpose:"",areas:"",inductedBy:"",permitRequired:false,notes:""});
-  const [certUploading, setCertUploading] = React.useState(null);
+  const [visitForm, setVisitForm] = React.useState({id:"",date:today,timeIn:"",timeOut:"",purpose:"",areas:"",signedInBy:"",workers:[],permitRequired:false,notes:""});
+  const [showWorkerForm, setShowWorkerForm] = React.useState(false);
+  const [workerForm, setWorkerForm] = React.useState({id:"",name:"",role:"",email:"",phone:""});
+  const [editingCon, setEditingCon] = React.useState(null);
+  const [selectedWorker, setSelectedWorker] = React.useState(null);
 
-  const ind = contractorInductions[selCon.id]||{};
-  const certs = contractorCerts[selCon.id]||{};
+  const workers = selCon.workers||[];
   const visits = (contractorVisits[selCon.id]||[]).slice().sort((a,b)=>b.date.localeCompare(a.date));
-  const indDone = INDUCTION_ITEMS.filter(item=>ind[item.id]?.done).length;
-  const indPct = Math.round(indDone/INDUCTION_ITEMS.length*100);
-  const ss = selCon.status==="active"?{color:"#10b981",bg:"rgba(16,185,129,0.12)",border:"rgba(16,185,129,0.3)"}:selCon.status==="banned"?{color:"#f87171",bg:"rgba(239,68,68,0.12)",border:"rgba(239,68,68,0.3)"}:{color:T.muted,bg:T.overlay,border:T.borderMd};
-  const inp2 = {width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"9px 13px",color:T.white,fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box"};
-  const lbl2 = {fontSize:11,fontWeight:700,color:T.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:5};
+  const inp = {width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"9px 13px",color:T.white,fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box"};
+  const lbl = {fontSize:11,fontWeight:700,color:T.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:5};
 
   function saveVisit() {
     const v = {...visitForm, id:"v_"+Date.now()};
@@ -11210,61 +11282,69 @@ function ContractorDetail({ selCon, contractorInductions, setContractorInduction
     setContractorVisits(p=>({...p,[selCon.id]:newVisits}));
     dbSaveContractorVisits(selCon.id, newVisits);
     setShowVisitForm(false);
-    setVisitForm({id:"",date:today,timeIn:"",timeOut:"",purpose:"",areas:"",inductedBy:"",permitRequired:false,notes:""});
+    setVisitForm({id:"",date:today,timeIn:"",timeOut:"",purpose:"",areas:"",signedInBy:"",workers:[],permitRequired:false,notes:""});
   }
 
-  function deleteVisit(vid) {
-    const newVisits = visits.filter(v=>v.id!==vid);
-    setContractorVisits(p=>({...p,[selCon.id]:newVisits}));
-    dbSaveContractorVisits(selCon.id, newVisits);
+  function saveWorker() {
+    const w = {...workerForm, id:"w_"+Date.now()};
+    const updated = {...selCon, workers:[...(selCon.workers||[]), w]};
+    setContractors(p=>p.map(c=>c.id===selCon.id?updated:c));
+    dbSaveContractor(updated);
+    setWorkerForm({id:"",name:"",role:"",email:"",phone:""});
+    setShowWorkerForm(false);
+  }
+
+  function removeWorker(wid) {
+    const updated = {...selCon, workers:(selCon.workers||[]).filter(w=>w.id!==wid)};
+    setContractors(p=>p.map(c=>c.id===selCon.id?updated:c));
+    dbSaveContractor(updated);
   }
 
   return (
     <div>
+      {selectedWorker && (
+        <WorkerDetailModal worker={selectedWorker} companyId={selCon.id} contractorInductions={contractorInductions} setContractorInductions={setContractorInductions} contractorCerts={contractorCerts} setContractorCerts={setContractorCerts} dbSaveContractorInductions={dbSaveContractorInductions} dbSaveContractorCerts={dbSaveContractorCerts} onClose={()=>setSelectedWorker(null)} T={T} font={font}/>
+      )}
       <button onClick={()=>setView("list")} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"7px 14px",color:T.muted,cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13,marginBottom:20}}>← Back to Register</button>
-      {editingCon && <ContractorForm existing={editingCon} onSave={c=>{setContractors(p=>p.map(x=>x.id===c.id?c:x));dbSaveContractor(c);setEditingCon(null);}} onCancel={()=>setEditingCon(null)} T={T} font={font}/>}
 
-      {/* Profile header */}
+      {/* Company header */}
       <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${T.borderMd}`,marginBottom:4}}>
-        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:14}}>
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4}}>
-              <h2 style={{margin:0,fontSize:20,fontWeight:900,color:T.white}}>{selCon.name}</h2>
-              <span style={{fontSize:11,fontWeight:700,padding:"2px 9px",borderRadius:20,background:ss.bg,color:ss.color,border:`1px solid ${ss.border}`,textTransform:"capitalize"}}>{selCon.status}</span>
-            </div>
-            <p style={{margin:0,fontSize:13,color:T.muted}}>{selCon.company||"Independent"} · {selCon.type}</p>
+            <h2 style={{margin:"0 0 4px",fontSize:20,fontWeight:900,color:T.white}}>{selCon.name}</h2>
+            <p style={{margin:0,fontSize:13,color:T.muted}}>{selCon.type||"Contractor"}{selCon.email?` · ${selCon.email}`:""}{selCon.phone?` · ${selCon.phone}`:""}</p>
           </div>
-          <div style={{display:"flex",gap:8}}>
-            <button onClick={()=>setEditingCon(selCon)} style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:"1px solid rgba(37,99,235,0.25)",borderRadius:9,padding:"7px 14px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:12}}>✏ Edit</button>
-            <button onClick={()=>{if(window.confirm(`Remove ${selCon.name}?`)){setContractors(p=>p.filter(c=>c.id!==selCon.id));dbDeleteContractor(selCon.id);setView("list");}}} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:9,padding:"7px 14px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:12}}>🗑 Remove</button>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <span style={{fontSize:11,fontWeight:700,padding:"4px 12px",borderRadius:20,background:selCon.status==="active"?"rgba(16,185,129,0.12)":T.overlay,color:selCon.status==="active"?"#10b981":T.muted,border:`1px solid ${selCon.status==="active"?"rgba(16,185,129,0.3)":T.borderMd}`,textTransform:"capitalize"}}>{selCon.status||"active"}</span>
+            <button onClick={()=>setEditingCon(selCon)} style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:"1px solid rgba(37,99,235,0.25)",borderRadius:9,padding:"5px 12px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:12}}>✏ Edit</button>
+            <button onClick={()=>{if(window.confirm(`Remove ${selCon.name}?`)){setContractors(p=>p.filter(c=>c.id!==selCon.id));dbDeleteContractor(selCon.id);setView("list");}}} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:9,padding:"5px 12px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:12}}>🗑</button>
           </div>
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8}}>
-          {[{l:"Email",v:selCon.email||"—"},{l:"Phone",v:selCon.phone||"—"},{l:"Total Visits",v:visits.length},{l:"Last Visit",v:visits[0]?.date||"Never"},{l:"Induction",v:`${indPct}%`},{l:"Certs",v:`${Object.keys(certs).length}/${CONTRACTOR_CERT_TYPES.length}`}].map((r,i)=>(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:8}}>
+          {[{l:"Workers",v:workers.length},{l:"Total Visits",v:visits.length},{l:"Last Visit",v:visits[0]?.date||"Never"},{l:"On Site Today",v:visits.filter(v=>v.date===today).length>0?"Yes":"No"}].map((r,i)=>(
             <div key={i} style={{background:T.overlay,borderRadius:8,padding:"8px 12px"}}>
               <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:2}}>{r.l}</div>
-              <div style={{fontSize:12,color:T.white,fontWeight:600}}>{r.v}</div>
+              <div style={{fontSize:13,color:T.white,fontWeight:700}}>{r.v}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div style={{display:"flex",borderBottom:`1px solid ${T.border}`,marginBottom:20}}>
-        {[["overview","📋 Overview"],["visits",`🗓 Visits (${visits.length})`],["induction","✅ Induction"],["certs","🪪 Certs"]].map(([id,label])=>(
-          <button key={id} onClick={()=>setDetailTab(id)} style={{padding:"11px 18px",background:"none",border:"none",borderBottom:`2px solid ${detailTab===id?T.gold:"transparent"}`,color:detailTab===id?T.white:T.muted,fontWeight:detailTab===id?700:400,cursor:"pointer",fontFamily:font,fontSize:13}}>{label}</button>
-        ))}
-      </div>
-
-      {/* Overview tab */}
-      {detailTab==="overview" && (
-        <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:20,border:`1px solid ${T.border}`,color:T.muted,fontSize:13,lineHeight:1.7}}>
-          {selCon.notes ? <p style={{margin:0}}>{selCon.notes}</p> : <p style={{margin:0,fontStyle:"italic"}}>No notes recorded.</p>}
+      {editingCon && (
+        <div style={{marginTop:12}}>
+          <CompanyForm existing={editingCon} onSave={c=>{setContractors(p=>p.map(x=>x.id===c.id?c:x));dbSaveContractor(c);setEditingCon(null);}} onCancel={()=>setEditingCon(null)} T={T} font={font}/>
         </div>
       )}
 
+      {/* Tabs */}
+      <div style={{display:"flex",borderBottom:`1px solid ${T.border}`,marginBottom:20}}>
+        {[["visits",`🗓 Visits (${visits.length})`],["workers",`👷 Workers (${workers.length})`]].map(([id,label])=>(
+          <button key={id} onClick={()=>setTab(id)} style={{padding:"11px 18px",background:"none",border:"none",borderBottom:`2px solid ${tab===id?T.gold:"transparent"}`,color:tab===id?T.white:T.muted,fontWeight:tab===id?700:400,cursor:"pointer",fontFamily:font,fontSize:13}}>{label}</button>
+        ))}
+      </div>
+
       {/* Visits tab */}
-      {detailTab==="visits" && (
+      {tab==="visits" && (
         <div>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:10}}>
             <h3 style={{margin:0,fontSize:15,fontWeight:800,color:T.white}}>Visit Log</h3>
@@ -11275,15 +11355,15 @@ function ContractorDetail({ selCon, contractorInductions, setContractorInduction
           {showVisitForm && (
             <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:20,border:`1px solid ${T.borderMd}`,marginBottom:16}}>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
-                <div><label style={lbl2}>Date *</label><input type="date" style={inp2} value={visitForm.date} onChange={e=>setVisitForm(p=>({...p,date:e.target.value}))}/></div>
+                <div><label style={lbl}>Date *</label><input type="date" style={inp} value={visitForm.date} onChange={e=>setVisitForm(p=>({...p,date:e.target.value}))}/></div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                  <div><label style={lbl2}>Time In</label><input type="time" style={inp2} value={visitForm.timeIn} onChange={e=>setVisitForm(p=>({...p,timeIn:e.target.value}))}/></div>
-                  <div><label style={lbl2}>Time Out</label><input type="time" style={inp2} value={visitForm.timeOut} onChange={e=>setVisitForm(p=>({...p,timeOut:e.target.value}))}/></div>
+                  <div><label style={lbl}>Time In</label><input type="time" style={inp} value={visitForm.timeIn} onChange={e=>setVisitForm(p=>({...p,timeIn:e.target.value}))}/></div>
+                  <div><label style={lbl}>Time Out</label><input type="time" style={inp} value={visitForm.timeOut} onChange={e=>setVisitForm(p=>({...p,timeOut:e.target.value}))}/></div>
                 </div>
-                <div><label style={lbl2}>Purpose / Job Description *</label><input style={inp2} value={visitForm.purpose} onChange={e=>setVisitForm(p=>({...p,purpose:e.target.value}))} placeholder="e.g. Annual boiler service"/></div>
-                <div><label style={lbl2}>Areas Accessed</label><input style={inp2} value={visitForm.areas} onChange={e=>setVisitForm(p=>({...p,areas:e.target.value}))} placeholder="e.g. Boiler room, Plant room"/></div>
-                <div><label style={lbl2}>Signed In By (Zeus Staff)</label>
-                  <select style={inp2} value={visitForm.inductedBy} onChange={e=>setVisitForm(p=>({...p,inductedBy:e.target.value}))}>
+                <div><label style={lbl}>Purpose / Job Description *</label><input style={inp} value={visitForm.purpose} onChange={e=>setVisitForm(p=>({...p,purpose:e.target.value}))} placeholder="e.g. Annual boiler service"/></div>
+                <div><label style={lbl}>Areas Accessed</label><input style={inp} value={visitForm.areas} onChange={e=>setVisitForm(p=>({...p,areas:e.target.value}))} placeholder="e.g. Boiler room, Plant room"/></div>
+                <div><label style={lbl}>Signed In By (Zeus Staff)</label>
+                  <select style={inp} value={visitForm.signedInBy} onChange={e=>setVisitForm(p=>({...p,signedInBy:e.target.value}))}>
                     <option value="">Select staff member...</option>
                     {staff.map(u=><option key={u.id} value={u.name}>{u.name}</option>)}
                   </select>
@@ -11295,7 +11375,26 @@ function ContractorDetail({ selCon, contractorInductions, setContractorInduction
                   </label>
                 </div>
               </div>
-              <div style={{marginBottom:12}}><label style={lbl2}>Notes</label><textarea style={{...inp2,minHeight:50,resize:"vertical"}} value={visitForm.notes} onChange={e=>setVisitForm(p=>({...p,notes:e.target.value}))}/></div>
+              {/* Workers on this visit */}
+              {workers.length>0 && (
+                <div style={{marginBottom:12}}>
+                  <label style={lbl}>Workers On Site This Visit</label>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                    {workers.map(w=>{
+                      const selected=visitForm.workers.includes(w.id);
+                      return (
+                        <button key={w.id} onClick={()=>setVisitForm(p=>({...p,workers:selected?p.workers.filter(x=>x!==w.id):[...p.workers,w.id]}))}
+                          style={{display:"flex",alignItems:"center",gap:7,padding:"6px 12px",borderRadius:20,border:`2px solid ${selected?T.accent:T.borderMd}`,background:selected?`rgba(37,99,235,0.15)`:T.overlay,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:selected?700:400,color:selected?T.accentLt:T.muted,transition:"all .15s"}}>
+                          <Avatar name={w.name} size={18}/>
+                          {w.name}{w.role?` (${w.role})`:""}
+                          {selected && <span style={{fontSize:10}}>✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <div style={{marginBottom:12}}><label style={lbl}>Notes</label><textarea style={{...inp,minHeight:50,resize:"vertical"}} value={visitForm.notes} onChange={e=>setVisitForm(p=>({...p,notes:e.target.value}))}/></div>
               <button onClick={saveVisit} disabled={!visitForm.date||!visitForm.purpose.trim()} style={{background:(!visitForm.date||!visitForm.purpose.trim())?"rgba(37,99,235,0.3)":`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",cursor:(!visitForm.date||!visitForm.purpose.trim())?"not-allowed":"pointer",fontFamily:font,fontWeight:700,fontSize:13,opacity:(!visitForm.date||!visitForm.purpose.trim())?.5:1}}>
                 ✓ Save Visit
               </button>
@@ -11304,8 +11403,8 @@ function ContractorDetail({ selCon, contractorInductions, setContractorInduction
           {visits.length===0
             ? <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:"32px 20px",textAlign:"center",border:`1px solid ${T.border}`,color:T.muted,fontSize:14}}>No visits logged yet.</div>
             : <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              {visits.map((v,i)=>(
-                <div key={v.id||i} style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:"16px 20px",border:`1px solid ${T.border}`}}>
+              {visits.map((v,vi)=>(
+                <div key={v.id||vi} style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:"16px 20px",border:`1px solid ${T.border}`}}>
                   <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
                     <div style={{flex:1}}>
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
@@ -11314,14 +11413,23 @@ function ContractorDetail({ selCon, contractorInductions, setContractorInduction
                         {v.permitRequired && <span style={{fontSize:10,fontWeight:700,color:"#f59e0b",background:"rgba(245,158,11,0.12)",padding:"1px 7px",borderRadius:20,border:"1px solid rgba(245,158,11,0.3)"}}>⚠ Permit</span>}
                         {v.date===today && <span style={{fontSize:10,fontWeight:700,color:"#10b981",background:"rgba(16,185,129,0.12)",padding:"1px 7px",borderRadius:20,border:"1px solid rgba(16,185,129,0.3)"}}>TODAY</span>}
                       </div>
-                      <div style={{fontSize:13,fontWeight:700,color:T.white,marginBottom:4}}>{v.purpose}</div>
-                      <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+                      <div style={{fontSize:13,fontWeight:700,color:T.white,marginBottom:6}}>{v.purpose}</div>
+                      {v.workers&&v.workers.length>0 && (
+                        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:4}}>
+                          <span style={{fontSize:11,color:T.muted}}>👷</span>
+                          {v.workers.map(wid=>{
+                            const w=workers.find(x=>x.id===wid);
+                            return w ? <span key={wid} style={{fontSize:11,color:T.white,background:T.overlay,padding:"1px 8px",borderRadius:20,border:`1px solid ${T.border}`}}>{w.name}</span> : null;
+                          })}
+                        </div>
+                      )}
+                      <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
                         {v.areas && <span style={{fontSize:11,color:T.muted}}>📍 {v.areas}</span>}
-                        {v.inductedBy && <span style={{fontSize:11,color:T.muted}}>✍ {v.inductedBy}</span>}
+                        {v.signedInBy && <span style={{fontSize:11,color:T.muted}}>✍ {v.signedInBy}</span>}
                       </div>
                       {v.notes && <div style={{marginTop:4,fontSize:11,color:T.muted,fontStyle:"italic"}}>{v.notes}</div>}
                     </div>
-                    <button onClick={()=>{if(window.confirm("Delete this visit?")) deleteVisit(v.id||i);}} style={{background:"rgba(239,68,68,0.08)",color:"#f87171",border:"1px solid rgba(239,68,68,0.15)",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontFamily:font,fontWeight:700}}>🗑</button>
+                    <button onClick={()=>{if(window.confirm("Delete this visit?")){{const nv=visits.filter((_,j)=>j!==vi);setContractorVisits(p=>({...p,[selCon.id]:nv}));dbSaveContractorVisits(selCon.id,nv);}}}} style={{background:"rgba(239,68,68,0.08)",color:"#f87171",border:"1px solid rgba(239,68,68,0.15)",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontSize:11,fontFamily:font,fontWeight:700}}>🗑</button>
                   </div>
                 </div>
               ))}
@@ -11330,212 +11438,252 @@ function ContractorDetail({ selCon, contractorInductions, setContractorInduction
         </div>
       )}
 
-      {/* Induction tab */}
-      {detailTab==="induction" && (
-        <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${T.borderMd}`}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:8}}>
-            <div>
-              <h3 style={{margin:"0 0 2px",fontSize:15,fontWeight:800,color:T.white}}>Site Induction</h3>
-              <p style={{margin:0,fontSize:12,color:T.muted}}>{indDone} of {INDUCTION_ITEMS.length} items completed</p>
+      {/* Workers tab */}
+      {tab==="workers" && (
+        <div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:10}}>
+            <h3 style={{margin:0,fontSize:15,fontWeight:800,color:T.white}}>Workers</h3>
+            <button onClick={()=>setShowWorkerForm(v=>!v)} style={{background:showWorkerForm?"rgba(239,68,68,0.1)":`linear-gradient(135deg,${T.accent},${T.blue})`,color:showWorkerForm?"#f87171":"#fff",border:showWorkerForm?"1px solid rgba(239,68,68,0.2)":"none",borderRadius:10,padding:"9px 18px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>
+              {showWorkerForm?"✕ Cancel":"+ Add Worker"}
+            </button>
+          </div>
+          {showWorkerForm && (
+            <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:18,border:`1px solid ${T.borderMd}`,marginBottom:14}}>
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:10,marginBottom:10}}>
+                <div><label style={lbl}>Full Name *</label><input style={inp} value={workerForm.name} onChange={e=>setWorkerForm(p=>({...p,name:e.target.value}))}/></div>
+                <div><label style={lbl}>Role / Trade</label><input style={inp} value={workerForm.role} onChange={e=>setWorkerForm(p=>({...p,role:e.target.value}))} placeholder="e.g. Electrician"/></div>
+                <div><label style={lbl}>Email</label><input style={inp} value={workerForm.email} onChange={e=>setWorkerForm(p=>({...p,email:e.target.value}))}/></div>
+                <div><label style={lbl}>Phone</label><input style={inp} value={workerForm.phone} onChange={e=>setWorkerForm(p=>({...p,phone:e.target.value}))}/></div>
+              </div>
+              <button onClick={saveWorker} disabled={!workerForm.name.trim()} style={{background:workerForm.name.trim()?`linear-gradient(135deg,${T.accent},${T.blue})`:"rgba(37,99,235,0.3)",color:"#fff",border:"none",borderRadius:10,padding:"9px 22px",cursor:workerForm.name.trim()?"pointer":"not-allowed",fontFamily:font,fontWeight:700,fontSize:13,opacity:workerForm.name.trim()?1:.5}}>Add Worker</button>
             </div>
-            <span style={{fontSize:13,fontWeight:800,color:indPct===100?T.green:indPct>0?"#f59e0b":"#f87171"}}>{indPct===100?"✓ Fully Inducted":`${indPct}% Complete`}</span>
-          </div>
-          <div style={{height:4,background:T.border,borderRadius:99,marginBottom:16,overflow:"hidden"}}>
-            <div style={{height:"100%",width:`${indPct}%`,background:indPct===100?T.green:"#f59e0b",borderRadius:99,transition:"width .4s"}}/>
-          </div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {INDUCTION_ITEMS.map(item=>{
-              const done=ind[item.id]?.done;
-              const dt=ind[item.id]?.date;
-              return (
-                <div key={item.id} onClick={()=>{
-                  const newInd={...ind,[item.id]:{done:!done,date:new Date().toISOString().slice(0,10),by:"Admin"}};
-                  setContractorInductions(p=>({...p,[selCon.id]:newInd}));
-                  dbSaveContractorInductions(selCon.id,newInd);
-                }} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",borderRadius:10,background:done?"rgba(16,185,129,0.07)":T.overlay,border:`1px solid ${done?"rgba(16,185,129,0.2)":T.border}`,cursor:"pointer"}}>
-                  <div style={{width:18,height:18,borderRadius:4,border:`2px solid ${done?"#10b981":T.borderMd}`,background:done?"#10b981":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {done && <span style={{color:"#fff",fontSize:11,fontWeight:900}}>✓</span>}
-                  </div>
-                  <span style={{flex:1,fontSize:13,color:done?T.white:T.muted,fontWeight:done?600:400}}>{item.label}</span>
-                  {done && dt && <span style={{fontSize:10,color:T.green,flexShrink:0}}>{dt}</span>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Certs tab */}
-      {detailTab==="certs" && (
-        <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${T.borderMd}`}}>
-          <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:800,color:T.white}}>Certificates & Qualifications</h3>
-          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
-            {CONTRACTOR_CERT_TYPES.map(ct=>{
-              const cert=certs[ct.id];
-              const today2=new Date().toISOString().slice(0,10);
-              const expired=cert?.expiryDate&&cert.expiryDate<today2;
-              const daysLeft=cert?.expiryDate?Math.ceil((new Date(cert.expiryDate)-new Date())/86400000):null;
-              return (
-                <div key={ct.id} style={{background:cert?(expired?"rgba(239,68,68,0.07)":"rgba(16,185,129,0.07)"):T.overlay,borderRadius:12,padding:"14px 16px",border:`1px solid ${cert?(expired?"rgba(239,68,68,0.25)":"rgba(16,185,129,0.25)"):T.border}`}}>
-                  <div style={{display:"flex",alignItems:"center",gap:10}}>
-                    <span style={{fontSize:20}}>{ct.icon}</span>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:13,fontWeight:700,color:T.white}}>{ct.label}</div>
-                      {cert && <div style={{fontSize:10,color:expired?"#f87171":daysLeft<=30?"#f59e0b":T.green,marginTop:1}}>{expired?`⚠ Expired ${cert.expiryDate}`:daysLeft<=30?`⏳ ${daysLeft}d left`:`✓ Valid to ${cert.expiryDate}`}</div>}
-                    </div>
-                    {cert ? (
-                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                        {cert.fileUrl && <a href={cert.fileUrl} target="_blank" rel="noreferrer" style={{fontSize:11,color:T.accentLt,textDecoration:"none",fontWeight:700}}>View</a>}
-                        <button onClick={()=>{const n={...certs};delete n[ct.id];setContractorCerts(p=>({...p,[selCon.id]:n}));dbSaveContractorCerts(selCon.id,n);}} style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font}}>✕</button>
+          )}
+          {workers.length===0
+            ? <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:"28px 20px",textAlign:"center",border:`1px solid ${T.border}`,color:T.muted,fontSize:14}}>No workers added yet.</div>
+            : <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,overflow:"hidden",border:`1px solid ${T.border}`}}>
+              {workers.map((w,i)=>{
+                const wid=`${selCon.id}_${w.id}`;
+                const wInd=contractorInductions[wid]||{};
+                const wIndPct=Math.round(INDUCTION_ITEMS.filter(item=>wInd[item.id]?.done).length/INDUCTION_ITEMS.length*100);
+                const wCerts=contractorCerts[wid]||{};
+                const hasExpiredCert=Object.values(wCerts).some(c=>c.expiryDate&&c.expiryDate<today);
+                return (
+                  <div key={w.id} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 18px",borderTop:i>0?`1px solid ${T.border}`:"none"}}>
+                    <Avatar name={w.name} size={32}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        <span style={{fontSize:13,fontWeight:700,color:T.white}}>{w.name}</span>
+                        {w.role && <span style={{fontSize:11,color:T.muted}}>{w.role}</span>}
+                        {hasExpiredCert && <span style={{fontSize:9,fontWeight:700,color:"#f87171",background:"rgba(239,68,68,0.1)",padding:"1px 6px",borderRadius:20,border:"1px solid rgba(239,68,68,0.2)"}}>CERT EXPIRED</span>}
                       </div>
-                    ) : (
-                      <label style={{background:`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",border:"none",borderRadius:7,padding:"5px 10px",cursor:certUploading===ct.id?"wait":"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>
-                        {certUploading===ct.id?"⏳":"↑ Upload"}
-                        <input type="file" accept={ACCEPT_IMG_DOCS} style={{display:"none"}} disabled={!!certUploading}
-                          onChange={async e=>{
-                            const file=e.target.files[0]; if(!file) return;
-                            setCertUploading(ct.id);
-                            const path=`contractor_certs/${selCon.id}_${ct.id}_${file.name.replace(/[^a-zA-Z0-9._-]/g,"_")}`;
-                            await sb.storage.upload("documents",path,file);
-                            const fileUrl=sb.storage.getPublicUrl("documents",path);
-                            const issued=prompt("Issue date (YYYY-MM-DD):","")||"";
-                            const expiry=prompt("Expiry date (YYYY-MM-DD):","")||"";
-                            const newCerts={...certs,[ct.id]:{fileName:file.name,fileUrl,issuedDate:issued,expiryDate:expiry}};
-                            setContractorCerts(p=>({...p,[selCon.id]:newCerts}));
-                            dbSaveContractorCerts(selCon.id,newCerts);
-                            setCertUploading(null);
-                            e.target.value="";
-                          }}/>
-                      </label>
-                    )}
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginTop:4}}>
+                        <div style={{fontSize:10,color:wIndPct===100?T.green:wIndPct>0?"#f59e0b":"#f87171",fontWeight:700}}>{wIndPct===100?"✓ Inducted":`Induction ${wIndPct}%`}</div>
+                        <div style={{height:3,background:T.border,borderRadius:99,overflow:"hidden",width:50}}>
+                          <div style={{height:"100%",width:`${wIndPct}%`,background:wIndPct===100?T.green:"#f59e0b",borderRadius:99}}/>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:6}}>
+                      <button onClick={()=>setSelectedWorker(w)} style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:"1px solid rgba(37,99,235,0.25)",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>Manage →</button>
+                      <button onClick={()=>{if(window.confirm(`Remove ${w.name}?`)) removeWorker(w.id);}} style={{background:"rgba(239,68,68,0.08)",color:"#f87171",border:"1px solid rgba(239,68,68,0.15)",borderRadius:8,padding:"6px 8px",cursor:"pointer",fontSize:11}}>🗑</button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          }
         </div>
       )}
     </div>
   );
 }
 
+// ── Company form ──────────────────────────────────────────────────────────────
+function CompanyForm({ existing, onSave, onCancel, T, font }) {
+  const [form, setForm] = React.useState(existing||{id:"con_"+Date.now(),name:"",type:"Contractor",status:"active",email:"",phone:"",notes:"",workers:[]});
+  const inp = {width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"9px 13px",color:T.white,fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box"};
+  const lbl = {fontSize:11,fontWeight:700,color:T.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:5};
+  return (
+    <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${T.borderMd}`,marginBottom:20}}>
+      <h3 style={{margin:"0 0 16px",fontSize:15,fontWeight:800,color:T.white}}>{existing?"Edit":"Add"} Company</h3>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+        <div style={{gridColumn:"1/-1"}}><label style={lbl}>Company Name *</label><input style={inp} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))}/></div>
+        <div><label style={lbl}>Type</label>
+          <select style={inp} value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))}>
+            {["Contractor","Agency","Maintenance","Cleaning","IT","Delivery","Other"].map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div><label style={lbl}>Status</label>
+          <select style={inp} value={form.status} onChange={e=>setForm(p=>({...p,status:e.target.value}))}>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+            <option value="banned">Banned</option>
+          </select>
+        </div>
+        <div><label style={lbl}>Email</label><input style={inp} value={form.email} onChange={e=>setForm(p=>({...p,email:e.target.value}))}/></div>
+        <div><label style={lbl}>Phone</label><input style={inp} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))}/></div>
+      </div>
+      <div style={{marginBottom:14}}><label style={lbl}>Notes</label><textarea style={{...inp,minHeight:50,resize:"vertical"}} value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}/></div>
+      <div style={{display:"flex",gap:10}}>
+        <button onClick={()=>onSave(form)} disabled={!form.name.trim()} style={{background:form.name.trim()?`linear-gradient(135deg,${T.accent},${T.blue})`:"rgba(37,99,235,0.3)",color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",cursor:form.name.trim()?"pointer":"not-allowed",fontFamily:font,fontWeight:700,fontSize:13,opacity:form.name.trim()?1:.5}}>Save</button>
+        <button onClick={onCancel} style={{background:T.overlay,color:T.muted,border:`1px solid ${T.borderMd}`,borderRadius:10,padding:"10px 18px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main tab ──────────────────────────────────────────────────────────────────
 function ContractorsTab({ contractors, setContractors, contractorInductions, setContractorInductions, contractorCerts, setContractorCerts, contractorVisits, setContractorVisits, dbSaveContractor, dbDeleteContractor, dbSaveContractorInductions, dbSaveContractorCerts, dbSaveContractorVisits, staff, T, font }) {
   const isMobile = useWindowWidth() <= 1024;
   const [view, setView] = React.useState("list");
   const [selected, setSelected] = React.useState(null);
   const [showForm, setShowForm] = React.useState(false);
   const [filterStatus, setFilterStatus] = React.useState("all");
-  const [filterType, setFilterType] = React.useState("all");
   const [search, setSearch] = React.useState("");
   const today = new Date().toISOString().slice(0,10);
 
   const selCon = contractors.find(c=>c.id===selected);
-
   const filtered = contractors.filter(c=>{
     if (filterStatus!=="all"&&c.status!==filterStatus) return false;
-    if (filterType!=="all"&&c.type!==filterType) return false;
-    if (search) { const q=search.toLowerCase(); if(!c.name.toLowerCase().includes(q)&&!(c.company||"").toLowerCase().includes(q)) return false; }
+    if (search) { const q=search.toLowerCase(); if(!c.name.toLowerCase().includes(q)) return false; }
     return true;
   });
 
-  const activeToday = contractors.filter(c=>{
-    const cv=contractorVisits[c.id]||[];
-    return c.status==="active"&&cv.some(v=>v.date===today);
-  });
-
-  const getStatusStyle = s => s==="active"?{color:"#10b981",bg:"rgba(16,185,129,0.12)",border:"rgba(16,185,129,0.3)"}:s==="banned"?{color:"#f87171",bg:"rgba(239,68,68,0.12)",border:"rgba(239,68,68,0.3)"}:{color:T.muted,bg:T.overlay,border:T.borderMd};
-
   if (view==="detail"&&selCon) {
-    return <ContractorDetail
-      selCon={selCon} contractorInductions={contractorInductions} setContractorInductions={setContractorInductions}
-      contractorCerts={contractorCerts} setContractorCerts={setContractorCerts}
-      contractorVisits={contractorVisits} setContractorVisits={setContractorVisits}
-      contractors={contractors} setContractors={setContractors}
-      dbSaveContractor={dbSaveContractor} dbDeleteContractor={dbDeleteContractor}
-      dbSaveContractorInductions={dbSaveContractorInductions} dbSaveContractorCerts={dbSaveContractorCerts}
-      dbSaveContractorVisits={dbSaveContractorVisits} staff={staff}
-      isMobile={isMobile} setView={setView} T={T} font={font}/>;
+    return <ContractorDetail selCon={selCon} contractorInductions={contractorInductions} setContractorInductions={setContractorInductions} contractorCerts={contractorCerts} setContractorCerts={setContractorCerts} contractorVisits={contractorVisits} setContractorVisits={setContractorVisits} contractors={contractors} setContractors={setContractors} dbSaveContractor={dbSaveContractor} dbDeleteContractor={dbDeleteContractor} dbSaveContractorInductions={dbSaveContractorInductions} dbSaveContractorCerts={dbSaveContractorCerts} dbSaveContractorVisits={dbSaveContractorVisits} staff={staff} isMobile={isMobile} setView={setView} T={T} font={font}/>;
   }
 
   return (
     <div>
+      {/* On Site Now Board */}
+      {(() => {
+        const onSiteNow = [];
+        contractors.forEach(c=>{
+          const todayVisits = (contractorVisits[c.id]||[]).filter(v=>v.date===today);
+          todayVisits.forEach(v=>{
+            if (v.workers&&v.workers.length>0) {
+              v.workers.forEach(wid=>{
+                const w=(c.workers||[]).find(x=>x.id===wid);
+                if (w) onSiteNow.push({company:c,worker:w,visit:v,signedOut:!!(v.timeOut&&v.timeOut<new Date().toTimeString().slice(0,5))});
+              });
+            } else {
+              // Visit logged but no specific workers — show the company
+              onSiteNow.push({company:c,worker:null,visit:v,signedOut:!!(v.timeOut&&v.timeOut<new Date().toTimeString().slice(0,5))});
+            }
+          });
+        });
+        const active = onSiteNow.filter(x=>!x.signedOut);
+        const signedOut = onSiteNow.filter(x=>x.signedOut);
+        if (onSiteNow.length===0) return null;
+        return (
+          <div style={{background:active.length>0?`linear-gradient(135deg,rgba(16,185,129,0.1),rgba(16,185,129,0.05))`:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:20,marginBottom:20,border:`1px solid ${active.length>0?"rgba(16,185,129,0.3)":T.border}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:active.length>0?"#10b981":"#64748b",boxShadow:active.length>0?"0 0 0 3px rgba(16,185,129,0.25)":"none",animation:active.length>0?"pulse 2s infinite":"none",flexShrink:0}}/>
+              <h3 style={{margin:0,fontSize:15,fontWeight:800,color:T.white}}>On Site Right Now</h3>
+              <span style={{fontSize:12,color:active.length>0?"#10b981":T.muted,fontWeight:600}}>{active.length} active · {signedOut.length} signed out</span>
+              <style>{`@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(16,185,129,0.25)}50%{box-shadow:0 0 0 6px rgba(16,185,129,0.1)}}`}</style>
+            </div>
+            {active.length>0 && (
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10,marginBottom:signedOut.length>0?16:0}}>
+                {active.map((entry,i)=>(
+                  <div key={i} style={{background:"rgba(16,185,129,0.08)",borderRadius:12,padding:"12px 14px",border:"1px solid rgba(16,185,129,0.25)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                      {entry.worker ? <Avatar name={entry.worker.name} size={28}/> : <div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${T.accent},${T.blue})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>🏢</div>}
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:700,color:T.white,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{entry.worker?entry.worker.name:entry.company.name}</div>
+                        <div style={{fontSize:10,color:"#34d399"}}>{entry.worker?entry.company.name:entry.visit.purpose}</div>
+                      </div>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:"#10b981",flexShrink:0}}/>
+                    </div>
+                    {entry.worker && <div style={{fontSize:11,color:T.muted,marginBottom:3}}>{entry.worker.role||entry.company.type}</div>}
+                    <div style={{fontSize:11,color:T.muted}}>{entry.visit.timeIn?`In: ${entry.visit.timeIn}`:""}{entry.visit.areas?` · ${entry.visit.areas}`:""}</div>
+                    {entry.visit.purpose && entry.worker && <div style={{fontSize:11,color:T.muted,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{entry.visit.purpose}</div>}
+                    {entry.visit.permitRequired && <div style={{marginTop:5,fontSize:10,fontWeight:700,color:"#f59e0b"}}>⚠ Permit to Work active</div>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {signedOut.length>0 && (
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Signed Out Today</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                  {signedOut.map((entry,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:7,padding:"6px 12px",borderRadius:20,background:T.overlay,border:`1px solid ${T.border}`}}>
+                      {entry.worker ? <Avatar name={entry.worker.name} size={18}/> : <span style={{fontSize:12}}>🏢</span>}
+                      <span style={{fontSize:12,color:T.muted}}>{entry.worker?entry.worker.name:entry.company.name}</span>
+                      {entry.visit.timeOut && <span style={{fontSize:11,color:T.muted}}>Out {entry.visit.timeOut}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:12}}>
         <div>
           <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Contractor Register</h2>
-          <p style={{color:T.muted,fontSize:13,margin:0}}>{activeToday.length} on site today · {contractors.length} total</p>
+          <p style={{color:T.muted,fontSize:13,margin:0}}>{contractors.filter(c=>c.status==="active").length} active companies · {contractors.reduce((s,c)=>(s+(c.workers||[]).length),0)} workers total</p>
         </div>
         <button onClick={()=>setShowForm(v=>!v)} style={{background:showForm?"rgba(239,68,68,0.1)":`linear-gradient(135deg,${T.accent},${T.blue})`,color:showForm?"#f87171":"#fff",border:showForm?"1px solid rgba(239,68,68,0.2)":"none",borderRadius:10,padding:"10px 20px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>
-          {showForm?"✕ Cancel":"+ Add Contractor"}
+          {showForm?"✕ Cancel":"+ Add Company"}
         </button>
       </div>
+      {showForm && <CompanyForm onSave={c=>{setContractors(p=>[c,...p]);dbSaveContractor(c);setShowForm(false);}} onCancel={()=>setShowForm(false)} T={T} font={font}/>}
 
-      {showForm && <ContractorForm onSave={c=>{setContractors(p=>[c,...p]);dbSaveContractor(c);setShowForm(false);}} onCancel={()=>setShowForm(false)} T={T} font={font}/>}
-
-      {/* Filters */}
       <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:12,padding:"12px 16px",marginBottom:16,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",border:`1px solid ${T.border}`}}>
-        <div style={{position:"relative",flex:"1 1 180px"}}>
+        <div style={{position:"relative",flex:"1 1 200px"}}>
           <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",color:T.muted,pointerEvents:"none"}}>🔍</span>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or company..."
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search company name..."
             style={{width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"8px 10px 8px 32px",color:T.white,fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box"}}/>
         </div>
-        {[["all","All"],["active","Active"],["expired","Expired"],["banned","Banned"]].map(([val,lbl])=>(
+        {[["all","All"],["active","Active"],["inactive","Inactive"],["banned","Banned"]].map(([val,lbl])=>(
           <button key={val} onClick={()=>setFilterStatus(val)} style={{padding:"7px 14px",borderRadius:9,border:`1px solid ${filterStatus===val?T.accent:T.borderMd}`,background:filterStatus===val?`rgba(37,99,235,0.15)`:T.overlay,color:filterStatus===val?T.accentLt:T.muted,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:filterStatus===val?700:400}}>{lbl}</button>
         ))}
-        <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"8px 12px",color:T.white,fontSize:12,outline:"none",fontFamily:font,cursor:"pointer"}}>
-          <option value="all">All Types</option>
-          {CONTRACTOR_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
-        </select>
         <span style={{color:T.muted,fontSize:12,marginLeft:"auto"}}>{filtered.length} of {contractors.length}</span>
       </div>
 
-      {/* Table */}
       <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,overflow:"hidden",border:`1px solid ${T.border}`}}>
         {!isMobile && (
-          <div style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr 80px",padding:"10px 20px",background:T.headerBg,fontSize:11,fontWeight:700,letterSpacing:1,color:T.muted,textTransform:"uppercase"}}>
-            <span>Name / Company</span><span>Type</span><span>Status</span><span>Induction</span><span>Visits</span><span></span>
+          <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr 80px",padding:"10px 20px",background:T.headerBg,fontSize:11,fontWeight:700,letterSpacing:1,color:T.muted,textTransform:"uppercase"}}>
+            <span>Company</span><span>Type</span><span>Status</span><span>Workers</span><span>Visits</span><span></span>
           </div>
         )}
-        {filtered.length===0 && <div style={{padding:"32px 20px",textAlign:"center",color:T.muted,fontSize:14}}>No contractors found.</div>}
+        {filtered.length===0 && <div style={{padding:"32px 20px",textAlign:"center",color:T.muted,fontSize:14}}>No companies found.</div>}
         {filtered.map((c,i)=>{
-          const ss=getStatusStyle(c.status);
           const cv=contractorVisits[c.id]||[];
-          const indDone2=INDUCTION_ITEMS.filter(item=>(contractorInductions[c.id]||{})[item.id]?.done).length;
-          const indPct2=Math.round(indDone2/INDUCTION_ITEMS.length*100);
-          const onSiteNow=c.status==="active"&&cv.some(v=>v.date===today);
-          const hasCertExpiry=Object.values(contractorCerts[c.id]||{}).some(cert=>cert.expiryDate&&cert.expiryDate<today);
           const lastVisit=cv.slice().sort((a,b)=>b.date.localeCompare(a.date))[0]?.date;
+          const onSiteToday=cv.some(v=>v.date===today);
+          const ss=c.status==="active"?{color:"#10b981",bg:"rgba(16,185,129,0.12)",border:"rgba(16,185,129,0.3)"}:c.status==="banned"?{color:"#f87171",bg:"rgba(239,68,68,0.12)",border:"rgba(239,68,68,0.3)"}:{color:T.muted,bg:T.overlay,border:T.borderMd};
+          const hasExpiredWorkerCert=(c.workers||[]).some(w=>Object.values(contractorCerts[`${c.id}_${w.id}`]||{}).some(cert=>cert.expiryDate&&cert.expiryDate<today));
           return isMobile ? (
-            <div key={c.id} onClick={()=>{setSelected(c.id);setView("detail");}} style={{padding:"14px 16px",borderTop:i>0?`1px solid ${T.border}`:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:10}}>
-              <Avatar name={c.name} size={30}/>
+            <div key={c.id} onClick={()=>{setSelected(c.id);setView("detail");}} style={{padding:"14px 16px",borderTop:i>0?`1px solid ${T.border}`:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
+              <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${T.accent},${T.blue})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🏢</div>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:700,color:T.white}}>{c.name}</div>
-                <div style={{fontSize:11,color:T.muted}}>{c.company||"Independent"} · {c.type}</div>
+                <div style={{fontSize:11,color:T.muted}}>{c.type} · {(c.workers||[]).length} workers</div>
               </div>
               <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:ss.bg,color:ss.color,border:`1px solid ${ss.border}`,textTransform:"capitalize"}}>{c.status}</span>
             </div>
           ) : (
-            <div key={c.id} style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 1fr 80px",padding:"14px 20px",borderTop:i>0?`1px solid ${T.border}`:"none",alignItems:"center"}}>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <Avatar name={c.name} size={30}/>
+            <div key={c.id} style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr 1fr 80px",padding:"14px 20px",borderTop:i>0?`1px solid ${T.border}`:"none",alignItems:"center"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${T.accent},${T.blue})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>🏢</div>
                 <div>
-                  <div style={{fontSize:13,fontWeight:700,color:T.white,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                  <div style={{fontSize:13,fontWeight:700,color:T.white,display:"flex",alignItems:"center",gap:6}}>
                     {c.name}
-                    {onSiteNow && <span style={{fontSize:9,fontWeight:700,color:"#10b981",background:"rgba(16,185,129,0.12)",padding:"1px 6px",borderRadius:20,border:"1px solid rgba(16,185,129,0.3)"}}>ON SITE</span>}
-                    {hasCertExpiry && <span style={{fontSize:9,fontWeight:700,color:"#f87171",background:"rgba(239,68,68,0.1)",padding:"1px 6px",borderRadius:20,border:"1px solid rgba(239,68,68,0.2)"}}>CERT EXPIRED</span>}
+                    {onSiteToday && <span style={{fontSize:9,fontWeight:700,color:"#10b981",background:"rgba(16,185,129,0.12)",padding:"1px 6px",borderRadius:20,border:"1px solid rgba(16,185,129,0.3)"}}>ON SITE</span>}
+                    {hasExpiredWorkerCert && <span style={{fontSize:9,fontWeight:700,color:"#f87171",background:"rgba(239,68,68,0.1)",padding:"1px 6px",borderRadius:20,border:"1px solid rgba(239,68,68,0.2)"}}>CERT EXPIRED</span>}
                   </div>
-                  <div style={{fontSize:11,color:T.muted}}>{c.company||"Independent"}</div>
+                  {c.email && <div style={{fontSize:11,color:T.muted}}>{c.email}</div>}
                 </div>
               </div>
               <span style={{fontSize:12,color:T.muted}}>{c.type}</span>
               <span style={{fontSize:11,fontWeight:700,padding:"2px 9px",borderRadius:20,background:ss.bg,color:ss.color,border:`1px solid ${ss.border}`,textTransform:"capitalize",display:"inline-block"}}>{c.status}</span>
+              <span style={{fontSize:12,color:T.white,fontWeight:600}}>{(c.workers||[]).length} worker{(c.workers||[]).length!==1?"s":""}</span>
               <div>
-                <div style={{fontSize:11,fontWeight:700,color:indPct2===100?T.green:indPct2>0?"#f59e0b":"#f87171",marginBottom:3}}>{indPct2}%</div>
-                <div style={{height:4,background:T.border,borderRadius:99,overflow:"hidden",width:60}}>
-                  <div style={{height:"100%",width:`${indPct2}%`,background:indPct2===100?T.green:"#f59e0b",borderRadius:99}}/>
-                </div>
-              </div>
-              <div>
-                <div style={{fontSize:12,fontWeight:700,color:T.white}}>{cv.length} visit{cv.length!==1?"s":""}</div>
+                <div style={{fontSize:12,color:T.white,fontWeight:600}}>{cv.length} visit{cv.length!==1?"s":""}</div>
                 {lastVisit && <div style={{fontSize:10,color:T.muted}}>Last: {lastVisit}</div>}
               </div>
               <button onClick={()=>{setSelected(c.id);setView("detail");}} style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:"1px solid rgba(37,99,235,0.25)",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>View →</button>
@@ -13845,7 +13993,18 @@ export default function App() {
                   {card("📋","Out of Service",outOfService.length,"equipment items",null,false,()=>setAtab("equipment"))}
                   {card("❌","Quiz Failures",unreviewedFailures.length,"unreviewed",unreviewedFailures.length>0,false,()=>setAtab("reports"))}
                   {card("📅","Reviews Overdue",overdueDocReviews.length+overdueRAReviews.length,"docs & RAs",overdueDocReviews.length+overdueRAReviews.length>0,false,()=>setAtab("documents"))}
-                  {card("🪪","Contractors On Site",(contractors||[]).filter(c=>{const cv=contractorVisits[c.id]||[];return c.status==="active"&&cv.some(v=>v.date===today);}).length,"active today",null,false,()=>setAtab("contractors"))}
+                  {(()=>{
+                    const onSiteWorkers = [];
+                    (contractors||[]).forEach(c=>{
+                      const todayV=(contractorVisits[c.id]||[]).filter(v=>v.date===today);
+                      todayV.forEach(v=>{
+                        if(v.workers&&v.workers.length>0) v.workers.forEach(wid=>{const w=(c.workers||[]).find(x=>x.id===wid);if(w)onSiteWorkers.push(w.name);});
+                        else onSiteWorkers.push(c.name);
+                      });
+                    });
+                    const uniqueOnSite=[...new Set(onSiteWorkers)];
+                    return card("🪪","On Site Now",uniqueOnSite.length,uniqueOnSite.length>0?uniqueOnSite.slice(0,2).join(", ")+(uniqueOnSite.length>2?` +${uniqueOnSite.length-2} more`:""):"No contractors today",null,false,()=>setAtab("contractors"));
+                  })()}
                 </div>
 
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:20}}>
