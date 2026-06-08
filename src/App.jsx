@@ -3028,6 +3028,8 @@ function EditStaffModal({ staffUser, allUsers, setAllUsers, passwords, setPasswo
   const [manager,           setManager]          = useState(staffUser.manager||"");
   const [role,              setRole]             = useState(staffUser.role);
   const [isWarehouse,       setIsWarehouse]      = useState(staffUser.isWarehouseWorker||false);
+  const [department,        setDepartment]       = useState(staffUser.department||"");
+  const [status,            setStatus]           = useState(staffUser.status||"active");
   const [resetPw,           setResetPw]          = useState(false);
   const [newPw,    setNewPw]    = useState("");
   const [showPw,   setShowPw]   = useState(false);
@@ -3039,7 +3041,7 @@ function EditStaffModal({ staffUser, allUsers, setAllUsers, passwords, setPasswo
     if (!email.trim() || !email.includes("@")) { setErr("Valid email is required."); return; }
     if (email !== staffUser.email && allUsers.find(u=>u.email===email.trim())) { setErr("That email is already in use."); return; }
     if (resetPw && newPw.length < 6) { setErr("New password must be at least 6 characters."); return; }
-    const updated = {...staffUser, name:name.trim(), email:email.trim(), jobTitle:jobTitle.trim(), manager:manager.trim(), role, isWarehouseWorker:isWarehouse};
+    const updated = {...staffUser, name:name.trim(), email:email.trim(), jobTitle:jobTitle.trim(), manager:manager.trim(), role, isWarehouseWorker:isWarehouse, department:department.trim(), status};
     setAllUsers(p=>p.map(u=>u.id===staffUser.id ? updated : u));
     if (onSaveProfile) onSaveProfile(updated);
     if (resetPw && newPw) {
@@ -3068,6 +3070,18 @@ function EditStaffModal({ staffUser, allUsers, setAllUsers, passwords, setPasswo
           <button onClick={onClose} style={{background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"6px 12px",color:Z.muted,cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>✕</button>
         </div>
 
+        {/* Status */}
+        <div style={{marginBottom:14}}>
+          <label style={labelStyle}>STATUS</label>
+          <div style={{display:"flex",gap:8}}>
+            {[["active","✓ Active","#10b981"],["inactive","⏸ Inactive","#f59e0b"],["leaver","👋 Leaver","#94a3b8"]].map(([val,lbl,col])=>(
+              <button key={val} onClick={()=>setStatus(val)}
+                style={{flex:1,padding:"8px",borderRadius:9,border:`2px solid ${status===val?col:Z.borderMd}`,background:status===val?`${col}18`:Z.overlay,color:status===val?col:Z.muted,fontWeight:status===val?700:400,cursor:"pointer",fontFamily:font,fontSize:12}}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+        </div>
         {/* Fields */}
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14,marginBottom:14}}>
           <div>
@@ -3085,6 +3099,10 @@ function EditStaffModal({ staffUser, allUsers, setAllUsers, passwords, setPasswo
           <div>
             <label style={labelStyle}>LINE MANAGER</label>
             <input value={manager} onChange={e=>{setManager(e.target.value);setSaved(false);}} style={inputStyle} placeholder="e.g. John Smith"/>
+          </div>
+          <div>
+            <label style={labelStyle}>DEPARTMENT</label>
+            <input value={department} onChange={e=>{setDepartment(e.target.value);setSaved(false);}} style={inputStyle} placeholder="e.g. Warehouse, Sales"/>
           </div>
           <div>
             <label style={labelStyle}>PORTAL ROLE</label>
@@ -12104,6 +12122,12 @@ export default function App() {
   const [staffFilterManager,  setStaffFilterManager]  = useState("all");
   const [staffFilterSearch,   setStaffFilterSearch]   = useState("");
   const [showBulkReset, setShowBulkReset] = useState(false);
+  const [docFolder, setDocFolder] = useState("all"); // active folder filter
+  const [showBulkDocAssign, setShowBulkDocAssign] = useState(false);
+  const [bulkDocTarget, setBulkDocTarget] = useState("all"); // all | team | individual
+  const [bulkDocManager, setBulkDocManager] = useState("");
+  const [bulkDocSelectedStaff, setBulkDocSelectedStaff] = useState([]);
+  const [bulkDocSelectedDocs, setBulkDocSelectedDocs] = useState([]);
   const [previewModule, setPreviewModule] = useState(null);
   const [editingModule, setEditingModule] = useState(null); // module being edited // module being previewed
   const [showQuickReport, setShowQuickReport] = useState(false);
@@ -12121,6 +12145,14 @@ export default function App() {
   const [newManager, setNewManager]     = useState("");
   const [newRole, setNewRole]           = useState("staff");
   const [newIsWarehouse, setNewIsWarehouse] = useState(false);
+  const [newDepartment, setNewDepartment] = useState("");
+  const [newStatus, setNewStatus] = useState("active"); // active | inactive | leaver
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [csvPreview, setCsvPreview] = useState([]); // [{name,email,jobTitle,manager,department,role}]
+  const [csvError, setCsvError] = useState("");
+  const [staffSearch, setStaffSearch] = useState("");
+  const [staffDeptFilter, setStaffDeptFilter] = useState("all");
+  const [staffStatusFilter, setStaffStatusFilter] = useState("active");
   const [addErr,  setAddErr]    = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [bulkTarget, setBulkTarget] = useState("individual");
@@ -13955,7 +13987,7 @@ export default function App() {
       const newUser = { id, name:newName.trim(), email:newEmail.trim(), role:newRole, jobTitle:newJobTitle.trim(), manager:newManager.trim(), isWarehouseWorker:newIsWarehouse };
       setAllUsers(p=>[...p, newUser]);
       dbSaveUserProfile(newUser);
-      setNewName(""); setNewEmail(""); setNewJobTitle(""); setNewManager(""); setNewRole("staff"); setNewIsWarehouse(false); setAddErr(""); setShowAddStaff(false);
+      setNewName(""); setNewEmail(""); setNewJobTitle(""); setNewManager(""); setNewRole("staff"); setNewIsWarehouse(false); setNewDepartment(""); setNewStatus("active"); setAddErr(""); setShowAddStaff(false);
     };
 
     const removeStaff = (uid) => {
@@ -14350,6 +14382,10 @@ export default function App() {
                     style={{background:staffGroupByTeam?`linear-gradient(135deg,${T.navyMd},${T.navy})`:T.overlay,color:staffGroupByTeam?T.gold:T.muted,border:`1px solid ${staffGroupByTeam?T.gold:T.borderMd}`,borderRadius:10,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:13,display:"flex",alignItems:"center",gap:6}}>
                     👥 {staffGroupByTeam?"By Team ✓":"Group by Team"}
                   </button>
+                  <button onClick={()=>setShowCsvImport(v=>!v)}
+                    style={{background:showCsvImport?"rgba(239,68,68,0.1)":"rgba(16,185,129,0.1)",color:showCsvImport?"#f87171":T.green,border:showCsvImport?"1px solid rgba(239,68,68,0.25)":"1px solid rgba(16,185,129,0.25)",borderRadius:10,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:13,display:"flex",alignItems:"center",gap:6}}>
+                    📥 {showCsvImport?"✕ Cancel":"Import CSV"}
+                  </button>
                   <button onClick={()=>{setShowBulkReset(s=>!s);setBulkResetPw("");setBulkResetDone(false);setBulkResetSelected([]);}}
                     style={{background:showBulkReset?`linear-gradient(135deg,#b91c1c,#991b1b)`:"rgba(239,68,68,0.1)",color:showBulkReset?"#fff":"#f87171",border:showBulkReset?"none":"1px solid rgba(239,68,68,0.25)",borderRadius:10,padding:"10px 16px",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:13,display:"flex",alignItems:"center",gap:6}}>
                     🔑 {showBulkReset?"✕ Cancel":"Reset Passwords"}
@@ -14433,6 +14469,80 @@ export default function App() {
                 </div>
               )}
 
+              {/* CSV Import Panel */}
+              {showCsvImport && (
+                <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,marginBottom:20,border:"1px solid rgba(16,185,129,0.3)"}}>
+                  <h3 style={{margin:"0 0 4px",fontSize:14,fontWeight:700,letterSpacing:.5,color:T.green,textTransform:"uppercase"}}>📥 Import Staff from CSV</h3>
+                  <p style={{color:T.muted,fontSize:12,marginBottom:16}}>Upload a CSV file with columns: <code style={{color:T.gold,background:"rgba(245,158,11,0.1)",padding:"1px 6px",borderRadius:4}}>name, email, jobTitle, manager, department, role</code> — role should be "admin" or "staff".</p>
+                  {csvError && <div style={{marginBottom:12,padding:"8px 14px",background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:8,color:"#f87171",fontSize:12}}>{csvError}</div>}
+                  <label style={{display:"inline-flex",alignItems:"center",gap:8,background:`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",border:"none",borderRadius:10,padding:"9px 18px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13,marginBottom:csvPreview.length>0?16:0}}>
+                    📂 Choose CSV File
+                    <input type="file" accept=".csv,text/csv" style={{display:"none"}} onChange={e=>{
+                      const file=e.target.files[0]; if(!file) return;
+                      setCsvError(""); setCsvPreview([]);
+                      const reader=new FileReader();
+                      reader.onload=ev=>{
+                        const lines=ev.target.result.replace(/\r/g,"").split("\n").filter(l=>l.trim());
+                        if(lines.length<2){setCsvError("CSV must have a header row and at least one data row.");return;}
+                        const headers=lines[0].split(",").map(h=>h.trim().toLowerCase().replace(/[^a-z]/g,""));
+                        const nameIdx=headers.findIndex(h=>h==="name"||h==="fullname");
+                        const emailIdx=headers.findIndex(h=>h==="email");
+                        if(nameIdx===-1||emailIdx===-1){setCsvError("CSV must have 'name' and 'email' columns.");return;}
+                        const jobIdx=headers.findIndex(h=>h==="jobtitle"||h==="title"||h==="position");
+                        const managerIdx=headers.findIndex(h=>h==="manager");
+                        const deptIdx=headers.findIndex(h=>h==="department"||h==="dept");
+                        const roleIdx=headers.findIndex(h=>h==="role");
+                        const rows=lines.slice(1).map(line=>{
+                          const cols=line.split(",").map(c=>c.trim().replace(/^"|"$/g,""));
+                          return {name:cols[nameIdx]||"",email:cols[emailIdx]||"",jobTitle:jobIdx>-1?cols[jobIdx]||"":"",manager:managerIdx>-1?cols[managerIdx]||"":"",department:deptIdx>-1?cols[deptIdx]||"":"",role:roleIdx>-1?cols[roleIdx]||"staff":"staff"};
+                        }).filter(r=>r.name&&r.email);
+                        if(rows.length===0){setCsvError("No valid rows found. Check name and email columns.");return;}
+                        setCsvPreview(rows);
+                      };
+                      reader.readAsText(file);
+                      e.target.value="";
+                    }}/>
+                  </label>
+                  {csvPreview.length>0 && (
+                    <div>
+                      <div style={{fontSize:12,fontWeight:700,color:T.green,marginBottom:8}}>✓ Preview — {csvPreview.length} staff found</div>
+                      <div style={{maxHeight:200,overflowY:"auto",border:`1px solid ${T.border}`,borderRadius:10,marginBottom:14}}>
+                        {csvPreview.slice(0,10).map((r,i)=>(
+                          <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,padding:"8px 14px",borderTop:i>0?`1px solid ${T.border}`:"none",fontSize:12}}>
+                            <span style={{color:T.white,fontWeight:600}}>{r.name}</span>
+                            <span style={{color:T.muted}}>{r.email}</span>
+                            <span style={{color:T.muted}}>{r.jobTitle||r.department||r.role}</span>
+                          </div>
+                        ))}
+                        {csvPreview.length>10 && <div style={{padding:"6px 14px",fontSize:11,color:T.muted,borderTop:`1px solid ${T.border}`}}>+{csvPreview.length-10} more…</div>}
+                      </div>
+                      <button onClick={async()=>{
+                        const existingEmails=new Set(staff.map(u=>u.email.toLowerCase()));
+                        const toAdd=csvPreview.filter(r=>!existingEmails.has(r.email.toLowerCase()));
+                        const skipped=csvPreview.length-toAdd.length;
+                        if(toAdd.length===0){setCsvError("All emails already exist in the system.");return;}
+                        const hashed=await hashPassword("pass123");
+                        const maxId=Math.max(0,...allUsers.map(u=>u.id));
+                        const newUsers=toAdd.map((r,i)=>({id:maxId+i+1,name:r.name.trim(),email:r.email.trim().toLowerCase(),jobTitle:r.jobTitle,manager:r.manager,department:r.department,role:r.role==="admin"?"admin":"staff",isWarehouseWorker:false,status:"active",password:hashed}));
+                        newUsers.forEach(u=>{
+                          setAllUsers(p=>[...p,u]);
+                          dbSaveUserProfile(u);
+                          dbSavePassword(u.id,hashed);
+                        });
+                        setCsvPreview([]);
+                        setShowCsvImport(false);
+                        alert(`✓ Imported ${toAdd.length} staff.${skipped>0?` ${skipped} skipped (email already exists).`:""} Default password: pass123`);
+                      }} style={{background:`linear-gradient(135deg,${T.green},#059669)`,color:"#fff",border:"none",borderRadius:10,padding:"10px 24px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13,boxShadow:"0 4px 14px rgba(16,185,129,0.3)"}}>
+                        ✓ Import {csvPreview.length} Staff
+                      </button>
+                      {csvPreview.length!==csvPreview.filter(r=>!staff.some(u=>u.email.toLowerCase()===r.email.toLowerCase())).length && (
+                        <span style={{fontSize:11,color:T.muted,marginLeft:12}}>{csvPreview.filter(r=>staff.some(u=>u.email.toLowerCase()===r.email.toLowerCase())).length} duplicate email{csvPreview.filter(r=>staff.some(u=>u.email.toLowerCase()===r.email.toLowerCase())).length!==1?"s":""} will be skipped</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Add Staff Form */}
               {showAddStaff && (
                 <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,marginBottom:20,border:`1px solid ${T.accent}44`}}>
@@ -14467,6 +14577,24 @@ export default function App() {
                       </select>
                     </div>
                   </div>
+                  {/* Department */}
+                  <div style={{marginBottom:14}}>
+                    <label style={{color:T.muted,fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>DEPARTMENT</label>
+                    <input value={newDepartment} onChange={e=>setNewDepartment(e.target.value)} placeholder="e.g. Warehouse, Sales, Finance"
+                      style={{width:"100%",padding:"11px 14px",background:T.headerBg,border:`1px solid ${T.borderMd}`,borderRadius:10,color:T.white,fontSize:14,outline:"none",boxSizing:"border-box",fontFamily:font}}/>
+                  </div>
+                  {/* Status */}
+                  <div style={{marginBottom:14}}>
+                    <label style={{color:T.muted,fontSize:11,fontWeight:700,letterSpacing:1,display:"block",marginBottom:6}}>STATUS</label>
+                    <div style={{display:"flex",gap:8}}>
+                      {[["active","✓ Active","#10b981"],["inactive","⏸ Inactive","#f59e0b"],["leaver","👋 Leaver","#94a3b8"]].map(([val,lbl,col])=>(
+                        <button key={val} onClick={()=>setNewStatus(val)}
+                          style={{flex:1,padding:"8px",borderRadius:9,border:`2px solid ${newStatus===val?col:T.borderMd}`,background:newStatus===val?`${col}18`:T.overlay,color:newStatus===val?col:T.muted,fontWeight:newStatus===val?700:400,cursor:"pointer",fontFamily:font,fontSize:12}}>
+                          {lbl}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   {/* Warehouse Worker toggle */}
                   <div onClick={()=>setNewIsWarehouse(s=>!s)}
                     style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderRadius:12,marginBottom:14,cursor:"pointer",userSelect:"none",background:newIsWarehouse?"rgba(245,158,11,0.08)":T.overlay,border:`2px solid ${newIsWarehouse?"rgba(245,158,11,0.4)":T.borderMd}`,transition:"all .2s"}}>
@@ -14494,6 +14622,8 @@ export default function App() {
                 const managers = ["all", ...Array.from(new Set(staff.map(u=>u.manager||"").filter(Boolean))).sort()];
                 const selStyle = {background:T.headerBg,border:`1px solid ${T.borderMd}`,borderRadius:10,padding:"8px 14px",color:T.white,fontSize:13,outline:"none",fontFamily:font,cursor:"pointer"};
                 const filteredStaff = staff.filter(u=>{
+                  if (staffStatusFilter!=="all" && (u.status||"active")!==staffStatusFilter) return false;
+                  if (staffDeptFilter!=="all" && (u.department||"")!==staffDeptFilter) return false;
                   if (staffFilterManager!=="all" && (u.manager||"")!==staffFilterManager) return false;
                   if (staffFilterSearch) {
                     const q = staffFilterSearch.toLowerCase();
@@ -14863,12 +14993,118 @@ export default function App() {
 
           {atab==="documents" && (
             <div>
-              <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,marginBottom:6}}>H&S Documentation <HelpTip dark={false} text="Upload policies, procedures, risk assessments and guidance documents. Use the Assign button on each document to nominate staff for required reading — they'll be prompted to confirm they've read it in their portal."/></h2>
-              <p style={{color:T.muted,marginBottom:20,fontSize:13}}>Upload documents here — all staff can view and download them.</p>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:6}}>
+                <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:0}}>H&S Documentation <HelpTip dark={false} text="Upload policies, procedures, risk assessments and guidance documents. Use the Assign button on each document to nominate staff for required reading — they'll be prompted to confirm they've read it in their portal."/></h2>
+                <button onClick={()=>setShowBulkDocAssign(v=>!v)}
+                  style={{background:showBulkDocAssign?`rgba(239,68,68,0.1)`:`rgba(37,99,235,0.1)`,color:showBulkDocAssign?"#f87171":T.accentLt,border:showBulkDocAssign?"1px solid rgba(239,68,68,0.25)":`1px solid rgba(37,99,235,0.25)`,borderRadius:10,padding:"9px 18px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13,whiteSpace:"nowrap"}}>
+                  {showBulkDocAssign?"✕ Cancel":"👥 Bulk Assign"}
+                </button>
+              </div>
+              <p style={{color:T.muted,marginBottom:16,fontSize:13}}>Upload documents and assign them for required reading.</p>
+
+              {/* Bulk assign panel */}
+              {showBulkDocAssign && (() => {
+                const managers = [...new Set(staff.map(u=>u.manager||"").filter(Boolean))].sort();
+                const targetStaff2 = bulkDocTarget==="all" ? staff
+                  : bulkDocTarget==="team" ? staff.filter(u=>u.manager===bulkDocManager)
+                  : staff.filter(u=>bulkDocSelectedStaff.includes(u.id));
+                const inp3 = {background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"8px 12px",color:T.white,fontSize:13,outline:"none",fontFamily:font,cursor:"pointer"};
+                return (
+                  <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:20,marginBottom:20,border:`1px solid ${T.accent}44`}}>
+                    <h4 style={{margin:"0 0 14px",fontSize:13,fontWeight:700,color:T.accentLt,textTransform:"uppercase",letterSpacing:.5}}>👥 Bulk Document Assignment</h4>
+                    <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16}}>
+                      <div>
+                        <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Assign To</div>
+                        <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                          {[["all","All Staff"],["team","A Team"],["individual","Select Staff"]].map(([val,lbl])=>(
+                            <button key={val} onClick={()=>setBulkDocTarget(val)} style={{padding:"7px 14px",borderRadius:9,border:`1px solid ${bulkDocTarget===val?T.accent:T.borderMd}`,background:bulkDocTarget===val?`rgba(37,99,235,0.15)`:T.overlay,color:bulkDocTarget===val?T.accentLt:T.muted,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:bulkDocTarget===val?700:400}}>{lbl}</button>
+                          ))}
+                        </div>
+                        {bulkDocTarget==="team" && (
+                          <select value={bulkDocManager} onChange={e=>setBulkDocManager(e.target.value)} style={{...inp3,width:"100%",marginBottom:10}}>
+                            <option value="">Select manager...</option>
+                            {managers.map(m=><option key={m} value={m}>{m} ({staff.filter(u=>u.manager===m).length} staff)</option>)}
+                          </select>
+                        )}
+                        {bulkDocTarget==="individual" && (
+                          <div style={{maxHeight:150,overflowY:"auto",border:`1px solid ${T.border}`,borderRadius:8,marginBottom:10}}>
+                            {staff.map((u,i)=>(
+                              <div key={u.id} onClick={()=>setBulkDocSelectedStaff(p=>p.includes(u.id)?p.filter(x=>x!==u.id):[...p,u.id])}
+                                style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderTop:i>0?`1px solid ${T.border}`:"none",cursor:"pointer",background:bulkDocSelectedStaff.includes(u.id)?"rgba(37,99,235,0.08)":"transparent"}}>
+                                <div style={{width:15,height:15,borderRadius:3,border:`2px solid ${bulkDocSelectedStaff.includes(u.id)?T.accent:T.borderMd}`,background:bulkDocSelectedStaff.includes(u.id)?T.accent:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                  {bulkDocSelectedStaff.includes(u.id)&&<span style={{color:"#fff",fontSize:9,fontWeight:900}}>✓</span>}
+                                </div>
+                                <span style={{fontSize:12,color:T.white}}>{u.name}</span>
+                                <span style={{fontSize:11,color:T.muted,marginLeft:"auto"}}>{u.jobTitle||""}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{fontSize:11,color:T.muted}}>{targetStaff2.length} staff will be assigned</div>
+                      </div>
+                      <div>
+                        <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:8}}>Select Documents</div>
+                        <div style={{maxHeight:180,overflowY:"auto",border:`1px solid ${T.border}`,borderRadius:8,marginBottom:10}}>
+                          {docs.map((d,i)=>(
+                            <div key={d.id} onClick={()=>setBulkDocSelectedDocs(p=>p.includes(d.id)?p.filter(x=>x!==d.id):[...p,d.id])}
+                              style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderTop:i>0?`1px solid ${T.border}`:"none",cursor:"pointer",background:bulkDocSelectedDocs.includes(d.id)?"rgba(37,99,235,0.08)":"transparent"}}>
+                              <div style={{width:15,height:15,borderRadius:3,border:`2px solid ${bulkDocSelectedDocs.includes(d.id)?T.accent:T.borderMd}`,background:bulkDocSelectedDocs.includes(d.id)?T.accent:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                {bulkDocSelectedDocs.includes(d.id)&&<span style={{color:"#fff",fontSize:9,fontWeight:900}}>✓</span>}
+                              </div>
+                              <span style={{fontSize:12,color:T.white,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.title}</span>
+                              <span style={{fontSize:10,color:T.muted,flexShrink:0}}>{d.type}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          disabled={bulkDocSelectedDocs.length===0||targetStaff2.length===0}
+                          onClick={()=>{
+                            if(!window.confirm(`Assign ${bulkDocSelectedDocs.length} document${bulkDocSelectedDocs.length!==1?"s":""} to ${targetStaff2.length} staff member${targetStaff2.length!==1?"s":""}?`)) return;
+                            setDocAssignments(p=>{
+                              const n={...p};
+                              bulkDocSelectedDocs.forEach(did=>{
+                                const current=n[did]||[];
+                                const toAdd=targetStaff2.map(u=>u.id).filter(id=>!current.includes(id));
+                                n[did]=[...current,...toAdd];
+                                dbSaveDocAssignments(did, n[did]);
+                              });
+                              return n;
+                            });
+                            setShowBulkDocAssign(false);
+                            setBulkDocSelectedDocs([]);
+                            setBulkDocSelectedStaff([]);
+                          }}
+                          style={{background:(bulkDocSelectedDocs.length===0||targetStaff2.length===0)?"rgba(37,99,235,0.3)":`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",border:"none",borderRadius:10,padding:"10px 20px",cursor:(bulkDocSelectedDocs.length===0||targetStaff2.length===0)?"not-allowed":"pointer",fontFamily:font,fontWeight:700,fontSize:13,opacity:(bulkDocSelectedDocs.length===0||targetStaff2.length===0)?.5:1}}>
+                          Assign {bulkDocSelectedDocs.length>0?bulkDocSelectedDocs.length+" ":""} Doc{bulkDocSelectedDocs.length!==1?"s":""} to {targetStaff2.length} Staff
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Folder tabs */}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
+                {(["all",...Array.from(new Set(docs.map(d=>d.type||"Document"))).sort()]).map(f=>(
+                  <button key={f} onClick={()=>setDocFolder(f)}
+                    style={{padding:"6px 14px",borderRadius:20,border:`1px solid ${docFolder===f?T.accent:T.borderMd}`,background:docFolder===f?`linear-gradient(135deg,${T.accent},${T.blue})`:T.overlay,color:docFolder===f?"#fff":T.muted,fontWeight:docFolder===f?700:400,cursor:"pointer",fontFamily:font,fontSize:12}}>
+                    {f==="all"?`📁 All (${docs.length})`:`${f==="Policy"?"📋":f==="Procedure"?"📝":f==="Guidance"?"📖":f==="Risk Assessment"?"⚠️":f==="COSHH"?"🧪":"📄"} ${f} (${docs.filter(d=>(d.type||"Document")===f).length})`}
+                  </button>
+                ))}
+              </div>
 
               {/* Upload area */}
               <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,marginBottom:20,border:`1px solid ${T.border}`}}>
-                <h4 style={{margin:"0 0 16px",fontSize:12,fontWeight:700,letterSpacing:1,color:T.muted}}>UPLOAD NEW DOCUMENT</h4>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16,flexWrap:"wrap",gap:10}}>
+                  <h4 style={{margin:0,fontSize:12,fontWeight:700,letterSpacing:1,color:T.muted}}>UPLOAD NEW DOCUMENT</h4>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:11,color:T.muted}}>Category:</span>
+                    <select value={docFolder==="all"?"Document":docFolder} onChange={e=>setDocFolder(e.target.value)}
+                      style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"5px 10px",color:T.white,fontSize:12,outline:"none",fontFamily:font,cursor:"pointer"}}>
+                      {["Policy","Procedure","Guidance","Risk Assessment","COSHH","Report","Presentation","Document"].map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                </div>
                 <label style={{display:"block",border:"2px dashed T.borderMd",borderRadius:14,padding:"28px 20px",textAlign:"center",cursor:"pointer",transition:"border-color .2s",background:T.overlay}}
                   onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor=T.accent}}
                   onDragLeave={e=>{e.currentTarget.style.borderColor=T.borderMd}}
@@ -14876,29 +15112,29 @@ export default function App() {
                     e.preventDefault();
                     e.currentTarget.style.borderColor=T.borderMd;
                     const files=Array.from(e.dataTransfer.files);
-                    files.forEach(file=>{
+                    files.forEach(async file=>{
                       const ext=file.name.split(".").pop().toUpperCase();
                       const typeMap={PDF:"Policy",DOCX:"Guidance",DOC:"Guidance",XLSX:"Report",XLS:"Report",PPTX:"Presentation",PPT:"Presentation"};
                       const id="d"+Date.now()+Math.random();
-                      const path=`${id}/${file.name}`;
-                      const fileUrl=sb.storage.getPublicUrl("documents",path);
-                      const newDoc={id,title:file.name.substring(0,file.name.lastIndexOf(".")>0?file.name.lastIndexOf("."):file.name.length),date:new Date().toISOString().slice(0,10),size:`${(file.size/1024).toFixed(0)} KB`,type:typeMap[ext]||"Document",fileData:fileUrl,fileUrl,fileName:file.name,ext,version:1};
+                      const docType = docFolder!=="all"?docFolder:typeMap[ext]||"Document";
+                      const newDoc={id,title:file.name.substring(0,file.name.lastIndexOf(".")>0?file.name.lastIndexOf("."):file.name.length),date:new Date().toISOString().slice(0,10),size:`${(file.size/1024).toFixed(0)} KB`,type:docType,fileUrl:null,fileData:null,fileName:file.name,ext,version:1};
                       setDocs(p=>[...p,newDoc]);
-                      dbSaveDoc(newDoc,file);
+                      await dbSaveDoc(newDoc,file);
+                      setDocs(p=>p.map(d=>d.id===id?{...d,fileUrl:newDoc.fileUrl,fileData:newDoc.fileUrl}:d));
                     });
                   }}>
                   <input type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.png,.jpg"
                     style={{display:"none"}}
                     onChange={e=>{
-                      Array.from(e.target.files).forEach(file=>{
+                      Array.from(e.target.files).forEach(async file=>{
                         const ext=file.name.split(".").pop().toUpperCase();
                         const typeMap={PDF:"Policy",DOCX:"Guidance",DOC:"Guidance",XLSX:"Report",XLS:"Report",PPTX:"Presentation",PPT:"Presentation"};
                         const id="d"+Date.now()+Math.random();
-                        const path=`${id}/${file.name}`;
-                        const fileUrl=sb.storage.getPublicUrl("documents",path);
-                        const newDoc={id,title:file.name.substring(0,file.name.lastIndexOf(".")>0?file.name.lastIndexOf("."):file.name.length),date:new Date().toISOString().slice(0,10),size:`${(file.size/1024).toFixed(0)} KB`,type:typeMap[ext]||"Document",fileData:fileUrl,fileUrl,fileName:file.name,ext,version:1};
+                        const docType = docFolder!=="all"?docFolder:typeMap[ext]||"Document";
+                        const newDoc={id,title:file.name.substring(0,file.name.lastIndexOf(".")>0?file.name.lastIndexOf("."):file.name.length),date:new Date().toISOString().slice(0,10),size:`${(file.size/1024).toFixed(0)} KB`,type:docType,fileUrl:null,fileData:null,fileName:file.name,ext,version:1};
                         setDocs(p=>[...p,newDoc]);
-                        dbSaveDoc(newDoc,file);
+                        await dbSaveDoc(newDoc,file);
+                        setDocs(p=>p.map(d=>d.id===id?{...d,fileUrl:newDoc.fileUrl,fileData:newDoc.fileUrl}:d));
                       });
                       e.target.value="";
                     }}/>
@@ -14913,7 +15149,7 @@ export default function App() {
                 ? <div style={{textAlign:"center",padding:40,color:T.muted,fontSize:14}}>No documents uploaded yet.</div>
                 : (
                   <div style={{display:"grid",gap:14}}>
-                    {docs.map(d=>{
+                    {docs.filter(d=>docFolder==="all"||(d.type||"Document")===docFolder).map(d=>{
                       const extIcons={PDF:"📕",DOCX:"📘",DOC:"📘",XLSX:"📗",XLS:"📗",PPTX:"📙",PPT:"📙",PNG:"🖼️",JPG:"🖼️",JPEG:"🖼️",TXT:"📄",CSV:"📊"};
                       const icon=extIcons[d.ext]||"📄";
                       const assignedIds = docAssignments[d.id] || [];
