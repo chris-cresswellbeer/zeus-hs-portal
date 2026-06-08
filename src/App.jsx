@@ -6561,19 +6561,35 @@ function InvestigationTab({ incidents, setIncidents, staff, investigations, setI
 }
 
 // ─── Admin Incident Tab ───────────────────────────────────────────────────────
-function AdminIncidentTab({ incidents, setIncidents, staff, investigations, setInvestigations, onOpenInvestigation, equipment, setEquipment, Z, font }) {
+function AdminIncidentTab({ incidents, setIncidents, staff, investigations, setInvestigations, onOpenInvestigation, equipment, setEquipment, focusIncidentId, setFocusIncidentId, showAdminReportForm, setShowAdminReportForm, Z, font }) {
   const isMobile = useWindowWidth() <= 1024;
   const [filterType, setFilterType]     = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRiddor, setFilterRiddor] = useState(false);
   const [search, setSearch]             = useState("");
-  const [expandedId, setExpandedId]     = useState(null);
+  const [expandedId, setExpandedId] = useState(focusIncidentId||null);
+  // Handle focus from dashboard — runs on mount AND on prop change
+  React.useEffect(()=>{
+    const fid = focusIncidentId;
+    if(!fid) return;
+    setFilterType("all");
+    setFilterStatus("all");
+    setSearch("");
+    setExpandedId(fid);
+    setFocusIncidentId&&setFocusIncidentId(null);
+    // Try scrolling multiple times to handle render delay
+    [200,500,900].forEach(delay=>setTimeout(()=>{
+      const el=document.getElementById(`incident-${fid}`);
+      if(el) el.scrollIntoView({behavior:"smooth",block:"center"});
+    },delay));
+  },[focusIncidentId]);
   const [editingId, setEditingId]       = useState(null);
   const [editForm, setEditForm]         = useState(null);
   const [editErr, setEditErr]           = useState("");
   const [editSaved, setEditSaved]       = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [showReportForm, setShowReportForm] = useState(false);
+  const showReportForm = showAdminReportForm;
+  const setShowReportForm = setShowAdminReportForm;
 
   function deleteIncident(id) {
     setIncidents(p=>p.filter(i=>i.id!==id));
@@ -6891,7 +6907,7 @@ function AdminIncidentTab({ incidents, setIncidents, staff, investigations, setI
             const reporter = staff.find(u=>u.id===inc.reportedBy);
             const isOpen = expandedId===inc.id;
             return (
-              <div key={inc.id} style={{borderRadius:14,border:`1px solid ${inc.riddor?"rgba(239,68,68,0.3)":inc.closed?"rgba(16,185,129,0.2)":Z.border}`,overflow:"hidden",transition:"border-color .2s"}}>
+              <div key={inc.id} id={`incident-${inc.id}`} style={{borderRadius:14,border:`1px solid ${inc.riddor?"rgba(239,68,68,0.3)":inc.closed?"rgba(16,185,129,0.2)":Z.border}`,overflow:"hidden",transition:"border-color .2s"}}>
 
                 {/* Header row */}
                 <div onClick={()=>setExpandedId(isOpen?null:inc.id)}
@@ -9731,6 +9747,8 @@ function SiteInspectionsTab({ inspections, setInspections, staff, Z, font }) {
   const [formSection, setFormSection] = useState(0);
   const [ncForm, setNcForm] = useState(null); // { section, finding, severity, photos, actionOwner, actionDue }
   const [editNcIdx, setEditNcIdx] = useState(null);
+  const [editingInspId, setEditingInspId] = useState(null);
+  const [editInspForm, setEditInspForm] = useState(null);
 
   const today = new Date().toISOString().slice(0,10);
   const selInsp = inspections.find(i=>i.id===activeId);
@@ -10347,6 +10365,7 @@ function SiteInspectionsTab({ inspections, setInspections, staff, Z, font }) {
       </div>
 
       {/* Inspection list */}
+      {/* Inspection list */}
       <div style={{display:"grid",gap:10}}>
         {filtered.sort((a,b)=>b.date.localeCompare(a.date)).map(ins=>{
           const ti=typeInfo(ins.type);
@@ -10354,34 +10373,75 @@ function SiteInspectionsTab({ inspections, setInspections, staff, Z, font }) {
           const sc=scoreColor(pct);
           const openNCs=ins.nonConformances.filter(n=>n.actionStatus!=="complete").length;
           const overduNC=ins.nextDue&&ins.nextDue<today;
+          const isEditing=editingInspId===ins.id;
           return (
-            <div key={ins.id} style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:14,border:`1px solid ${ins.status==="open"?"rgba(245,158,11,0.3)":Z.border}`,padding:"16px 20px",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",transition:"border-color .2s,box-shadow .2s"}}
-              onClick={()=>{setActiveId(ins.id);setView("detail");window.scrollTo({top:0,behavior:"smooth"});}}>
-              <div style={{width:48,height:48,borderRadius:12,background:ti.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0,cursor:"pointer"}}>{ti.icon}</div>
-              <div style={{flex:1,minWidth:200,cursor:"pointer"}}>
-                <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
-                  <span style={{fontWeight:800,fontSize:14,color:Z.white}}>{ti.label}</span>
-                  <span style={{fontSize:11,color:Z.muted}}>📍 {ins.location}</span>
-                  <span style={{fontSize:11,color:Z.muted}}>📅 {ins.date}</span>
-                  {ins.status==="open" && <span style={{fontSize:10,background:"rgba(245,158,11,0.15)",color:"#f59e0b",padding:"2px 8px",borderRadius:99,fontWeight:700}}>⏳ Open</span>}
-                  {ins.status==="closed" && <span style={{fontSize:10,background:"rgba(16,185,129,0.12)",color:"#10b981",padding:"2px 8px",borderRadius:99,fontWeight:700}}>✓ Closed</span>}
+            <div key={ins.id} style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:14,border:`1px solid ${isEditing?Z.accent:ins.status==="open"?"rgba(245,158,11,0.3)":Z.border}`,overflow:"hidden",transition:"border-color .2s"}}>
+              {/* Card header row */}
+              <div style={{padding:"16px 20px",display:"flex",alignItems:"center",gap:16,flexWrap:"wrap",cursor:isEditing?"default":"pointer"}}
+                onClick={()=>{if(!isEditing){setActiveId(ins.id);setView("detail");window.scrollTo({top:0,behavior:"smooth"});}}}>
+                <div style={{width:48,height:48,borderRadius:12,background:ti.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{ti.icon}</div>
+                <div style={{flex:1,minWidth:200}}>
+                  <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:4,flexWrap:"wrap"}}>
+                    <span style={{fontWeight:800,fontSize:14,color:Z.white}}>{ti.label}</span>
+                    <span style={{fontSize:11,color:Z.muted}}>📍 {ins.location}</span>
+                    <span style={{fontSize:11,color:Z.muted}}>📅 {ins.date}</span>
+                    {ins.status==="open" && <span style={{fontSize:10,background:"rgba(245,158,11,0.15)",color:"#f59e0b",padding:"2px 8px",borderRadius:99,fontWeight:700}}>⏳ Open</span>}
+                    {ins.status==="closed" && <span style={{fontSize:10,background:"rgba(16,185,129,0.12)",color:"#10b981",padding:"2px 8px",borderRadius:99,fontWeight:700}}>✓ Closed</span>}
+                  </div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+                    {openNCs>0 && <span style={{fontSize:11,color:"#f87171",fontWeight:600}}>{openNCs} open action{openNCs!==1?"s":""}</span>}
+                    {ins.nonConformances.length>0 && <span style={{fontSize:11,color:Z.muted}}>{ins.nonConformances.length} finding{ins.nonConformances.length!==1?"s":""}</span>}
+                    {ins.inspector && <span style={{fontSize:11,color:Z.muted}}>Inspector: {ins.inspector}</span>}
+                    {ins.nextDue && <span style={{fontSize:11,color:overduNC?"#f87171":Z.muted,fontWeight:overduNC?700:400}}>{overduNC?"🚨 Overdue — ":"Next: "}{ins.nextDue}</span>}
+                  </div>
                 </div>
-                <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                  {openNCs>0 && <span style={{fontSize:11,color:"#f87171",fontWeight:600}}>{openNCs} open action{openNCs!==1?"s":""}</span>}
-                  {ins.nonConformances.length>0 && <span style={{fontSize:11,color:Z.muted}}>{ins.nonConformances.length} finding{ins.nonConformances.length!==1?"s":""}</span>}
-                  {ins.inspector && <span style={{fontSize:11,color:Z.muted}}>Inspector: {ins.inspector}</span>}
-                  {ins.nextDue && <span style={{fontSize:11,color:overduNC?"#f87171":Z.muted,fontWeight:overduNC?700:400}}>{overduNC?"🚨 Overdue — ":"Next: "}{ins.nextDue}</span>}
+                <div style={{textAlign:"center",flexShrink:0}}>
+                  <div style={{fontSize:26,fontWeight:900,color:sc,lineHeight:1}}>{pct}<span style={{fontSize:13,opacity:.6}}>%</span></div>
+                  <div style={{fontSize:10,color:Z.muted,marginTop:1}}>{ins.overallScore}/{ins.maxScore} pts</div>
+                </div>
+                <div style={{display:"flex",gap:6,flexShrink:0}} onClick={e=>e.stopPropagation()}>
+                  <button onClick={()=>{setEditingInspId(ins.id);setEditInspForm({date:ins.date,location:ins.location,inspector:ins.inspector,summary:ins.summary||"",nextDue:ins.nextDue||"",status:ins.status});}}
+                    style={{background:"rgba(37,99,235,0.1)",color:Z.accentLt,border:"1px solid rgba(37,99,235,0.25)",borderRadius:9,padding:"8px 14px",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:12,whiteSpace:"nowrap"}}>✏ Edit</button>
+                  <button onClick={()=>{if(window.confirm("Delete this inspection? This cannot be undone.")){setInspections(p=>p.filter(x=>x.id!==ins.id));}}}
+                    style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:9,padding:"8px 12px",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:12}}>🗑</button>
+                  <button onClick={()=>{setActiveId(ins.id);setView("detail");window.scrollTo({top:0,behavior:"smooth"});}}
+                    style={{background:`linear-gradient(135deg,${Z.accent},${Z.blue})`,color:"#fff",border:"none",borderRadius:9,padding:"8px 16px",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:12,whiteSpace:"nowrap",boxShadow:`0 4px 12px ${Z.accent}33`}}>View →</button>
                 </div>
               </div>
-              <div style={{textAlign:"center",flexShrink:0}}>
-                <div style={{fontSize:26,fontWeight:900,color:sc,lineHeight:1}}>{pct}<span style={{fontSize:13,opacity:.6}}>%</span></div>
-                <div style={{fontSize:10,color:Z.muted,marginTop:1}}>{ins.overallScore}/{ins.maxScore} pts</div>
-              </div>
-              <button
-                onClick={e=>{e.stopPropagation();setActiveId(ins.id);setView("detail");window.scrollTo({top:0,behavior:"smooth"});}}
-                style={{background:`linear-gradient(135deg,${Z.accent},${Z.blue})`,color:"#fff",border:"none",borderRadius:10,padding:"9px 18px",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:12,flexShrink:0,whiteSpace:"nowrap",boxShadow:`0 4px 12px ${Z.accent}33`}}>
-                View →
-              </button>
+              {/* Inline edit form */}
+              {isEditing && editInspForm && (
+                <div onClick={e=>e.stopPropagation()} style={{borderTop:`1px solid ${Z.border}`,padding:"16px 20px",background:Z.overlay}}>
+                  <div style={{fontSize:12,fontWeight:700,color:Z.accentLt,marginBottom:12,textTransform:"uppercase",letterSpacing:.5}}>✏ Edit Inspection Details</div>
+                  <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+                    {[["date","Date","date"],["location","Location","text"],["inspector","Inspector","text"],["nextDue","Next Due","date"]].map(([k,label,type])=>(
+                      <div key={k}>
+                        <label style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5,display:"block",marginBottom:4}}>{label}</label>
+                        <input type={type} value={editInspForm[k]||""} onChange={e=>setEditInspForm(p=>({...p,[k]:e.target.value}))}
+                          style={{width:"100%",background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"8px 11px",color:Z.white,fontSize:12,outline:"none",fontFamily:font,boxSizing:"border-box"}}/>
+                      </div>
+                    ))}
+                    <div>
+                      <label style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5,display:"block",marginBottom:4}}>Status</label>
+                      <select value={editInspForm.status} onChange={e=>setEditInspForm(p=>({...p,status:e.target.value}))}
+                        style={{width:"100%",background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"8px 11px",color:Z.white,fontSize:12,outline:"none",fontFamily:font,cursor:"pointer",boxSizing:"border-box"}}>
+                        <option value="open">Open</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{marginBottom:12}}>
+                    <label style={{fontSize:10,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5,display:"block",marginBottom:4}}>Summary</label>
+                    <textarea value={editInspForm.summary||""} onChange={e=>setEditInspForm(p=>({...p,summary:e.target.value}))}
+                      style={{width:"100%",background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"8px 11px",color:Z.white,fontSize:12,outline:"none",fontFamily:font,boxSizing:"border-box",resize:"vertical",minHeight:60}}/>
+                  </div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={()=>{setInspections(p=>p.map(x=>x.id===ins.id?{...x,...editInspForm}:x));setEditingInspId(null);setEditInspForm(null);}}
+                      style={{background:`linear-gradient(135deg,${Z.accent},${Z.blue})`,color:"#fff",border:"none",borderRadius:9,padding:"8px 20px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>✓ Save</button>
+                    <button onClick={()=>{setEditingInspId(null);setEditInspForm(null);}}
+                      style={{background:Z.overlay,color:Z.muted,border:`1px solid ${Z.borderMd}`,borderRadius:9,padding:"8px 16px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>Cancel</button>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -12001,6 +12061,8 @@ export default function App() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [atab,    setAtab]    = useState("dashboard");
   const [adminReportView, setAdminReportView] = useState("staff");
+  const [focusIncidentId, setFocusIncidentId] = useState(null);
+  const [showAdminReportForm, setShowAdminReportForm] = useState(false);
   const [stab,    setStab]    = useState("dashboard");
   const [cert,    setCert]    = useState(null);
   const [target,  setTarget]  = useState(1);
@@ -14168,7 +14230,7 @@ export default function App() {
                     <p style={{color:T.muted,fontSize:13,margin:0}}>Health & Safety overview — {new Date().toLocaleDateString("en-GB",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</p>
                   </div>
                   <div style={{display:"flex",gap:8}}>
-                    <button onClick={()=>setAtab("incidents")} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font}}>+ Report Incident</button>
+                    <button onClick={()=>{setShowAdminReportForm(true);setAtab("incidents");}} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font}}>+ Report Incident</button>
                   </div>
                 </div>
 
@@ -14224,7 +14286,7 @@ export default function App() {
                           <div style={{fontSize:11,color:T.muted}}>{inc.date} · {inc.location}</div>
                         </div>
                         {inc.riddor&&!inc.riddorReported&&<span style={{fontSize:10,fontWeight:700,color:"#f87171",background:"rgba(239,68,68,0.1)",padding:"2px 7px",borderRadius:6,border:"1px solid rgba(239,68,68,0.25)",flexShrink:0}}>RIDDOR ⚠</span>}
-                        <button onClick={()=>setAtab("incidents")} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:7,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font,flexShrink:0}}>View →</button>
+                        <button onClick={()=>{setFocusIncidentId(inc.id);setAtab("incidents");}} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:7,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700,fontFamily:font,flexShrink:0}}>View →</button>
                       </>
                     ))
                   )}
@@ -14871,7 +14933,7 @@ export default function App() {
           )}
 
           {atab==="incidents" && (
-            <AdminIncidentTab incidents={incidents} setIncidents={setIncidents} staff={staff}
+            <AdminIncidentTab incidents={incidents} setIncidents={setIncidents} staff={staff} focusIncidentId={focusIncidentId} setFocusIncidentId={setFocusIncidentId} showAdminReportForm={showAdminReportForm} setShowAdminReportForm={setShowAdminReportForm}
               investigations={investigations} setInvestigations={setInvestigations}
               onOpenInvestigation={id=>{ setInvestigationView(id); setAtab("investigation"); }}
               equipment={equipment} setEquipment={setEquipment}
