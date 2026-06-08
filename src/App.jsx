@@ -12137,6 +12137,355 @@ function ContractorsTab({ contractors, setContractors, contractorInductions, set
   );
 }
 
+// ─── Permit to Work System ───────────────────────────────────────────────────
+const PERMIT_TYPES = [
+  { id:"hot_works",    label:"Hot Works",            icon:"🔥", color:"#ef4444",
+    hazards:["Fire risk from sparks","Flammable materials nearby","Gas/fume ignition risk","Oxygen enrichment"],
+    precautions:["Fire extinguisher on standby","Fire watch during and 60 mins after","Remove/protect flammable materials","Gas test completed","Area barricaded"] },
+  { id:"confined_space", label:"Confined Space",     icon:"⚠️", color:"#f97316",
+    hazards:["Oxygen deficiency","Toxic atmosphere","Engulfment risk","Restricted rescue access"],
+    precautions:["Atmospheric gas test","Continuous monitoring","Rescue plan in place","Non-entry rescue equipment ready","Attendant stationed outside"] },
+  { id:"height",       label:"Working at Height",    icon:"🏗", color:"#f59e0b",
+    hazards:["Fall from height","Falling objects","Fragile surfaces","Unstable platform"],
+    precautions:["Edge protection installed","Harness and lanyard","Hard hat zone below","Exclusion zone established","Equipment secured"] },
+  { id:"electrical",   label:"Electrical Isolation", icon:"⚡", color:"#a78bfa",
+    hazards:["Electric shock","Arc flash","Stored energy release","Unexpected re-energisation"],
+    precautions:["LOTO applied","Isolation verified","Discharge stored energy","Warning notices posted","Competent person only"] },
+  { id:"excavation",   label:"Excavation",           icon:"🚜", color:"#78716c",
+    hazards:["Collapse of sides","Underground services","Flooding","Traffic/plant proximity"],
+    precautions:["Services located/marked","Shoring installed","Barrier around excavation","Pumping equipment available","Banksman appointed"] },
+  { id:"general",      label:"General Permit",       icon:"📋", color:"#64748b",
+    hazards:["Slips, trips and falls","Manual handling","Dust/fume exposure","Noise exposure"],
+    precautions:["Risk assessment reviewed","PPE available and worn","Area made safe","Supervisor notified"] },
+];
+
+const PPE_OPTIONS = ["Hard hat","Hi-vis vest","Safety boots","Gloves","Safety glasses","Respirator/FFP3","Ear defenders","Full face shield","Chemical suit","Harness"];
+
+function PermitForm({ existing, staff, contractors, onSave, onCancel, T, font }) {
+  const isMobile = useWindowWidth() <= 1024;
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0,16);
+  const endDefault = new Date(now.getTime()+8*3600000).toISOString().slice(0,16);
+
+  const [form, setForm] = React.useState(existing || {
+    id:"ptw_"+Date.now(),
+    type:"hot_works",
+    location:"",
+    description:"",
+    startDateTime:todayStr,
+    endDateTime:endDefault,
+    contractor:"",
+    workers:[],
+    authorisedBy:"",
+    hazards:{},
+    precautions:{},
+    ppe:[],
+    additionalControls:"",
+    status:"draft",
+    createdAt:todayStr,
+  });
+
+  const pt = PERMIT_TYPES.find(p=>p.id===form.type)||PERMIT_TYPES[0];
+  const inp = {width:"100%",background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"9px 13px",color:T.white,fontSize:13,outline:"none",fontFamily:font,boxSizing:"border-box"};
+  const lbl = {fontSize:11,fontWeight:700,color:T.muted,letterSpacing:.5,textTransform:"uppercase",display:"block",marginBottom:5};
+  const check = (group, key, label, col) => {
+    const checked = !!form[group][key];
+    return (
+      <label key={key} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",padding:"6px 10px",borderRadius:8,background:checked?`${col||T.accent}18`:T.overlay,border:`1px solid ${checked?col||T.accent:T.border}`,transition:"all .15s"}}>
+        <input type="checkbox" checked={checked} onChange={e=>setForm(p=>({...p,[group]:{...p[group],[key]:e.target.checked}}))} style={{accentColor:col||T.accent,width:14,height:14,flexShrink:0}}/>
+        <span style={{fontSize:12,color:checked?T.white:T.muted,fontWeight:checked?600:400}}>{label}</span>
+      </label>
+    );
+  };
+
+  return (
+    <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,border:`1px solid ${T.borderMd}`,marginBottom:20}}>
+      <h3 style={{margin:"0 0 20px",fontSize:16,fontWeight:800,color:T.white}}>{existing?"Edit":"New"} Permit to Work</h3>
+
+      {/* Permit type selector */}
+      <div style={{marginBottom:18}}>
+        <label style={lbl}>Permit Type *</label>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:8}}>
+          {PERMIT_TYPES.map(pt2=>(
+            <button key={pt2.id} onClick={()=>setForm(p=>({...p,type:pt2.id,hazards:{},precautions:{}}))}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px",borderRadius:10,border:`2px solid ${form.type===pt2.id?pt2.color:T.borderMd}`,background:form.type===pt2.id?`${pt2.color}18`:T.overlay,cursor:"pointer",fontFamily:font,textAlign:"left",transition:"all .15s"}}>
+              <span style={{fontSize:18}}>{pt2.icon}</span>
+              <span style={{fontSize:12,fontWeight:form.type===pt2.id?700:400,color:form.type===pt2.id?pt2.color:T.muted}}>{pt2.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:14}}>
+        <div style={{gridColumn:"1/-1"}}><label style={lbl}>Description of Work *</label><textarea value={form.description} onChange={e=>setForm(p=>({...p,description:e.target.value}))} style={{...inp,minHeight:70,resize:"vertical"}} placeholder="Describe the work to be carried out in detail..."/></div>
+        <div><label style={lbl}>Location *</label><input style={inp} value={form.location} onChange={e=>setForm(p=>({...p,location:e.target.value}))} placeholder="e.g. Boiler Room, Zone A"/></div>
+        <div><label style={lbl}>Contractor / Company</label>
+          <select style={inp} value={form.contractor} onChange={e=>setForm(p=>({...p,contractor:e.target.value,workers:[]}))}>
+            <option value="">Select contractor (optional)...</option>
+            {contractors.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div><label style={lbl}>Start Date & Time *</label><input type="datetime-local" style={inp} value={form.startDateTime} onChange={e=>setForm(p=>({...p,startDateTime:e.target.value}))}/></div>
+        <div><label style={lbl}>End Date & Time *</label><input type="datetime-local" style={inp} value={form.endDateTime} onChange={e=>setForm(p=>({...p,endDateTime:e.target.value}))}/></div>
+        <div><label style={lbl}>Authorised By (Zeus Staff) *</label>
+          <select style={inp} value={form.authorisedBy} onChange={e=>setForm(p=>({...p,authorisedBy:e.target.value}))}>
+            <option value="">Select authorising person...</option>
+            {staff.filter(u=>u.role==="admin"||u.manager).map(u=><option key={u.id} value={u.name}>{u.name}{u.jobTitle?` — ${u.jobTitle}`:""}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Hazard checklist */}
+      <div style={{marginBottom:14}}>
+        <label style={lbl}>Hazards Identified</label>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:6}}>
+          {pt.hazards.map(h=>check("hazards",h,h,"#ef4444"))}
+        </div>
+      </div>
+
+      {/* Precautions checklist */}
+      <div style={{marginBottom:14}}>
+        <label style={lbl}>Precautions in Place</label>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:6}}>
+          {pt.precautions.map(p2=>check("precautions",p2,p2,T.green))}
+        </div>
+      </div>
+
+      {/* PPE */}
+      <div style={{marginBottom:14}}>
+        <label style={lbl}>PPE Required</label>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+          {PPE_OPTIONS.map(p2=>{
+            const sel=form.ppe.includes(p2);
+            return <button key={p2} onClick={()=>setForm(p=>({...p,ppe:sel?p.ppe.filter(x=>x!==p2):[...p.ppe,p2]}))}
+              style={{padding:"5px 12px",borderRadius:20,border:`1px solid ${sel?T.accent:T.borderMd}`,background:sel?`rgba(37,99,235,0.15)`:T.overlay,color:sel?T.accentLt:T.muted,cursor:"pointer",fontSize:12,fontFamily:font,fontWeight:sel?700:400}}>{p2}</button>;
+          })}
+        </div>
+      </div>
+
+      <div style={{marginBottom:18}}><label style={lbl}>Additional Controls / Notes</label><textarea value={form.additionalControls} onChange={e=>setForm(p=>({...p,additionalControls:e.target.value}))} style={{...inp,minHeight:60,resize:"vertical"}} placeholder="Any additional safety measures or notes..."/></div>
+
+      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+        <button onClick={()=>onSave({...form,status:"draft"})} disabled={!form.description.trim()||!form.location.trim()||!form.startDateTime||!form.endDateTime}
+          style={{background:T.overlay,color:T.muted,border:`1px solid ${T.borderMd}`,borderRadius:10,padding:"10px 20px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>
+          💾 Save as Draft
+        </button>
+        <button onClick={()=>onSave({...form,status:"active"})} disabled={!form.description.trim()||!form.location.trim()||!form.startDateTime||!form.endDateTime||!form.authorisedBy}
+          style={{background:(!form.description.trim()||!form.location.trim()||!form.authorisedBy)?T.overlay:`linear-gradient(135deg,#10b981,#059669)`,color:(!form.description.trim()||!form.location.trim()||!form.authorisedBy)?T.muted:"#fff",border:"none",borderRadius:10,padding:"10px 24px",cursor:(!form.description.trim()||!form.location.trim()||!form.authorisedBy)?"not-allowed":"pointer",fontFamily:font,fontWeight:700,fontSize:13,opacity:(!form.description.trim()||!form.location.trim()||!form.authorisedBy)?.5:1,boxShadow:(!form.description.trim()||!form.location.trim()||!form.authorisedBy)?"none":"0 4px 14px rgba(16,185,129,0.3)"}}>
+          ✓ Issue Permit
+        </button>
+        <button onClick={onCancel} style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:"10px 18px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13}}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function PermitsTab({ permits, setPermits, dbSavePermit, dbDeletePermit, staff, contractors, T, font }) {
+  const isMobile = useWindowWidth() <= 1024;
+  const [view, setView] = React.useState("list"); // list | new | detail
+  const [selected, setSelected] = React.useState(null);
+  const [filterStatus, setFilterStatus] = React.useState("all");
+  const [filterType, setFilterType] = React.useState("all");
+  const now = new Date().toISOString();
+  const today = now.slice(0,10);
+
+  const selPermit = permits.find(p=>p.id===selected);
+
+  function savePermit(p) {
+    setPermits(prev=>{
+      const exists=prev.findIndex(x=>x.id===p.id);
+      if(exists>=0){ const n=[...prev]; n[exists]=p; return n; }
+      return [...prev,p];
+    });
+    dbSavePermit(p);
+    setView("list");
+    setSelected(null);
+  }
+
+  function printPermit(p) {
+    const pt=PERMIT_TYPES.find(x=>x.id===p.type)||PERMIT_TYPES[5];
+    const hazardsList=Object.entries(p.hazards||{}).filter(([,v])=>v).map(([k])=>`<li>${k}</li>`).join("");
+    const precsList=Object.entries(p.precautions||{}).filter(([,v])=>v).map(([k])=>`<li>${k}</li>`).join("");
+    const ppe=(p.ppe||[]).join(", ")||"None specified";
+    const html=`<!DOCTYPE html><html><head><title>Permit to Work — ${p.id}</title>
+    <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;padding:28px;font-size:12px;color:#1e293b}
+    .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:14px;border-bottom:3px solid #0d1f5c}
+    h1{font-size:18px;font-weight:900;color:#0d1f5c;margin-bottom:3px}.badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:${pt.color}22;color:${pt.color};border:1px solid ${pt.color}}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}.cell{background:#f8fafc;border-radius:8px;padding:10px 14px;border:1px solid #e2e8f0}
+    .cell .label{font-size:9px;font-weight:700;letter-spacing:.5px;color:#94a3b8;text-transform:uppercase;margin-bottom:3px}.cell .value{font-size:13px;font-weight:600;color:#0d1f5c}
+    h2{font-size:11px;font-weight:700;color:#0d1f5c;margin:14px 0 8px;text-transform:uppercase;letter-spacing:.5px;padding-bottom:4px;border-bottom:1px solid #e2e8f0}
+    ul{padding-left:18px;color:#334155;line-height:1.8}
+    .sig-box{border:2px solid #0d1f5c;border-radius:8px;padding:16px;margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .sig-line{border-top:1px solid #0d1f5c;padding-top:6px;font-size:10px;color:#64748b;margin-top:32px}
+    @media print{@page{margin:12mm;size:A4}}
+    </style></head><body>
+    <div class="header">
+      <div><h1>${pt.icon} Permit to Work — ${pt.label}</h1><p style="color:#64748b;margin-top:4px">Zeus Protect Health &amp; Safety · ${p.id}</p></div>
+      <div><div class="badge">${p.status.toUpperCase()}</div><div style="font-size:11px;color:#94a3b8;margin-top:6px;text-align:right">Issued: ${p.startDateTime?.replace("T"," ")||"—"}</div></div>
+    </div>
+    <div class="grid">
+      <div class="cell"><div class="label">Location</div><div class="value">${p.location}</div></div>
+      <div class="cell"><div class="label">Valid Period</div><div class="value">${p.startDateTime?.replace("T"," ")||"—"} → ${p.endDateTime?.replace("T"," ")||"—"}</div></div>
+      <div class="cell" style="grid-column:1/-1"><div class="label">Description of Work</div><div class="value">${p.description}</div></div>
+      <div class="cell"><div class="label">Contractor</div><div class="value">${p.contractor||"Internal"}</div></div>
+      <div class="cell"><div class="label">Authorised By</div><div class="value">${p.authorisedBy||"—"}</div></div>
+    </div>
+    <h2>Hazards Identified</h2>${hazardsList?`<ul>${hazardsList}</ul>`:"<p>None recorded</p>"}
+    <h2>Precautions in Place</h2>${precsList?`<ul>${precsList}</ul>`:"<p>None recorded</p>"}
+    <h2>PPE Required</h2><p>${ppe}</p>
+    ${p.additionalControls?`<h2>Additional Controls</h2><p>${p.additionalControls}</p>`:""}
+    <div class="sig-box">
+      <div><div style="font-size:11px;font-weight:700;color:#0d1f5c;margin-bottom:12px">AUTHORISING SIGNATURE</div><div class="sig-line">Signature</div><div class="sig-line">Name: ${p.authorisedBy||""}</div><div class="sig-line">Date/Time:</div></div>
+      <div><div style="font-size:11px;font-weight:700;color:#0d1f5c;margin-bottom:12px">WORKER ACKNOWLEDGEMENT</div><div class="sig-line">Signature</div><div class="sig-line">Name:</div><div class="sig-line">Date/Time:</div></div>
+    </div>
+    <script>window.onload=()=>window.print()<\/script></body></html>`;
+    const w=window.open("","_blank","width=800,height=700");
+    w.document.write(html);
+    w.document.close();
+  }
+
+  const filtered = permits.filter(p=>{
+    if(filterStatus!=="all"&&p.status!==filterStatus) return false;
+    if(filterType!=="all"&&p.type!==filterType) return false;
+    return true;
+  }).sort((a,b)=>b.createdAt?.localeCompare(a.createdAt||"")||0);
+
+  const getStatusStyle = s=>{
+    if(s==="active") return {color:"#10b981",bg:"rgba(16,185,129,0.12)",border:"rgba(16,185,129,0.3)"};
+    if(s==="draft") return {color:"#f59e0b",bg:"rgba(245,158,11,0.1)",border:"rgba(245,158,11,0.3)"};
+    if(s==="closed") return {color:"#64748b",bg:"rgba(100,116,139,0.1)",border:"rgba(100,116,139,0.3)"};
+    if(s==="cancelled") return {color:"#f87171",bg:"rgba(239,68,68,0.1)",border:"rgba(239,68,68,0.3)"};
+    return {color:T.muted,bg:T.overlay,border:T.borderMd};
+  };
+
+  const isExpired = p=>p.status==="active"&&p.endDateTime<now;
+
+  if(view==="new"||(view==="edit"&&selPermit)) {
+    return <PermitForm existing={view==="edit"?selPermit:null} staff={staff} contractors={contractors}
+      onSave={p=>{savePermit(p);setView("list");}}
+      onCancel={()=>setView("list")} T={T} font={font}/>;
+  }
+
+  return (
+    <div>
+      {/* Live board */}
+      {(()=>{
+        const active=permits.filter(p=>p.status==="active"&&p.startDateTime<=now&&p.endDateTime>=now);
+        const expired=permits.filter(p=>p.status==="active"&&p.endDateTime<now);
+        if(!active.length&&!expired.length) return null;
+        return (
+          <div style={{background:`linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.03))`,borderRadius:16,padding:20,marginBottom:20,border:"1px solid rgba(16,185,129,0.25)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:"#10b981",boxShadow:"0 0 0 3px rgba(16,185,129,0.25)",animation:"pulse 2s infinite",flexShrink:0}}/>
+              <h3 style={{margin:0,fontSize:15,fontWeight:800,color:T.white}}>Active Permits</h3>
+              <span style={{fontSize:12,color:"#10b981",fontWeight:600}}>{active.length} active{expired.length>0?` · ${expired.length} expired unclosed`:""}</span>
+            </div>
+            {expired.length>0 && (
+              <div style={{marginBottom:12,padding:"8px 14px",background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:10,fontSize:12,color:"#f87171",fontWeight:600}}>
+                ⚠ {expired.length} permit{expired.length!==1?"s":""} have passed their end time — please close or extend them.
+              </div>
+            )}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(220px,1fr))",gap:10}}>
+              {[...expired,...active].map((p,i)=>{
+                const pt=PERMIT_TYPES.find(x=>x.id===p.type)||PERMIT_TYPES[5];
+                const exp=isExpired(p);
+                return (
+                  <div key={p.id} style={{background:exp?"rgba(239,68,68,0.08)":"rgba(16,185,129,0.06)",borderRadius:12,padding:"12px 14px",border:`1px solid ${exp?"rgba(239,68,68,0.25)":"rgba(16,185,129,0.2)"}`}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                      <span style={{fontSize:20}}>{pt.icon}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:700,color:T.white,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{pt.label}</div>
+                        <div style={{fontSize:10,color:exp?"#f87171":"#34d399"}}>{exp?"⚠ Expired":p.endDateTime?.replace("T"," ")}</div>
+                      </div>
+                    </div>
+                    <div style={{fontSize:11,color:T.muted,marginBottom:3}}>📍 {p.location}</div>
+                    {p.authorisedBy&&<div style={{fontSize:11,color:T.muted}}>✍ {p.authorisedBy}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:12}}>
+        <div>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px"}}>Permit to Work Register</h2>
+          <p style={{color:T.muted,fontSize:13,margin:0}}>{permits.length} permit{permits.length!==1?"s":""} · {permits.filter(p=>p.status==="active").length} active</p>
+        </div>
+        <button onClick={()=>setView("new")} style={{background:`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",border:"none",borderRadius:10,padding:"10px 20px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13,boxShadow:`0 4px 14px ${T.accent}44`}}>+ New Permit</button>
+      </div>
+
+      {/* Filters */}
+      <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:12,padding:"12px 16px",marginBottom:16,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",border:`1px solid ${T.border}`}}>
+        <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"8px 12px",color:T.white,fontSize:12,outline:"none",fontFamily:font,cursor:"pointer"}}>
+          <option value="all">All Status</option>
+          <option value="draft">Draft</option>
+          <option value="active">Active</option>
+          <option value="closed">Closed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"8px 12px",color:T.white,fontSize:12,outline:"none",fontFamily:font,cursor:"pointer"}}>
+          <option value="all">All Types</option>
+          {PERMIT_TYPES.map(pt=><option key={pt.id} value={pt.id}>{pt.icon} {pt.label}</option>)}
+        </select>
+        <span style={{color:T.muted,fontSize:12,marginLeft:"auto"}}>{filtered.length} of {permits.length}</span>
+      </div>
+
+      {/* Permit list */}
+      <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,overflow:"hidden",border:`1px solid ${T.border}`}}>
+        {!isMobile && (
+          <div style={{display:"grid",gridTemplateColumns:"auto 2fr 1.5fr 1fr 1fr 1fr 120px",padding:"10px 20px",background:T.headerBg,fontSize:11,fontWeight:700,letterSpacing:1,color:T.muted,textTransform:"uppercase",gap:12}}>
+            <span>Type</span><span>Description</span><span>Location</span><span>Status</span><span>Start</span><span>End</span><span></span>
+          </div>
+        )}
+        {filtered.length===0 && <div style={{padding:"32px 20px",textAlign:"center",color:T.muted,fontSize:14}}>No permits found. Click <strong>+ New Permit</strong> to create one.</div>}
+        {filtered.map((p,i)=>{
+          const pt=PERMIT_TYPES.find(x=>x.id===p.type)||PERMIT_TYPES[5];
+          const ss=getStatusStyle(p.status);
+          const exp=isExpired(p);
+          return isMobile ? (
+            <div key={p.id} style={{padding:"14px 16px",borderTop:i>0?`1px solid ${T.border}`:"none"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+                <span style={{fontSize:22}}>{pt.icon}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:T.white}}>{pt.label}</div>
+                  <div style={{fontSize:11,color:T.muted}}>{p.location}</div>
+                </div>
+                <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:20,background:ss.bg,color:ss.color,border:`1px solid ${ss.border}`,textTransform:"capitalize"}}>{exp?"⚠ Expired":p.status}</span>
+              </div>
+              <div style={{fontSize:11,color:T.muted,marginBottom:8}}>{p.description?.slice(0,80)}{p.description?.length>80?"…":""}</div>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>{setSelected(p.id);setView("edit");}} style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:"1px solid rgba(37,99,235,0.25)",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>Edit</button>
+                <button onClick={()=>printPermit(p)} style={{background:"rgba(16,185,129,0.1)",color:T.green,border:"1px solid rgba(16,185,129,0.25)",borderRadius:7,padding:"5px 10px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>🖨 Print</button>
+              </div>
+            </div>
+          ) : (
+            <div key={p.id} style={{display:"grid",gridTemplateColumns:"auto 2fr 1.5fr 1fr 1fr 1fr 120px",padding:"14px 20px",borderTop:i>0?`1px solid ${T.border}`:"none",alignItems:"center",gap:12,background:exp?"rgba(239,68,68,0.03)":"transparent"}}>
+              <span style={{fontSize:22}}>{pt.icon}</span>
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:T.white,marginBottom:2}}>{pt.label}</div>
+                <div style={{fontSize:11,color:T.muted,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:280}}>{p.description}</div>
+              </div>
+              <span style={{fontSize:12,color:T.muted}}>{p.location}</span>
+              <span style={{fontSize:11,fontWeight:700,padding:"2px 9px",borderRadius:20,background:ss.bg,color:exp?"#f87171":ss.color,border:`1px solid ${exp?"rgba(239,68,68,0.3)":ss.border}`,textTransform:"capitalize",display:"inline-block",whiteSpace:"nowrap"}}>{exp?"⚠ Expired":p.status}</span>
+              <span style={{fontSize:11,color:T.muted}}>{p.startDateTime?.replace("T"," ").slice(0,16)||"—"}</span>
+              <span style={{fontSize:11,color:exp?"#f87171":T.muted}}>{p.endDateTime?.replace("T"," ").slice(0,16)||"—"}</span>
+              <div style={{display:"flex",gap:5}}>
+                <button onClick={()=>{setSelected(p.id);setView("edit");}} style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:"1px solid rgba(37,99,235,0.25)",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>✏</button>
+                <button onClick={()=>printPermit(p)} style={{background:"rgba(16,185,129,0.1)",color:T.green,border:"1px solid rgba(16,185,129,0.25)",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>🖨</button>
+                {p.status==="active"&&<button onClick={()=>{const u={...p,status:"closed",closedAt:new Date().toISOString()};setPermits(prev=>prev.map(x=>x.id===p.id?u:x));dbSavePermit(u);}} style={{background:"rgba(100,116,139,0.1)",color:"#94a3b8",border:"1px solid rgba(100,116,139,0.25)",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>Close</button>}
+                {p.status==="draft"&&<button onClick={()=>{const u={...p,status:"active"};setPermits(prev=>prev.map(x=>x.id===p.id?u:x));dbSavePermit(u);}} style={{background:"rgba(16,185,129,0.1)",color:T.green,border:"1px solid rgba(16,185,129,0.25)",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>Issue</button>}
+                <button onClick={()=>{if(window.confirm("Delete this permit?")){{setPermits(prev=>prev.filter(x=>x.id!==p.id));dbDeletePermit(p.id);}}}} style={{background:"rgba(239,68,68,0.08)",color:"#f87171",border:"1px solid rgba(239,68,68,0.15)",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>🗑</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ModulePreviewModal({ m, staff, assigns, comps, isMobile, setAtab, onClose, T, font }) {
   const [previewSlide, setPreviewSlide] = React.useState(0);
   const [previewTab, setPreviewTab] = React.useState("overview");
@@ -12280,6 +12629,7 @@ export default function App() {
   const [siteInspections, setSiteInspections] = useState(INIT_SITE_INSPECTIONS);
   const [customModules, setCustomModules] = useState([]); // admin-created training modules
   const [ras, setRas] = useState(INIT_RAS);
+  const [permits, setPermits] = useState([]);
   const [contractors, setContractors] = useState([]);
   const [contractorInductions, setContractorInductions] = useState({});
   const [contractorCerts, setContractorCerts] = useState({});
@@ -12540,6 +12890,10 @@ export default function App() {
         const { data: conVisitRows } = await sb.from("contractor_visits").select("*");
         if (conVisitRows?.length) { const m={}; conVisitRows.forEach(r=>{m[r.contractor_id]=r.data;}); setContractorVisits(m); }
 
+        // Permits
+        const { data: permitRows } = await sb.from("permits").select("*");
+        if (permitRows?.length) setPermits(permitRows.map(r=>r.data));
+
         // Risk assessments (custom/edited ones override INIT_RAS)
         const { data: raRows } = await sb.from("risk_assessments").select("*");
         if (raRows && raRows.length) {
@@ -12792,6 +13146,13 @@ export default function App() {
   async function dbSaveContractorInductions(cid,data) { await sb.from("contractor_inductions").upsert({contractor_id:cid,data},{onConflict:"contractor_id"}); }
   async function dbSaveContractorCerts(cid,data) { await sb.from("contractor_certs").upsert({contractor_id:cid,data},{onConflict:"contractor_id"}); }
   async function dbSaveContractorVisits(cid,data) { await sb.from("contractor_visits").upsert({contractor_id:cid,data},{onConflict:"contractor_id"}); }
+
+  async function dbSavePermit(p) {
+    await sb.from("permits").upsert({ id: p.id, data: p }, { onConflict: "id" });
+  }
+  async function dbDeletePermit(id) {
+    await sb.from("permits").delete().eq("id", id);
+  }
 
   async function dbSaveRA(ra) {
     await sb.from("risk_assessments").upsert({ id: ra.id, data: ra }, { onConflict: "id" });
@@ -14227,6 +14588,7 @@ export default function App() {
               {["incidents","ra"].map(t=>(<button key={t} onClick={()=>setAtab(t)} style={navBtn(atab===t,T.gold)}>{{incidents:"Incidents",ra:"Risk Assessments"}[t]}</button>))}
               <button onClick={()=>setAtab("inspections")} style={navBtn(atab==="inspections",T.gold)}>Inspections</button>
               <button onClick={()=>setAtab("contractors")} style={navBtn(atab==="contractors",T.gold)}>Contractors</button>
+              <button onClick={()=>setAtab("permits")} style={navBtn(atab==="permits",T.gold)}>Permits</button>
               <div style={{position:"relative",display:"inline-block"}} onMouseEnter={e=>e.currentTarget.querySelector(".me-dd").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".me-dd").style.display="none"}>
                 <button style={{...navBtn(meActive,T.gold),display:"flex",alignItems:"center",gap:5}}>Machinery &amp; Equipment<span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span></button>
                 <div className="me-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:180,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
@@ -14350,6 +14712,7 @@ export default function App() {
               ["ra","🔍 Risk Assessments"],
               ["inspections","🏗️ Inspections"],
               ["contractors","🪪 Contractors"],
+              ["permits","📋 Permits"],
               ["machinery","🔧 Machinery Competence"],
               ["equipment","📦 Equipment Register"],
               ["account","👤 My Account"],
@@ -15411,6 +15774,10 @@ export default function App() {
               dbSaveContractorCerts={dbSaveContractorCerts}
               dbSaveContractorVisits={dbSaveContractorVisits}
               staff={staff} T={T} font={font}/>
+          )}
+
+          {atab==="permits" && (
+            <PermitsTab permits={permits} setPermits={setPermits} dbSavePermit={dbSavePermit} dbDeletePermit={dbDeletePermit} staff={staff} contractors={contractors} T={T} font={font}/>
           )}
 
           {atab==="inspections" && (
