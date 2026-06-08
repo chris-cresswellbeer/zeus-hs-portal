@@ -14623,8 +14623,12 @@ export default function App() {
                   : bulkTarget === "team" ? staff.filter(u=>u.manager===effectiveBulkManager)
                   : null; // individual
 
+                const targetLabel = bulkTarget==="all"?`all ${staff.length} staff`:bulkTarget==="warehouse"?`${staff.filter(u=>u.isWarehouseWorker).length} warehouse staff`:bulkTarget==="team"?`${(targetStaff||[]).length} staff in ${effectiveBulkManager}'s team`:"selected staff";
+
                 const bulkAssignMod = (mid) => {
                   if (!targetStaff) return;
+                  const m = allModules.find(x=>x.id===mid);
+                  if (!window.confirm(`Assign "${m?.title||mid}" to ${targetLabel}?`)) return;
                   setAssigns(p => {
                     const next = {...p};
                     targetStaff.forEach(u => {
@@ -14636,6 +14640,8 @@ export default function App() {
                 };
                 const bulkUnassignMod = (mid) => {
                   if (!targetStaff) return;
+                  const m = allModules.find(x=>x.id===mid);
+                  if (!window.confirm(`Remove "${m?.title||mid}" from ${targetLabel}? Staff who have already completed it will keep their completion record.`)) return;
                   setAssigns(p => {
                     const next = {...p};
                     targetStaff.forEach(u => { next[u.id] = (next[u.id]||[]).filter(x=>x!==mid); });
@@ -14645,6 +14651,7 @@ export default function App() {
                 };
                 const bulkAssignAll = () => {
                   if (!targetStaff) return;
+                  if (!window.confirm(`Assign ALL ${allModules.length} modules to ${targetLabel}? This will add every module to their training plan.`)) return;
                   setAssigns(p => {
                     const next = {...p};
                     targetStaff.forEach(u => { next[u.id] = allModules.map(m=>m.id); });
