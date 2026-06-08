@@ -1876,7 +1876,7 @@ function generateStaffPDF(u, allModules, assigns, comps, docs, docAssignments, d
   win.onload = () => win.print();
 }
 
-function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledgements, reportView, setReportView, dseReports, adminResponses, setAdminResponses, darkMode, Z, font, modules, machineComps, lastLoginMap, extCerts, quizFailures, setQuizFailures, incidents, onExportPDF }) {
+function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledgements, reportView, setReportView, dseReports, adminResponses, setAdminResponses, darkMode, Z, font, modules, machineComps, lastLoginMap, extCerts, quizFailures, setQuizFailures, incidents, inspections, ras, investigations, onExportPDF }) {
   const isMobile = useWindowWidth() <= 1024;
   const [rptFilterSearch, setRptFilterSearch] = React.useState("");
   const [showTeamExport, setShowTeamExport] = React.useState(false);
@@ -2012,6 +2012,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
           {tabBtn("expiry",    "⏰ Training Expiry")}
           {tabBtn("failures",  "❌ Quiz Failures", (quizFailures||[]).filter(f=>!f.acknowledged).length)}
           {tabBtn("trends",    "📊 Incident Trends")}
+          {tabBtn("actions",   "🔧 Overdue Actions")}
           <div style={{width:1,height:28,background:Z.borderMd,margin:"0 4px"}}/>
           <button
             onClick={reportView==="staff" ? exportStaffReport : exportManagerReport}
@@ -2624,6 +2625,180 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
                 })}
               </div>
             </div>
+          </div>
+        );
+      })()}
+
+      {reportView === "actions" && (() => {
+        const today = new Date().toISOString().slice(0,10);
+        const allActions = [];
+
+        // ── Incident corrective actions ────────────────────────────────────
+        (incidents||[]).forEach(inc=>{
+          const inv = investigations[inc.id];
+          if (!inv?.correctiveActions?.length) return;
+          inv.correctiveActions.forEach((a,i)=>{
+            if (a.actionStatus==="complete") return;
+            const daysOld = a.date ? Math.floor((new Date()-new Date(a.date))/86400000) : null;
+            allActions.push({
+              id: `inc_${inc.id}_${i}`,
+              source: "Incident",
+              sourceIcon: "🚨",
+              title: a.action||"Corrective action",
+              ref: inc.description?.slice(0,50)||(inc.location||"Unknown location"),
+              assignedTo: a.assignedTo||"Unassigned",
+              dueDate: a.dueDate||null,
+              raisedDate: a.date||inc.date||null,
+              daysOld,
+              priority: inc.riddor?"high":daysOld>30?"high":daysOld>14?"medium":"low",
+              status: a.actionStatus||"open",
+              onClick: ()=>setAtab("incidents"),
+            });
+          });
+        });
+
+        // ── Inspection non-conformances ────────────────────────────────────
+        (inspections||[]).forEach(ins=>{
+          (ins.nonConformances||[]).forEach((nc,i)=>{
+            if (nc.actionStatus==="complete") return;
+            const daysOld = ins.date ? Math.floor((new Date()-new Date(ins.date))/86400000) : null;
+            allActions.push({
+              id: `ins_${ins.id}_${i}`,
+              source: "Inspection",
+              sourceIcon: "🏗",
+              title: nc.description||nc.finding||"Non-conformance",
+              ref: `${ins.location||"Unknown"} — ${ins.date||""}`,
+              assignedTo: nc.responsiblePerson||"Unassigned",
+              dueDate: nc.dueDate||null,
+              raisedDate: ins.date||null,
+              daysOld,
+              priority: nc.severity==="high"||nc.priority==="high"?"high":daysOld>30?"high":daysOld>14?"medium":"low",
+              status: nc.actionStatus||"open",
+              onClick: ()=>setAtab("inspections"),
+            });
+          });
+        });
+
+        // ── Risk assessment actions ─────────────────────────────────────────
+        (ras||[]).forEach(ra=>{
+          (ra.hazards||[]).forEach((h,hi)=>{
+            (h.actions||[]).forEach((a,ai)=>{
+              if (a.done) return;
+              const daysOld = ra.date ? Math.floor((new Date()-new Date(ra.date))/86400000) : null;
+              allActions.push({
+                id: `ra_${ra.id}_${hi}_${ai}`,
+                source: "Risk Assessment",
+                sourceIcon: "⚠️",
+                title: a.action||a.text||"Control measure",
+                ref: `${ra.title||ra.location||"Unknown RA"}`,
+                assignedTo: ra.assessor||"Unassigned",
+                dueDate: a.dueDate||ra.reviewDate||null,
+                raisedDate: ra.date||null,
+                daysOld,
+                priority: h.residualRisk==="high"||h.riskLevel==="high"?"high":daysOld>30?"high":"medium",
+                status: "open",
+                onClick: ()=>setAtab("ra"),
+              });
+            });
+          });
+        });
+
+        // Sort: overdue first, then by priority, then by days old
+        const priorityOrder = {high:0,medium:1,low:2};
+        allActions.sort((a,b)=>{
+          const aOverdue = a.dueDate&&a.dueDate<today;
+          const bOverdue = b.dueDate&&b.dueDate<today;
+          if(aOverdue&&!bOverdue) return -1;
+          if(!aOverdue&&bOverdue) return 1;
+          if(priorityOrder[a.priority]!==priorityOrder[b.priority]) return priorityOrder[a.priority]-priorityOrder[b.priority];
+          return (b.daysOld||0)-(a.daysOld||0);
+        });
+
+        const overdue = allActions.filter(a=>a.dueDate&&a.dueDate<today);
+        const noDue = allActions.filter(a=>!a.dueDate);
+        const upcoming = allActions.filter(a=>a.dueDate&&a.dueDate>=today);
+
+        const priorityStyle = p=>p==="high"?{color:"#f87171",bg:"rgba(239,68,68,0.1)",border:"rgba(239,68,68,0.25)"}:p==="medium"?{color:"#f59e0b",bg:"rgba(245,158,11,0.1)",border:"rgba(245,158,11,0.25)"}:{color:Z.muted,bg:Z.overlay,border:Z.borderMd};
+
+        const ActionRow = ({a,i})=>{
+          const ps=priorityStyle(a.priority);
+          const isOverdue=a.dueDate&&a.dueDate<today;
+          const daysUntil=a.dueDate?Math.ceil((new Date(a.dueDate)-new Date())/86400000):null;
+          return (
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"2fr 1.5fr 1fr 1fr 80px",gap:12,padding:"14px 20px",borderTop:i>0?`1px solid ${Z.border}`:"none",alignItems:"center"}}>
+              <div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"}}>
+                  <span style={{fontSize:14}}>{a.sourceIcon}</span>
+                  <span style={{fontSize:11,color:Z.muted,fontWeight:600}}>{a.source}</span>
+                  <span style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:20,background:ps.bg,color:ps.color,border:`1px solid ${ps.border}`,textTransform:"uppercase"}}>{a.priority}</span>
+                </div>
+                <div style={{fontSize:13,fontWeight:700,color:Z.white,marginBottom:2}}>{a.title}</div>
+                <div style={{fontSize:11,color:Z.muted}}>{a.ref}</div>
+              </div>
+              {!isMobile && <>
+                <span style={{fontSize:12,color:Z.muted}}>{a.assignedTo}</span>
+                <span style={{fontSize:12,color:isOverdue?"#f87171":a.dueDate?"#f59e0b":Z.muted,fontWeight:isOverdue?700:400}}>
+                  {a.dueDate?(isOverdue?`⚠ ${Math.abs(daysUntil)}d overdue`:`Due in ${daysUntil}d`):"No due date"}
+                </span>
+                <span style={{fontSize:11,color:Z.muted}}>{a.raisedDate||"—"}</span>
+                <button onClick={a.onClick} style={{background:`rgba(37,99,235,0.1)`,color:Z.accentLt,border:`1px solid rgba(37,99,235,0.25)`,borderRadius:8,padding:"6px 10px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11,whiteSpace:"nowrap"}}>View →</button>
+              </>}
+            </div>
+          );
+        };
+
+        return (
+          <div>
+            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:20,flexWrap:"wrap",gap:12}}>
+              <div>
+                <h3 style={{fontSize:18,fontWeight:800,margin:"0 0 4px"}}>Overdue Actions</h3>
+                <p style={{color:Z.muted,fontSize:13,margin:0}}>All open corrective actions across incidents, inspections and risk assessments.</p>
+              </div>
+              <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+                {[["🚨",overdue.length,"Overdue","#f87171"],["⏳",upcoming.length,"Upcoming","#f59e0b"],["📋",noDue.length,"No Due Date",Z.muted]].map(([icon,count,label,col])=>(
+                  <div key={label} style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:12,padding:"10px 16px",border:`1px solid ${Z.border}`,textAlign:"center",minWidth:80}}>
+                    <div style={{fontSize:20,fontWeight:900,color:col}}>{count}</div>
+                    <div style={{fontSize:10,color:Z.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>{icon} {label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {allActions.length===0 ? (
+              <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:16,padding:"40px 20px",textAlign:"center",border:`1px solid ${Z.border}`,color:Z.green,fontSize:14,fontWeight:600}}>
+                ✓ No open actions — everything is up to date
+              </div>
+            ) : (
+              <>
+                {overdue.length>0 && (
+                  <div style={{marginBottom:20}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#f87171",textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>⚠ Overdue ({overdue.length})</div>
+                    <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:14,border:"1px solid rgba(239,68,68,0.3)",overflow:"hidden"}}>
+                      {!isMobile && <div style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 80px",gap:12,padding:"10px 20px",background:Z.headerBg,fontSize:11,fontWeight:700,letterSpacing:1,color:Z.muted,textTransform:"uppercase"}}><span>Action</span><span>Assigned To</span><span>Due</span><span>Raised</span><span></span></div>}
+                      {overdue.map((a,i)=><ActionRow key={a.id} a={a} i={i}/>)}
+                    </div>
+                  </div>
+                )}
+                {upcoming.length>0 && (
+                  <div style={{marginBottom:20}}>
+                    <div style={{fontSize:12,fontWeight:700,color:"#f59e0b",textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>⏳ Upcoming ({upcoming.length})</div>
+                    <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:14,border:`1px solid rgba(245,158,11,0.25)`,overflow:"hidden"}}>
+                      {!isMobile && <div style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 80px",gap:12,padding:"10px 20px",background:Z.headerBg,fontSize:11,fontWeight:700,letterSpacing:1,color:Z.muted,textTransform:"uppercase"}}><span>Action</span><span>Assigned To</span><span>Due</span><span>Raised</span><span></span></div>}
+                      {upcoming.map((a,i)=><ActionRow key={a.id} a={a} i={i}/>)}
+                    </div>
+                  </div>
+                )}
+                {noDue.length>0 && (
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:Z.muted,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>📋 No Due Date ({noDue.length})</div>
+                    <div style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:14,border:`1px solid ${Z.border}`,overflow:"hidden"}}>
+                      {!isMobile && <div style={{display:"grid",gridTemplateColumns:"2fr 1.5fr 1fr 1fr 80px",gap:12,padding:"10px 20px",background:Z.headerBg,fontSize:11,fontWeight:700,letterSpacing:1,color:Z.muted,textTransform:"uppercase"}}><span>Action</span><span>Assigned To</span><span>Due</span><span>Raised</span><span></span></div>}
+                      {noDue.map((a,i)=><ActionRow key={a.id} a={a} i={i}/>)}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         );
       })()}
@@ -13375,11 +13550,21 @@ export default function App() {
               return <NotificationBell notifications={notifications} onNavigate={n=>setStab(n.tab)} Z={T} font={font}/>;
             })()}
             <div style={{width:1,height:20,background:T.headerBgMd,margin:"0 4px"}}/>
+            <button title={`Theme: ${theme} — click to cycle`} onClick={()=>{
+              const order=["dark","light","slate","forest","graphite","arctic","sand","rose"];
+              const next=order[(order.indexOf(theme)+1)%order.length];
+              setTheme(next);
+              setDarkMode(["dark","slate","forest","graphite"].includes(next));
+              dbSaveTheme(user.id,next);
+            }} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"5px 10px",color:T.muted,cursor:"pointer",fontSize:14,fontFamily:font,display:"flex",alignItems:"center",gap:4,transition:"all .15s"}}>
+              {theme==="dark"?"🌙":theme==="light"?"☀️":theme==="slate"?"◼":theme==="forest"?"🌲":theme==="graphite"?"⬛":theme==="arctic"?"🌌":theme==="sand"?"🏜":"🌸"}
+            </button>
+            <div style={{width:1,height:20,background:T.headerBgMd,margin:"0 4px"}}/>
             <div onClick={()=>setStab("account")}
               title="My Account"
-              style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",padding:"4px 8px 4px 4px",borderRadius:10,transition:"background .15s",background:stab==="account"?Z.overlay:"transparent",border:stab==="account"?`1px solid ${Z.borderMd}`:"1px solid transparent"}}
-              onMouseEnter={e=>{ if(stab!=="account") e.currentTarget.style.background=Z.overlay; }}
-              onMouseLeave={e=>{ e.currentTarget.style.background=stab==="account"?Z.overlay:"transparent"; }}>
+              style={{display:"flex",alignItems:"center",gap:7,cursor:"pointer",padding:"4px 8px 4px 4px",borderRadius:10,transition:"background .15s",background:stab==="account"?T.overlay:"transparent",border:stab==="account"?`1px solid ${T.borderMd}`:"1px solid transparent"}}
+              onMouseEnter={e=>{ if(stab!=="account") e.currentTarget.style.background=T.overlay; }}
+              onMouseLeave={e=>{ e.currentTarget.style.background=stab==="account"?T.overlay:"transparent"; }}>
               <Avatar name={user.name} size={32}/>
               <span style={{fontSize:13,color:stab==="account"?T.white:T.muted,fontWeight:600}}>{user.name.split(" ")[0]}</span>
             </div>
@@ -14119,6 +14304,18 @@ export default function App() {
               else if(soonReviews.length) notifications.push({type:"document",urgent:false,title:`${soonReviews.length} document${soonReviews.length!==1?"s":""} due for review soon`,detail:soonReviews.map(d=>d.title).join(", "),nav:{tab:"documents"}});
               return <NotificationBell notifications={notifications} onNavigate={n=>{setAtab(n.tab);if(n.view)setAdminReportView(n.view);}} Z={T} font={font}/>;
             })()}
+            <div style={{width:1,height:20,background:T.headerBgMd,margin:"0 4px"}}/>
+            {/* Quick theme cycle button */}
+            <button title="Cycle theme" onClick={()=>{
+              const order=["dark","light","slate","forest","graphite","arctic","sand","rose"];
+              const next=order[(order.indexOf(theme)+1)%order.length];
+              setTheme(next);
+              setDarkMode(["dark","slate","forest","graphite","aurora"].includes(next));
+              dbSaveTheme(user.id,next);
+            }} style={{background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:8,padding:"5px 10px",color:T.muted,cursor:"pointer",fontSize:14,fontFamily:font,display:"flex",alignItems:"center",gap:4,transition:"all .15s"}}
+              title={`Theme: ${theme} — click to cycle`}>
+              {theme==="dark"?"🌙":theme==="light"?"☀️":theme==="slate"?"◼":theme==="forest"?"🌲":theme==="graphite"?"⬛":theme==="arctic"?"🌌":theme==="sand"?"🏜":"🌸"}
+            </button>
             <div style={{width:1,height:20,background:T.headerBgMd,margin:"0 4px"}}/>
             <div onClick={()=>setAtab(atab==="account"?"users":"account")}
               title="My Account"
@@ -15172,7 +15369,7 @@ export default function App() {
           )}
 
           {atab==="reports" && (
-            <ReportsTab staff={staff} assigns={assigns} comps={comps} docs={docs} docAssignments={docAssignments} docAcknowledgements={docAcknowledgements} reportView={adminReportView} setReportView={setAdminReportView} dseReports={dseReports} adminResponses={adminResponses} setAdminResponses={setAdminResponses} darkMode={darkMode} Z={T} font={font} modules={allModules} machineComps={machineComps} lastLoginMap={lastLoginMap} extCerts={extCerts} quizFailures={quizFailures} setQuizFailures={setQuizFailures} incidents={incidents} onExportPDF={u=>generateStaffPDF(u,allModules,assigns,comps,docs,docAssignments,docAcknowledgements,extCerts,machineComps,lastLoginMap,T)}/>
+            <ReportsTab staff={staff} assigns={assigns} comps={comps} docs={docs} docAssignments={docAssignments} docAcknowledgements={docAcknowledgements} reportView={adminReportView} setReportView={setAdminReportView} dseReports={dseReports} adminResponses={adminResponses} setAdminResponses={setAdminResponses} darkMode={darkMode} Z={T} font={font} modules={allModules} machineComps={machineComps} lastLoginMap={lastLoginMap} extCerts={extCerts} quizFailures={quizFailures} setQuizFailures={setQuizFailures} incidents={incidents} inspections={siteInspections} ras={ras} investigations={investigations} onExportPDF={u=>generateStaffPDF(u,allModules,assigns,comps,docs,docAssignments,docAcknowledgements,extCerts,machineComps,lastLoginMap,T)}/>
           )}
 
           {atab==="incidents" && (
