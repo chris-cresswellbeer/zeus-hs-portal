@@ -12461,7 +12461,7 @@ function PermitsTab({ permits, setPermits, dbSavePermit, dbDeletePermit, staff, 
               </div>
             </div>
           ) : (
-            <div key={p.id} style={{display:"grid",gridTemplateColumns:"auto 2fr 1.5fr 1fr 1fr 1fr 120px",padding:"14px 20px",borderTop:i>0?`1px solid ${T.border}`:"none",alignItems:"center",gap:12,background:exp?"rgba(239,68,68,0.03)":"transparent"}}>
+            <div key={p.id} style={{display:"grid",gridTemplateColumns:"auto 2fr 1.5fr 1fr 1fr 1fr 140px",padding:"14px 20px",borderTop:i>0?`1px solid ${T.border}`:"none",alignItems:"center",gap:8,background:exp?"rgba(239,68,68,0.03)":"transparent"}}>
               <span style={{fontSize:22}}>{pt.icon}</span>
               <div>
                 <div style={{fontSize:13,fontWeight:700,color:T.white,marginBottom:2}}>{pt.label}</div>
@@ -12471,12 +12471,12 @@ function PermitsTab({ permits, setPermits, dbSavePermit, dbDeletePermit, staff, 
               <span style={{fontSize:11,fontWeight:700,padding:"2px 9px",borderRadius:20,background:ss.bg,color:exp?"#f87171":ss.color,border:`1px solid ${exp?"rgba(239,68,68,0.3)":ss.border}`,textTransform:"capitalize",display:"inline-block",whiteSpace:"nowrap"}}>{exp?"⚠ Expired":p.status}</span>
               <span style={{fontSize:11,color:T.muted}}>{p.startDateTime?.replace("T"," ").slice(0,16)||"—"}</span>
               <span style={{fontSize:11,color:exp?"#f87171":T.muted}}>{p.endDateTime?.replace("T"," ").slice(0,16)||"—"}</span>
-              <div style={{display:"flex",gap:5}}>
-                <button onClick={()=>{setSelected(p.id);setView("edit");}} style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:"1px solid rgba(37,99,235,0.25)",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>✏</button>
-                <button onClick={()=>printPermit(p)} style={{background:"rgba(16,185,129,0.1)",color:T.green,border:"1px solid rgba(16,185,129,0.25)",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>🖨</button>
-                {p.status==="active"&&<button onClick={()=>{const u={...p,status:"closed",closedAt:new Date().toISOString()};setPermits(prev=>prev.map(x=>x.id===p.id?u:x));dbSavePermit(u);}} style={{background:"rgba(100,116,139,0.1)",color:"#94a3b8",border:"1px solid rgba(100,116,139,0.25)",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>Close</button>}
-                {p.status==="draft"&&<button onClick={()=>{const u={...p,status:"active"};setPermits(prev=>prev.map(x=>x.id===p.id?u:x));dbSavePermit(u);}} style={{background:"rgba(16,185,129,0.1)",color:T.green,border:"1px solid rgba(16,185,129,0.25)",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>Issue</button>}
-                <button onClick={()=>{if(window.confirm("Delete this permit?")){{setPermits(prev=>prev.filter(x=>x.id!==p.id));dbDeletePermit(p.id);}}}} style={{background:"rgba(239,68,68,0.08)",color:"#f87171",border:"1px solid rgba(239,68,68,0.15)",borderRadius:7,padding:"5px 9px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>🗑</button>
+              <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                <button onClick={()=>{setSelected(p.id);setView("edit");}} style={{background:"rgba(37,99,235,0.1)",color:T.accentLt,border:"1px solid rgba(37,99,235,0.25)",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>✏</button>
+                <button onClick={()=>printPermit(p)} style={{background:"rgba(16,185,129,0.1)",color:T.green,border:"1px solid rgba(16,185,129,0.25)",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>🖨</button>
+                {p.status==="active"&&<button onClick={()=>{const u={...p,status:"closed",closedAt:new Date().toISOString()};setPermits(prev=>prev.map(x=>x.id===p.id?u:x));dbSavePermit(u);}} style={{background:"rgba(100,116,139,0.1)",color:"#94a3b8",border:"1px solid rgba(100,116,139,0.25)",borderRadius:6,padding:"4px 7px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:10}}>Close</button>}
+                {p.status==="draft"&&<button onClick={()=>{const u={...p,status:"active"};setPermits(prev=>prev.map(x=>x.id===p.id?u:x));dbSavePermit(u);}} style={{background:"rgba(16,185,129,0.1)",color:T.green,border:"1px solid rgba(16,185,129,0.25)",borderRadius:6,padding:"4px 7px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:10}}>Issue</button>}
+                <button onClick={()=>{if(window.confirm("Delete this permit?")){{setPermits(prev=>prev.filter(x=>x.id!==p.id));dbDeletePermit(p.id);}}}} style={{background:"rgba(239,68,68,0.08)",color:"#f87171",border:"1px solid rgba(239,68,68,0.15)",borderRadius:6,padding:"4px 8px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:11}}>🗑</button>
               </div>
             </div>
           );
