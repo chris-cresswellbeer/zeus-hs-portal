@@ -6,6 +6,15 @@ import React, { useState, useEffect, useRef } from "react";
 const SUPABASE_URL  = "https://aoahugfyswgcisfiosyn.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvYWh1Z2Z5c3dnY2lzZmlvc3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjY1NzMsImV4cCI6MjA5NTU0MjU3M30.9mlm3pVxqwTgCdrdVF2ek1mBHro28P-MTaVjdAUvCIs";
 
+// ── Emoji Mode Context ────────────────────────────────────────────────────────
+// E(emoji, fallback) returns emoji when emojiMode is on, fallback when off.
+// Used throughout the portal to strip decorative emojis in Professional Mode.
+const EmojiCtx = React.createContext(true);
+function E(emoji, fallback) {
+  const emojiMode = React.useContext(EmojiCtx);
+  return emojiMode ? emoji : fallback;
+}
+
 // Lightweight Supabase client — no npm package needed
 const sb = (() => {
   const h = { "Content-Type": "application/json", "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}` };
@@ -1843,23 +1852,23 @@ function generateStaffPDF(u, allModules, assigns, comps, docs, docAssignments, d
     <div class="meta-card"><div class="label">Overall Compliance</div><div class="value" style="color:${statusColor}">${pct}%</div></div>
   </div>
 
-  <h2>📚 Training Modules</h2>
+  <h2>{E("📚 ","")}Training Modules</h2>
   ${assignedIds.length===0
     ? '<div class="no-data">No modules assigned</div>'
     : `<table><thead><tr><th>Module</th><th>Status</th><th>Score</th><th>Date</th><th>Expiry</th><th>Certificate ID</th></tr></thead><tbody>${trainingRows}</tbody></table>`
   }
 
-  <h2>📄 Document Acknowledgements</h2>
+  <h2>{E("📄 ","")}Document Acknowledgements</h2>
   ${assignedDocs.length===0
     ? '<div class="no-data">No documents assigned</div>'
     : `<table><thead><tr><th>Document</th><th>Type</th><th>Acknowledgement</th><th>Version</th></tr></thead><tbody>${docRows}</tbody></table>`
   }
 
-  <h2>🩺 External Certificates</h2>
+  <h2>{E("🩺 ","")}External Certificates</h2>
   <table><thead><tr><th>Certificate</th><th>Status</th><th>Issue Date</th><th>Expiry Date</th></tr></thead><tbody>${extCertRows}</tbody></table>
 
   ${userMachineComps.length>0?`
-  <h2>⚙ Machinery Competence</h2>
+  <h2>{E("⚙ ","")}Machinery Competence</h2>
   <table><thead><tr><th>Machine</th><th>Status</th><th>Assessed</th><th>Licence Expiry</th></tr></thead><tbody>${machineRows}</tbody></table>
   `:""}
 
@@ -2005,14 +2014,14 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:14}}>
         <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:0}}>Compliance Reports <HelpTip dark={false} text="View completion rates, expiry status, document acknowledgements and DSE assessments across all staff. Use the Training Expiry tab to identify anyone with overdue renewals before they become a compliance issue."/></h2>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-          {tabBtn("staff",     "👥 Staff Overview")}
-          {tabBtn("manager",   "📊 Manager Performance")}
-          {tabBtn("dse",       "🖥 DSE Reports")}
-          {tabBtn("documents", "📄 Document Read Status")}
-          {tabBtn("expiry",    "⏰ Training Expiry")}
-          {tabBtn("failures",  "❌ Quiz Failures", (quizFailures||[]).filter(f=>!f.acknowledged).length)}
-          {tabBtn("trends",    "📊 Incident Trends")}
-          {tabBtn("actions",   "🔧 Overdue Actions")}
+          {tabBtn("staff",     E("👥 ","")+"Staff Overview")}
+          {tabBtn("manager",   E("📊 ","")+"Manager Performance")}
+          {tabBtn("dse",       E("🖥 ","")+"DSE Reports")}
+          {tabBtn("documents", E("📄 ","")+"Document Read Status")}
+          {tabBtn("expiry",    E("⏰ ","")+"Training Expiry")}
+          {tabBtn("failures",  E("❌ ","")+"Quiz Failures", (quizFailures||[]).filter(f=>!f.acknowledged).length)}
+          {tabBtn("trends",    E("📊 ","")+"Incident Trends")}
+          {tabBtn("actions",   E("🔧 ","")+"Overdue Actions")}
           <div style={{width:1,height:28,background:Z.borderMd,margin:"0 4px"}}/>
           <button
             onClick={reportView==="staff" ? exportStaffReport : exportManagerReport}
@@ -2087,9 +2096,9 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
                           <div class="meta-card"><div class="label">Completed</div><div class="value">${d}</div></div>
                           <div class="meta-card"><div class="label">Compliance</div><div class="value" style="color:${statusColor}">${pct}%</div></div>
                         </div>
-                        <h2>📚 Training</h2>
+                        <h2>{E("📚 ","")}Training</h2>
                         ${a===0?'<div class="no-data">No modules assigned</div>':`<table><thead><tr><th>Module</th><th>Status</th><th>Score</th><th>Date</th><th>Certificate</th></tr></thead><tbody>${trainingRows}</tbody></table>`}
-                        ${docRows?`<h2>📄 Document Acknowledgements</h2><table><thead><tr><th>Document</th><th>Type</th><th>Status</th></tr></thead><tbody>${docRows}</tbody></table>`:""}
+                        ${docRows?`<h2>{E("📄 ","")}Document Acknowledgements</h2><table><thead><tr><th>Document</th><th>Type</th><th>Status</th></tr></thead><tbody>${docRows}</tbody></table>`:""}
                       </div>`;
                     }).join("");
 
@@ -2141,10 +2150,10 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
       {reportView === "staff" && (
         <div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:28}}>
-            <StatCard icon="👥" val={staff.length} label="Total Staff" accent={Z.accentLt} Z={Z}/>
+            <StatCard icon={E("👥","👥")} val={staff.length} label="Total Staff" accent={Z.accentLt} Z={Z}/>
             <StatCard icon="📚" val={allModules.length} label="Modules Available" accent="#a78bfa" Z={Z}/>
             <StatCard icon="✅" val={staff.reduce((s,u)=>s+Object.keys(comps[u.id]||{}).length,0)} label="Total Completions" accent={Z.green} Z={Z}/>
-            <StatCard icon="📊" val={staff.length?`${Math.min(100, Math.round(staff.reduce((s,u)=>{const a=(assigns[u.id]||[]).length;const c=Object.keys(comps[u.id]||{}).length;return s+(a?c/a:0);},0)/staff.length*100))}%`:"—"} label="Avg Compliance" accent={Z.gold} Z={Z}/>
+            <StatCard icon={E("📊","📊")} val={staff.length?`${Math.min(100, Math.round(staff.reduce((s,u)=>{const a=(assigns[u.id]||[]).length;const c=Object.keys(comps[u.id]||{}).length;return s+(a?c/a:0);},0)/staff.length*100))}%`:"—"} label="Avg Compliance" accent={Z.gold} Z={Z}/>
           </div>
           {(()=>{
             const managers = ["all", ...Array.from(new Set(staff.map(u=>u.manager||"").filter(Boolean))).sort()];
@@ -2513,10 +2522,10 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
 
             {/* Stat tiles */}
             <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:14,marginBottom:24}}>
-              {statCard("📋","Total Incidents",inc.length,"")}
-              {statCard("🔓","Open Incidents",open,open>0?"Awaiting closure":"All closed",open>0?"#f87171":Z.green)}
-              {statCard("⚠️","RIDDOR Open",riddorOpen,riddorOpen>0?"HSE reporting required":"",riddorOpen>0?"#f87171":Z.green)}
-              {statCard("📅","Last 30 Days",last30,trend===0?"Same as previous 30d":trend>0?`▲ ${trend} more than prev 30d`:`▼ ${Math.abs(trend)} fewer than prev 30d`,trend>0?"#f87171":trend<0?Z.green:"#fff")}
+              {statCard(E("📋",""), "Total Incidents",inc.length,"")}
+              {statCard(E("🔓",""), "Open Incidents",open,open>0?"Awaiting closure":"All closed",open>0?"#f87171":Z.green)}
+              {statCard(E("⚠️",""), "RIDDOR Open",riddorOpen,riddorOpen>0?"HSE reporting required":"",riddorOpen>0?"#f87171":Z.green)}
+              {statCard(E("📅",""), "Last 30 Days",last30,trend===0?"Same as previous 30d":trend>0?`▲ ${trend} more than prev 30d`:`▼ ${Math.abs(trend)} fewer than prev 30d`,trend>0?"#f87171":trend<0?Z.green:"#fff")}
             </div>
 
             {/* Monthly bar chart */}
@@ -3509,7 +3518,7 @@ function StaffDSETab({ user, dseReports, adminResponses, setDseAnswers, setDseCo
 }
 
 // ─── Account Tab Component ───────────────────────────────────────────────────
-function AccountTab({ user, passwords, setPasswords, darkMode, setDarkMode, theme, setTheme, onSaveTheme, Z, font }) {
+function AccountTab({ user, passwords, setPasswords, darkMode, setDarkMode, theme, setTheme, onSaveTheme, emojiMode, onSaveEmojiMode, Z, font }) {
   const isMobile = useWindowWidth() <= 1024;
   const [oldPw,    setOldPw]    = useState("");
   const [newPw,    setNewPw]    = useState("");
@@ -3644,6 +3653,36 @@ function AccountTab({ user, passwords, setPasswords, darkMode, setDarkMode, them
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        {/* Professional Mode toggle — spans full width */}
+        <div style={{...card,gridColumn:isMobile?"1":"1 / -1",padding:24}}>
+          <h3 style={{fontSize:13,fontWeight:700,letterSpacing:.5,color:Z.muted,margin:"0 0 4px",textTransform:"uppercase"}}>Display Preferences</h3>
+          <p style={{fontSize:12,color:Z.muted,margin:"0 0 20px",lineHeight:1.5}}>Control how the portal presents information. Professional Mode removes decorative emoji from navigation, headers, and UI labels throughout the portal.</p>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",background:Z.overlay,borderRadius:12,border:`1px solid ${!emojiMode?"rgba(37,99,235,0.35)":Z.borderMd}`,transition:"border .2s"}}>
+            <div>
+              <div style={{fontWeight:700,fontSize:14,color:Z.white,marginBottom:3}}>
+                {emojiMode ? "Standard Mode" : "Professional Mode"}
+              </div>
+              <div style={{fontSize:12,color:Z.muted}}>
+                {emojiMode
+                  ? "Emoji icons are shown throughout the portal interface"
+                  : "Emoji icons are hidden — clean text-only labels"}
+              </div>
+            </div>
+            <button onClick={()=>{ const next=!emojiMode; onSaveEmojiMode(next); }}
+              style={{
+                position:"relative", width:52, height:28, borderRadius:99,
+                background:!emojiMode?`linear-gradient(135deg,${Z.accent},${Z.blue})`:"rgba(100,116,139,0.3)",
+                border:"none", cursor:"pointer", transition:"background .25s", flexShrink:0,
+              }}>
+              <span style={{
+                position:"absolute", top:3, left:!emojiMode?26:3,
+                width:22, height:22, borderRadius:"50%", background:"#fff",
+                transition:"left .25s", display:"block", boxShadow:"0 1px 4px rgba(0,0,0,0.3)",
+              }}/>
+            </button>
           </div>
         </div>
       </div>
@@ -3909,7 +3948,7 @@ function NotificationBell({ notifications, onNavigate, Z, font }) {
   const count = notifications.length;
   const urgent = notifications.filter(n=>n.urgent).length;
 
-  const typeIcons = { module:"📚", document:"📄", dse:"🖥️", training:"🎓", report:"📊", staff:"👥" };
+  const typeIcons = { module:E("📚","▪"), document:E("📄","▪"), dse:E("🖥️","▪"), training:E("🎓","▪"), report:E("📊","▪"), staff:E("👥","▪") };
 
   // Use fixed colours so dropdown is readable in both light and dark mode
   const dropBg    = Z.navyMd || "#1e2d5a";
@@ -3963,7 +4002,7 @@ function NotificationBell({ notifications, onNavigate, Z, font }) {
                       style={{padding:"12px 16px",borderBottom:`1px solid ${dropBorder}`,display:"flex",gap:10,alignItems:"flex-start",background:n.urgent?"rgba(239,68,68,0.08)":"transparent",cursor:clickable?"pointer":"default",transition:"background .15s"}}
                       onMouseEnter={e=>{ if(clickable) e.currentTarget.style.background=n.urgent?dropHoverUrgent:dropHover; }}
                       onMouseLeave={e=>{ e.currentTarget.style.background=n.urgent?"rgba(239,68,68,0.08)":"transparent"; }}>
-                      <span style={{fontSize:18,flexShrink:0,marginTop:1}}>{typeIcons[n.type]||"📌"}</span>
+                      <span style={{fontSize:18,flexShrink:0,marginTop:1}}>{typeIcons[n.type]||E("📌","▪")}</span>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontSize:13,fontWeight:700,color:n.urgent?"#fca5a5":dropTitle,lineHeight:1.4}}>{n.title}</div>
                         {n.detail && <div style={{fontSize:11,color:dropMuted,marginTop:2,lineHeight:1.4}}>{n.detail}</div>}
@@ -5599,7 +5638,7 @@ function IncidentForm({ form, setF, err, saved, onSubmit, onCancel, isEdit, Z, f
       <style>{placeholderStyle}</style>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
         <h3 style={{margin:0,fontSize:14,fontWeight:800,letterSpacing:.5,color:"#f87171",textTransform:"uppercase"}}>
-          {isEdit ? "✏ Edit Incident Report" : "New Incident Report"}
+          {isEdit ? E("✏ ","")+"Edit Incident Report" : "New Incident Report"}
         </h3>
         <button onClick={onCancel} style={{background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"5px 12px",color:Z.muted,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700}}>✕ Cancel</button>
       </div>
@@ -6134,10 +6173,10 @@ function InvestigationDashboard({ incidents, investigations, onOpen, Z, font }) 
 
       {/* Stat cards */}
       <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:28}}>
-        {statCard("📋", openActions.length,    "Open Actions",          "#60a5fa", "Actions not yet complete")}
-        {statCard("🚨", overdueActions.length, "Overdue Actions",       "#f87171", overdueActions.length>0?"Past due date — action required":"All actions on track")}
-        {statCard("⚠️", highRiskOpen.length,   "High-Risk Unresolved",  "#fb923c", "RIDDOR / injury incidents open")}
-        {statCard("🔁", repeatIssues.length,   "Repeat Issue Locations",  "#a78bfa", "Locations with 2+ incidents")}
+        {statCard(E("📋",""), openActions.length,    "Open Actions",          "#60a5fa", "Actions not yet complete")}
+        {statCard(E("🚨",""), overdueActions.length, "Overdue Actions",       "#f87171", overdueActions.length>0?"Past due date — action required":"All actions on track")}
+        {statCard(E("⚠️",""), highRiskOpen.length,   "High-Risk Unresolved",  "#fb923c", "RIDDOR / injury incidents open")}
+        {statCard(E("🔁",""), repeatIssues.length,   "Repeat Issue Locations",  "#a78bfa", "Locations with 2+ incidents")}
       </div>
 
       {/* Overdue actions */}
@@ -6267,7 +6306,7 @@ function InvestigationTab({ incidents, setIncidents, staff, investigations, setI
   function generateInvestigationReport() {
     if(!inc||!invForm) return;
     const today = new Date().toLocaleDateString("en-GB");
-    const statusLabel = {open:"⏳ Open",in_progress:"🔄 In Progress",pending_actions:"📋 Pending Actions",closed:"✅ Closed"}[invForm.status]||invForm.status;
+    const statusLabel = {open:E("⏳ ","")+"Open",in_progress:E("🔄 ","")+"In Progress",pending_actions:E("📋 ","")+"Pending Actions",closed:E("✅ ","")+"Closed"}[invForm.status]||invForm.status;
     const openActions  = (invForm.actions||[]).filter(a=>a.status!=="closed");
     const closedActions= (invForm.actions||[]).filter(a=>a.status==="closed");
 
@@ -6434,7 +6473,7 @@ function InvestigationTab({ incidents, setIncidents, staff, investigations, setI
           ← Back to Incidents
         </button>
         <div style={{flex:1}}>
-          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 2px"}}>🔍 Incident Investigations</h2>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 2px"}}>{E("🔍 ","")}Incident Investigations</h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>Root cause analysis, corrective actions and photo evidence</p>
         </div>
         <div style={{display:"flex",gap:8}}>
@@ -8184,7 +8223,7 @@ function EquipmentTrackerTab({ equipment, setEquipment, staff, Z, font }) {
         {saved && <span style={{fontSize:12,color:"#10b981",fontWeight:700}}>{saved}</span>}
         <button onClick={()=>setView(view==="dashboard"?"list":"dashboard")}
           style={{background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"7px 14px",color:Z.muted,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700}}>
-          {view==="dashboard"?"📋 Asset List":"📊 Dashboard"}
+          {view==="dashboard"?E("📋 ","")+"Asset List":E("📊 ","")+"Dashboard"}
         </button>
         <button onClick={exportEquipment}
           style={{display:"flex",alignItems:"center",gap:6,background:"rgba(16,185,129,0.12)",color:"#34d399",border:"1px solid rgba(16,185,129,0.3)",borderRadius:8,padding:"7px 14px",cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700}}>
@@ -8205,10 +8244,10 @@ function EquipmentTrackerTab({ equipment, setEquipment, staff, Z, font }) {
       {/* Stat cards */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14,marginBottom:28}}>
         {[
-          {icon:"⚙️",val:totalActive,label:"Active Assets",col:"#60a5fa"},
-          {icon:"🚨",val:openDefects,label:"Open Defects",col:"#f87171"},
-          {icon:"⏰",val:overdueService,label:"Overdue Service",col:"#ef4444"},
-          {icon:"📅",val:dueSoon,label:"Due in 60 Days",col:"#f59e0b"},
+          {icon:E("⚙️",""),val:totalActive,label:"Active Assets",col:"#60a5fa"},
+          {icon:E("🚨",""),val:openDefects,label:"Open Defects",col:"#f87171"},
+          {icon:E("⏰",""),val:overdueService,label:"Overdue Service",col:"#ef4444"},
+          {icon:E("📅",""),val:dueSoon,label:"Due in 60 Days",col:"#f59e0b"},
         ].map(s=>(
           <div key={s.label} style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:14,padding:"18px 20px",borderLeft:`4px solid ${s.col}`,border:`1px solid ${Z.border}`,borderLeftWidth:4,borderLeftColor:s.col}}>
             <div style={{fontSize:26,marginBottom:4}}>{s.icon}</div>
@@ -10509,10 +10548,10 @@ function SiteInspectionsTab({ inspections, setInspections, staff, Z, font }) {
       {/* Stat cards */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:14,marginBottom:24}}>
         {[
-          {icon:"📋",val:inspections.length,label:"Total Inspections",col:"#6366f1"},
-          {icon:"⚠️",val:openCount,label:"Open Actions",col:"#f87171"},
-          {icon:"🚨",val:overdue.length,label:"Overdue Re-inspections",col:"#ef4444"},
-          {icon:"📊",val:`${avgScore}%`,label:"Average Score",col:scoreColor(avgScore)},
+          {icon:E("📋",""),val:inspections.length,label:"Total Inspections",col:"#6366f1"},
+          {icon:E("⚠️",""),val:openCount,label:"Open Actions",col:"#f87171"},
+          {icon:E("🚨",""),val:overdue.length,label:"Overdue Re-inspections",col:"#ef4444"},
+          {icon:E("📊",""),val:`${avgScore}%`,label:"Average Score",col:scoreColor(avgScore)},
         ].map((s,i)=>(
           <div key={i} style={{background:`linear-gradient(135deg,${Z.navyMd},${Z.navy})`,borderRadius:16,padding:"18px 20px",borderLeft:`4px solid ${s.col}`,boxShadow:"0 4px 20px rgba(0,0,0,.1)"}}>
             <div style={{fontSize:26}}>{s.icon}</div>
@@ -10754,12 +10793,12 @@ function FireSafetyTab({ fireSafety, setFireSafety, staff, onUploadFraDoc, onDel
   }
 
   const SUB_TABS = [
-    { id:"wardens",   label:"🧑‍🚒 Wardens",          count: wardens.filter(w=>{ const s=wardenStatus(w); return s.color!=="#10b981"; }).length || null },
-    { id:"drills",    label:"🚨 Drill Log",          count: null },
-    { id:"alarm",     label:"🔔 Alarm Tests",        count: alarmTests.filter(t=>t.result==="fault").length || null },
-    { id:"extinguishers", label:"🧯 Extinguishers",  count: extinguishers.filter(e=>{ const b=expiryBadge(e.nextServiceDue); return b&&b.color!=="#10b981"; }).length || null },
-    { id:"lighting",  label:"💡 Emerg. Lighting",    count: null },
-    { id:"fra",       label:"📋 FRA Reviews",        count: null },
+    { id:"wardens",   label:E("🧑‍🚒 ","")+"Wardens",          count: wardens.filter(w=>{ const s=wardenStatus(w); return s.color!=="#10b981"; }).length || null },
+    { id:"drills",    label:E("🚨 ","")+"Drill Log",          count: null },
+    { id:"alarm",     label:E("🔔 ","")+"Alarm Tests",        count: alarmTests.filter(t=>t.result==="fault").length || null },
+    { id:"extinguishers", label:E("🧯 ","")+"Extinguishers",  count: extinguishers.filter(e=>{ const b=expiryBadge(e.nextServiceDue); return b&&b.color!=="#10b981"; }).length || null },
+    { id:"lighting",  label:E("💡 ","")+"Emerg. Lighting",    count: null },
+    { id:"fra",       label:E("📋 ","")+"FRA Reviews",        count: null },
   ];
 
   // ── MODALS ──
@@ -10924,17 +10963,17 @@ function FireSafetyTab({ fireSafety, setFireSafety, staff, onUploadFraDoc, onDel
   const fraStatus = fraNextDue ? expiryBadge(fraNextDue, 30) : null;
 
   const summaryCards = [
-    { icon:"🧑‍🚒", label:"Wardens",      value:wardens.length,   sub: expiredWardens.length>0?`${expiredWardens.length} expired`:`${expiringWardens.length} expiring`, alert:expiredWardens.length>0, warn:expiringWardens.length>0 },
-    { icon:"🚨",   label:"Last Drill",   value:lastDrill?lastDrill.date:"None recorded", sub: daysSinceDrill!==null?`${daysSinceDrill} days ago`:"", alert:daysSinceDrill!==null&&daysSinceDrill>365, warn:daysSinceDrill!==null&&daysSinceDrill>300 },
-    { icon:"🧯",   label:"Extinguishers",value:extinguishers.length, sub: overdueExtinguishers.length>0?`${overdueExtinguishers.length} service overdue`:"All services current", alert:overdueExtinguishers.length>0, warn:false },
-    { icon:"📋",   label:"FRA Next Review", value:fraNextDue||"Not set", sub:fraStatus?fraStatus.label:"", alert:fraStatus?.color==="#ef4444", warn:fraStatus?.color==="#f59e0b" },
+    { icon:E("🧑‍🚒","👤"), label:"Wardens",      value:wardens.length,   sub: expiredWardens.length>0?`${expiredWardens.length} expired`:`${expiringWardens.length} expiring`, alert:expiredWardens.length>0, warn:expiringWardens.length>0 },
+    { icon:E("🚨","!"), label:"Last Drill",   value:lastDrill?lastDrill.date:"None recorded", sub: daysSinceDrill!==null?`${daysSinceDrill} days ago`:"", alert:daysSinceDrill!==null&&daysSinceDrill>365, warn:daysSinceDrill!==null&&daysSinceDrill>300 },
+    { icon:E("🧯","Ex"), label:"Extinguishers",value:extinguishers.length, sub: overdueExtinguishers.length>0?`${overdueExtinguishers.length} service overdue`:"All services current", alert:overdueExtinguishers.length>0, warn:false },
+    { icon:E("📋","Doc"), label:"FRA Next Review", value:fraNextDue||"Not set", sub:fraStatus?fraStatus.label:"", alert:fraStatus?.color==="#ef4444", warn:fraStatus?.color==="#f59e0b" },
   ];
 
   return (
     <div>
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:20}}>
         <div>
-          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px",color:Z.white}}>🔥 Fire Safety Register</h2>
+          <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:"0 0 4px",color:Z.white}}>{E("🔥 ","")}Fire Safety Register</h2>
           <p style={{color:Z.muted,margin:0,fontSize:13}}>Manage fire wardens, drills, alarm tests, extinguishers, emergency lighting and FRA reviews</p>
         </div>
       </div>
@@ -11365,7 +11404,7 @@ function FireSafetyTab({ fireSafety, setFireSafety, staff, onUploadFraDoc, onDel
           </div>
           {fraNextDue && fraStatus && fraStatus.color!=="#10b981" && (
             <div style={{background:fraStatus.color==="#ef4444"?"rgba(239,68,68,0.08)":"rgba(245,158,11,0.08)",border:`1px solid ${fraStatus.color==="#ef4444"?"rgba(239,68,68,0.25)":"rgba(245,158,11,0.25)"}`,borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:fraStatus.color==="#ef4444"?"#f87171":"#f59e0b",fontWeight:600}}>
-              {fraStatus.color==="#ef4444"?"⚠️ FRA review is overdue":"⏰ FRA review due soon"} — next review was due {fraNextDue}
+              {fraStatus.color==="#ef4444"?E("⚠️ ","")+"FRA review is overdue":E("⏰ ","")+"FRA review due soon"} — next review was due {fraNextDue}
             </div>
           )}
           {fraReviews.length===0 && <div style={{color:Z.muted,fontSize:14,padding:"24px 0",textAlign:"center"}}>No FRA reviews recorded yet.</div>}
@@ -11386,9 +11425,9 @@ function FireSafetyTab({ fireSafety, setFireSafety, staff, onUploadFraDoc, onDel
                     )}
                     <div style={{fontSize:12,color:Z.muted,marginBottom:6}}><span style={{fontWeight:600,color:"#93c5fd"}}>Trigger: </span>{r.trigger}</div>
                     <div style={{fontSize:13,color:Z.white,lineHeight:1.5}}>{r.changes}</div>
-                    {r.fileName && (
+                    {r.fileName && (r.fileUrl || r.fileData) && (
                       <div style={{marginTop:10}}>
-                        <a href={r.fileData} download={r.fileName}
+                        <a href={r.fileUrl || r.fileData} target="_blank" rel="noreferrer"
                           style={{display:"inline-flex",alignItems:"center",gap:6,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.25)",borderRadius:8,padding:"6px 12px",color:"#10b981",fontSize:12,fontWeight:700,textDecoration:"none",fontFamily:font}}>
                           📄 {r.fileName}
                         </a>
@@ -12063,7 +12102,7 @@ function QuickReportModal({ user, onSubmit, onClose, Z, font }) {
           <>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
               <div>
-                <h3 style={{margin:0,fontSize:18,fontWeight:900,color:"#fff"}}>⚠ Report a Hazard</h3>
+                <h3 style={{margin:0,fontSize:18,fontWeight:900,color:"#fff"}}>{E("⚠ ","")}Report a Hazard</h3>
                 <p style={{margin:"3px 0 0",fontSize:12,color:Z.muted}}>Quick report — takes 30 seconds</p>
               </div>
               <button onClick={onClose} style={{background:Z.overlay,border:`1px solid ${Z.borderMd}`,borderRadius:8,padding:"6px 12px",color:Z.muted,cursor:"pointer",fontFamily:font,fontSize:12,fontWeight:700}}>✕</button>
@@ -13303,7 +13342,7 @@ function ModulePreviewModal({ m, staff, assigns, comps, isMobile, setAtab, onClo
           ))}
         </div>
         <div style={{display:"flex",borderBottom:`1px solid ${T.border}`,padding:"0 24px"}}>
-          {[["overview","📋 Overview"],["slides",`🖼 Slides (${slides.length})`],["quiz",`❓ Quiz (${quiz.length})`]].map(([id,label])=>(
+          {[["overview",E("📋 ","")+"Overview"],["slides",E("🖼 ","")+`Slides (${slides.length})`],["quiz",E("❓ ","")+`Quiz (${quiz.length})`]].map(([id,label])=>(
             <button key={id} onClick={()=>{setPreviewTab(id);setPreviewSlide(0);}} style={{padding:"12px 16px",background:"none",border:"none",borderBottom:`2px solid ${previewTab===id?T.gold:"transparent"}`,color:previewTab===id?T.white:T.muted,fontWeight:previewTab===id?700:400,cursor:"pointer",fontFamily:font,fontSize:13}}>{label}</button>
           ))}
         </div>
@@ -13375,7 +13414,7 @@ export default function App() {
   const T = getThemeTokens(theme); // active theme tokens
   const [user,    setUser]    = useState(null);
   const [view,    setView]    = useState("login");
-  const [allUsers,setAllUsers]= useState(USERS);
+  const [allUsers,setAllUsers]= useState([]); // loaded from Supabase users table; USERS constant is seed-only
   const [passwords, setPasswords] = useState({}); // userId -> password (overrides default)
   const [assigns, setAssigns] = useState(INIT_ASSIGN);
   const [comps,   setComps]   = useState(INIT_COMPLETE);
@@ -13423,7 +13462,8 @@ export default function App() {
   const [quizFailures, setQuizFailures] = useState([]); // [{ userId, userName, moduleId, moduleTitle, score, date }]
   const [extCerts, setExtCerts] = useState({}); // { userId: { certType: { fileName, fileUrl, issuedDate, expiryDate, uploadedAt } } }
   const [msdsFiles, setMsdsFiles] = useState({}); // { [chemCode]: { fileName, fileData, fileUrl, uploadedAt } }
-  const [customChemicals, setCustomChemicals] = useState([]); // admin-added COSHH chemicals
+  const [customChemicals, setCustomChemicals] = useState([]);
+  const [emojiMode, setEmojiMode] = useState(true); // true = show emojis, false = professional mode // admin-added COSHH chemicals
   const [fireSafety, setFireSafety] = useState({ wardens:INIT_FIRE_WARDENS, drills:INIT_FIRE_DRILLS, alarmTests:INIT_ALARM_TESTS, extinguishers:INIT_EXTINGUISHERS, emergLighting:INIT_EMERG_LIGHTING, fraReviews:INIT_FRA_REVIEWS });
   // allModules: custom overrides replace built-in modules with same id
   const allModules = [
@@ -13637,18 +13677,24 @@ export default function App() {
           setPasswords(map);
         }
 
-        // User profiles (role, jobTitle, manager etc overrides + theme preference)
-        const { data: upRows } = await sb.from("user_profiles").select("*");
-        if (upRows && upRows.length) {
-          setAllUsers(prev => prev.map(u => {
-            const saved = upRows.find(r => r.user_id === u.id);
-            return saved ? { ...u, ...saved.data } : u;
-          }));
-          // Restore theme for the logged-in user (if already logged in on reload)
-          // We'll handle this at login time instead
+        // Users — DB is source of truth; seed with USERS constant on first run
+        const { data: usersRows } = await sb.from("users").select("*");
+        if (usersRows && usersRows.length) {
+          setAllUsers(usersRows.map(r => r.data));
+        } else {
+          // First run — seed the users table from the hardcoded USERS constant
+          setAllUsers(USERS);
+          try {
+            await sb.from("users").insert(USERS.map(u => ({ id: String(u.id), data: u })));
+          } catch(seedErr) {
+            console.warn("User seed error (may already exist):", seedErr);
+          }
         }
+
+        // User profiles (theme, emojiMode preferences — separate from user records)
+        const { data: upRows } = await sb.from("user_profiles").select("*");
         // Store profile rows for theme restoration at login
-        window.__userProfiles = upRows || [];
+        window.__userProfiles = Array.isArray(upRows) ? upRows : [];
 
         // External certificates
         const { data: ecRows } = await sb.from("ext_certs").select("*");
@@ -13737,13 +13783,16 @@ export default function App() {
         const { data: fexRows } = await sb.from("fire_extinguishers").select("*");
         const { data: felRows } = await sb.from("fire_emerg_lighting").select("*");
         const { data: ffrRows } = await sb.from("fire_fra_reviews").select("*");
+        // Only override each sub-array if the DB returned rows for it.
+        // If none of the tables have any rows yet (fresh install), keep seed data.
+        const anyFireData = [fwRows,fdRows,fatRows,fexRows,felRows,ffrRows].some(r=>r&&r.length>0);
         setFireSafety({
-          wardens:      fwRows  && fwRows.length  ? fwRows.map(r=>r.data)  : INIT_FIRE_WARDENS,
-          drills:       fdRows  && fdRows.length  ? fdRows.map(r=>r.data)  : INIT_FIRE_DRILLS,
-          alarmTests:   fatRows && fatRows.length ? fatRows.map(r=>r.data) : INIT_ALARM_TESTS,
-          extinguishers:fexRows && fexRows.length ? fexRows.map(r=>r.data) : INIT_EXTINGUISHERS,
-          emergLighting:felRows && felRows.length ? felRows.map(r=>r.data) : INIT_EMERG_LIGHTING,
-          fraReviews:   ffrRows && ffrRows.length ? ffrRows.map(r=>r.data) : INIT_FRA_REVIEWS,
+          wardens:      fwRows  && fwRows.length  ? fwRows.map(r=>r.data)  : (anyFireData ? [] : INIT_FIRE_WARDENS),
+          drills:       fdRows  && fdRows.length  ? fdRows.map(r=>r.data)  : (anyFireData ? [] : INIT_FIRE_DRILLS),
+          alarmTests:   fatRows && fatRows.length ? fatRows.map(r=>r.data) : (anyFireData ? [] : INIT_ALARM_TESTS),
+          extinguishers:fexRows && fexRows.length ? fexRows.map(r=>r.data) : (anyFireData ? [] : INIT_EXTINGUISHERS),
+          emergLighting:felRows && felRows.length ? felRows.map(r=>r.data) : (anyFireData ? [] : INIT_EMERG_LIGHTING),
+          fraReviews:   ffrRows && ffrRows.length ? ffrRows.map(r=>r.data) : (anyFireData ? [] : INIT_FRA_REVIEWS),
         });
       } catch (e) {
         console.error("Supabase load error:", e);
@@ -13930,14 +13979,29 @@ export default function App() {
   }
 
   async function dbSaveTheme(userId, themeKey) {
-    // Use window.__userProfiles cache to get existing data without an extra query
-    const profiles = window.__userProfiles || [];
+    const profiles = Array.isArray(window.__userProfiles) ? window.__userProfiles : [];
     const existing = profiles.find(r => r.user_id === userId);
     const merged = { ...(existing?.data || {}), theme: themeKey };
-    // Update cache
     window.__userProfiles = profiles.map(r => r.user_id===userId ? {...r, data:merged} : r);
     if (!existing) window.__userProfiles.push({ user_id: userId, data: merged });
     await sb.from("user_profiles").upsert({ user_id: userId, data: merged }, { onConflict: "user_id" });
+  }
+
+  async function dbSaveEmojiMode(userId, enabled) {
+    const profiles = Array.isArray(window.__userProfiles) ? window.__userProfiles : [];
+    const existing = profiles.find(r => r.user_id === userId);
+    const merged = { ...(existing?.data || {}), emojiMode: enabled };
+    window.__userProfiles = profiles.map(r => r.user_id===userId ? {...r, data:merged} : r);
+    if (!existing) window.__userProfiles.push({ user_id: userId, data: merged });
+    await sb.from("user_profiles").upsert({ user_id: userId, data: merged }, { onConflict: "user_id" });
+  }
+
+  async function dbSaveUser(user) {
+    await sb.from("users").upsert({ id: String(user.id), data: user }, { onConflict: "id" });
+  }
+
+  async function dbDeleteUser(userId) {
+    await sb.from("users").delete().eq("id", String(userId));
   }
 
   async function dbSaveUserProfile(user) {
@@ -14000,22 +14064,34 @@ export default function App() {
   }
 
   async function dbSaveFireSafety(fs) {
-    const save = async (table, items) => {
-      await sb.from(table).delete().neq("id", "");
-      if (items && items.length) {
-        // Strip base64 fileData from FRA reviews before persisting — store fileUrl only
-        const rows = table === "fire_fra_reviews"
-          ? items.map(r => { const {fileData, ...rest} = r; return { id: r.id, data: rest }; })
-          : items.map(r => ({ id: r.id, data: r }));
-        await sb.from(table).insert(rows);
+    const upsertTable = async (table, items) => {
+      if (!items || !items.length) return;
+      const rows = table === "fire_fra_reviews"
+        ? items.map(r => { const {fileData, _fileObj, ...rest} = r; return { id: r.id, data: rest }; })
+        : items.map(r => { const {_fileObj, ...rest} = r; return { id: r.id, data: rest }; });
+      await sb.from(table).upsert(rows, { onConflict: "id" });
+    };
+    const deleteRemoved = async (table, items) => {
+      if (!items || !items.length) return;
+      // Delete rows in DB that are no longer in state
+      const { data: existing } = await sb.from(table).select("id");
+      if (!existing || !existing.length) return;
+      const currentIds = new Set(items.map(r => r.id));
+      const toDelete = existing.filter(r => !currentIds.has(r.id)).map(r => r.id);
+      if (toDelete.length) {
+        for (const id of toDelete) await sb.from(table).delete().eq("id", id);
       }
     };
-    await save("fire_wardens",       fs.wardens       || []);
-    await save("fire_drills",        fs.drills        || []);
-    await save("fire_alarm_tests",   fs.alarmTests    || []);
-    await save("fire_extinguishers", fs.extinguishers || []);
-    await save("fire_emerg_lighting",fs.emergLighting || []);
-    await save("fire_fra_reviews",   fs.fraReviews    || []);
+    const sync = async (table, items) => {
+      await upsertTable(table, items);
+      await deleteRemoved(table, items);
+    };
+    await sync("fire_wardens",       fs.wardens       || []);
+    await sync("fire_drills",        fs.drills        || []);
+    await sync("fire_alarm_tests",   fs.alarmTests    || []);
+    await sync("fire_extinguishers", fs.extinguishers || []);
+    await sync("fire_emerg_lighting",fs.emergLighting || []);
+    await sync("fire_fra_reviews",   fs.fraReviews    || []);
   }
 
   async function dbUploadFraDocument(reviewId, file, fileName) {
@@ -14090,12 +14166,13 @@ export default function App() {
     setLastLoginMap(p=>({...p, [u.id]: ts}));
     dbRecordLogin(u.id, ts);
     // Restore saved theme for this user
-    const profiles = window.__userProfiles || [];
+    const profiles = Array.isArray(window.__userProfiles) ? window.__userProfiles : [];
     const profile = profiles.find(r => r.user_id === u.id);
     if (profile?.data?.theme) {
       setTheme(profile.data.theme);
       setDarkMode(["dark","slate","forest","graphite"].includes(profile.data.theme));
     }
+    if (profile?.data?.emojiMode === false) setEmojiMode(false);
     setUser(u); setView(u.role==="admin"?"admin":"staff"); setErr("");
   }
 
@@ -14696,6 +14773,7 @@ export default function App() {
     const pct = myMods.length ? Math.round(done.length/myMods.length*100) : 0;
 
     return (
+      <EmojiCtx.Provider value={emojiMode}>
       <div style={{minHeight:"100vh",background:T.bg,fontFamily:font,color:T.white}}>
         <CertModal/>
         <PreviewModal doc={previewDoc} onClose={()=>setPreviewDoc(null)} Z={T} font={font}/>
@@ -14779,7 +14857,7 @@ export default function App() {
             {["dashboard","training","history","documents","incidents","dse",...(isWarehouseWorker(user)?["machinery"]:[]),"actions"].map(t=>(
               <button key={t} onClick={()=>{setStab(t);setMobileMenuOpen(false);}}
                 style={{display:"block",width:"100%",textAlign:"left",padding:"12px 24px",background:stab===t?"rgba(37,99,235,0.15)":"transparent",border:"none",borderBottom:`1px solid rgba(255,255,255,0.05)`,color:stab===t?T.white:T.muted,fontWeight:stab===t?700:400,fontSize:14,cursor:"pointer",fontFamily:font}}>
-                {{dashboard:"🏠 Dashboard",training:"📚 My Training",history:"📋 History",documents:"📄 Documents",incidents:"🚨 Report Incident",dse:"🖥️ My DSE",machinery:"⚙️ My Machinery",actions:"✅ My Actions"}[t]}
+                {{dashboard:E("🏠 ","")+"Dashboard",training:E("📚 ","")+"My Training",history:E("📋 ","")+"History",documents:E("📄 ","")+"Documents",incidents:E("🚨 ","")+"Report Incident",dse:"🖥️ My DSE",machinery:"⚙️ My Machinery",actions:"✅ My Actions"}[t]}
               </button>
             ))}
           </div>
@@ -14811,7 +14889,7 @@ export default function App() {
                 <StatCard icon="📚" val={myMods.length} label="Assigned Modules"    accent={T.accentLt} Z={T}/>
                 <StatCard icon="✅" val={done.length}    label="Completed"          accent={T.green} Z={T}/>
                 <StatCard icon="⏳" val={myMods.length-done.length} label="Pending" accent={T.amber} Z={T}/>
-                <StatCard icon="📊" val={`${pct}%`}     label="Overall Progress"   accent="#a78bfa" Z={T}/>
+                <StatCard icon={E("📊","📊")} val={`${pct}%`}     label="Overall Progress"   accent="#a78bfa" Z={T}/>
               </div>
               <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,marginBottom:24,border:`1px solid ${T.border}`}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -15105,7 +15183,7 @@ export default function App() {
             </div>
           )}
 
-          {stab==="account" && <AccountTab user={user} passwords={passwords} setPasswords={setPasswords} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} onSaveTheme={k=>dbSaveTheme(user.id,k)} Z={T} font={font}/>}
+          {stab==="account" && <AccountTab user={user} passwords={passwords} setPasswords={setPasswords} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} onSaveTheme={k=>dbSaveTheme(user.id,k)} emojiMode={emojiMode} onSaveEmojiMode={v=>{setEmojiMode(v);dbSaveEmojiMode(user.id,v);}} Z={T} font={font}/>}
 
           {/* Floating hazard report button — mobile only */}
           {isMobile && stab!=="dashboard" && (
@@ -15344,6 +15422,7 @@ export default function App() {
         `}</style>
 
       </div>
+      </EmojiCtx.Provider>
     );
   }
 
@@ -15371,18 +15450,21 @@ export default function App() {
       const id = Date.now();
       const newUser = { id, name:newName.trim(), email:newEmail.trim(), role:newRole, jobTitle:newJobTitle.trim(), manager:newManager.trim(), isWarehouseWorker:newIsWarehouse };
       setAllUsers(p=>[...p, newUser]);
+      dbSaveUser(newUser);
       dbSaveUserProfile(newUser);
       setNewName(""); setNewEmail(""); setNewJobTitle(""); setNewManager(""); setNewRole("staff"); setNewIsWarehouse(false); setNewDepartment(""); setNewStatus("active"); setAddErr(""); setShowAddStaff(false);
     };
 
     const removeStaff = (uid) => {
       setAllUsers(p=>p.filter(u=>u.id!==uid));
+      dbDeleteUser(uid);
       dbDeleteUserProfile(uid);
       setAssigns(p=>{ const n={...p}; delete n[uid]; return n; });
       setComps(p=>{ const n={...p}; delete n[uid]; return n; });
     };
 
     return (
+      <EmojiCtx.Provider value={emojiMode}>
       <div style={{minHeight:"100vh",background:T.bg,fontFamily:font,color:T.white,overflowX:"hidden"}}>
         {showInactivityWarning && (
           <div style={{background:"rgba(245,158,11,0.15)",borderBottom:"1px solid rgba(245,158,11,0.3)",padding:"8px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,fontSize:13,color:"#fbbf24",fontFamily:font}}>
@@ -15394,7 +15476,7 @@ export default function App() {
         {editingStaff && (
           <EditStaffModal
             staffUser={editingStaff}
-            allUsers={allUsers} setAllUsers={setAllUsers} onSaveProfile={dbSaveUserProfile}
+            allUsers={allUsers} setAllUsers={setAllUsers} onSaveProfile={u=>{dbSaveUser(u);dbSaveUserProfile(u);}}
             passwords={passwords} setPasswords={setPasswords}
             onClose={()=>setEditingStaff(null)}
             Z={T} font={font}
@@ -15554,20 +15636,20 @@ export default function App() {
         {isMobile && mobileMenuOpen && (
           <div style={{background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,borderBottom:`1px solid ${T.border}`,padding:"8px 0",zIndex:300,position:"relative"}}>
             {[
-              ["dashboard","🏠 Dashboard"],
-              ["users","👥 Staff"],
-              ["assign","📋 Assign Training"],
-              ["modules","📚 Training Library"],
+              ["dashboard", E("🏠 ","")+"Dashboard"],
+              ["users", E("👥 ","")+"Staff"],
+              ["assign", E("📋 ","")+"Assign Training"],
+              ["modules", E("📚 ","")+"Training Library"],
               ["create","➕ Create Module"],
-              ["reports","📊 Reports"],
+              ["reports", E("📊 ","")+"Reports"],
               ["documents","📄 H&S Documents"],
               ["coshh","🧪 COSHH Register"],
-              ["incidents","⚠️ Incidents"],
+              ["incidents", E("⚠️ ","")+"Incidents"],
               ["ra","🔍 Risk Assessments"],
               ["inspections","🏗️ Inspections"],
-              ["firesafety","🔥 Fire Safety"],
+              ["firesafety", E("🔥 ","")+"Fire Safety"],
               ["contractors","🪪 Contractors"],
-              ["permits","📋 Permits"],
+              ["permits", E("📋 ","")+"Permits"],
               ["machinery","🔧 Machinery Competence"],
               ["equipment","📦 Equipment Register"],
               ["account","👤 My Account"],
@@ -15683,14 +15765,14 @@ export default function App() {
 
                 {/* Stat grid */}
                 <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:14,marginBottom:28}}>
-                  {card("📚","Training Incomplete",overdueTraining.length,`of ${staffList.length} staff`,null,overdueTraining.length>0,()=>setAtab("assign"))}
-                  {card("🔄","Expiring/Expired",expiringTraining.length,"training renewals",expiringTraining.length>0,false,()=>{setAtab("reports");setAdminReportView("expiry");})}
-                  {card("⚠️","Open Incidents",openIncidents2.length,`${riddorOpen2.length} RIDDOR unreported`,null,riddorOpen2.length>0,()=>setAtab("incidents"))}
-                  {card("📄","Unread Documents",unreadDocs.length,"assigned but unacknowledged",unreadDocs.length>0,false,()=>setAtab("documents"))}
-                  {card("🔧","Equipment Overdue",overdueEquipment.length,"inspection overdue",null,overdueEquipment.length>0,()=>setAtab("equipment"))}
-                  {card("📋","Out of Service",outOfService.length,"equipment items",null,false,()=>setAtab("equipment"))}
-                  {card("❌","Quiz Failures",unreviewedFailures.length,"unreviewed",unreviewedFailures.length>0,false,()=>{setAtab("reports");setAdminReportView("failures");})}
-                  {card("📅","Reviews Overdue",overdueDocReviews.length+overdueRAReviews.length,"docs & RAs",overdueDocReviews.length+overdueRAReviews.length>0,false,()=>setAtab("documents"))}
+                  {card(E("📚",""),"Training Incomplete",overdueTraining.length,`of ${staffList.length} staff`,null,overdueTraining.length>0,()=>setAtab("assign"))}
+                  {card(E("🔄",""),"Expiring/Expired",expiringTraining.length,"training renewals",expiringTraining.length>0,false,()=>{setAtab("reports");setAdminReportView("expiry");})}
+                  {card(E("⚠️",""),"Open Incidents",openIncidents2.length,`${riddorOpen2.length} RIDDOR unreported`,null,riddorOpen2.length>0,()=>setAtab("incidents"))}
+                  {card(E("📄",""),"Unread Documents",unreadDocs.length,"assigned but unacknowledged",unreadDocs.length>0,false,()=>setAtab("documents"))}
+                  {card(E("🔧",""),"Equipment Overdue",overdueEquipment.length,"inspection overdue",null,overdueEquipment.length>0,()=>setAtab("equipment"))}
+                  {card(E("📋",""),"Out of Service",outOfService.length,"equipment items",null,false,()=>setAtab("equipment"))}
+                  {card(E("❌",""),"Quiz Failures",unreviewedFailures.length,"unreviewed",unreviewedFailures.length>0,false,()=>{setAtab("reports");setAdminReportView("failures");})}
+                  {card(E("📅",""),"Reviews Overdue",overdueDocReviews.length+overdueRAReviews.length,"docs & RAs",overdueDocReviews.length+overdueRAReviews.length>0,false,()=>setAtab("documents"))}
                   {(()=>{
                     const onSiteWorkers = [];
                     (contractors||[]).forEach(c=>{
@@ -15701,7 +15783,7 @@ export default function App() {
                       });
                     });
                     const uniqueOnSite=[...new Set(onSiteWorkers)];
-                    return card("🪪","On Site Now",uniqueOnSite.length,uniqueOnSite.length>0?uniqueOnSite.slice(0,2).join(", ")+(uniqueOnSite.length>2?` +${uniqueOnSite.length-2} more`:""):"No contractors today",null,false,()=>setAtab("contractors"));
+                    return card(E("🪪",""),"On Site Now",uniqueOnSite.length,uniqueOnSite.length>0?uniqueOnSite.slice(0,2).join(", ")+(uniqueOnSite.length>2?` +${uniqueOnSite.length-2} more`:""):"No contractors today",null,false,()=>setAtab("contractors"));
                   })()}
                   {(()=>{
                     const fs = fireSafety||{};
@@ -15717,7 +15799,7 @@ export default function App() {
                     const fraOverdue2 = lastFra2?.nextReviewDue&&lastFra2.nextReviewDue<today;
                     const issues = expiredWardens2.length+overdueExts2.length+(fraOverdue2?1:0)+(daysSinceDrill2!==null&&daysSinceDrill2>365?1:0);
                     const sub = issues>0?`${issues} item${issues!==1?"s":""} need attention`:(daysSinceDrill2!==null?`Last drill ${daysSinceDrill2}d ago`:"");
-                    return card("🔥","Fire Safety",wardens2.length,sub,null,issues>0,()=>setAtab("firesafety"));
+                    return card(E("🔥",""),"Fire Safety",wardens2.length,sub,null,issues>0,()=>setAtab("firesafety"));
                   })()}
                 </div>
 
@@ -15957,6 +16039,7 @@ export default function App() {
                         const newUsers=toAdd.map((r,i)=>({id:maxId+i+1,name:r.name.trim(),email:r.email.trim().toLowerCase(),jobTitle:r.jobTitle,manager:r.manager,department:r.department,role:r.role==="admin"?"admin":"staff",isWarehouseWorker:false,status:"active",password:hashed}));
                         newUsers.forEach(u=>{
                           setAllUsers(p=>[...p,u]);
+                          dbSaveUser(u);
                           dbSaveUserProfile(u);
                           dbSavePassword(u.id,hashed);
                         });
@@ -16229,7 +16312,7 @@ export default function App() {
                     <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:20,marginBottom:20,border:`1px solid ${T.border}`}}>
                       <div style={{fontSize:11,fontWeight:700,letterSpacing:1,color:T.muted,marginBottom:14,textTransform:"uppercase"}}>Who to assign to</div>
                       <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-                        {[["individual","👤 Individual"],["all","👥 All Staff"],["warehouse","🏗 Warehouse Staff"],["team","🗂 By Manager"]].map(([v,l])=>(
+                        {[["individual",E("👤 ","")+"Individual"],["all",E("👥 ","")+"All Staff"],["warehouse",E("🏗 ","")+"Warehouse Staff"],["team",E("🗂 ","")+"By Manager"]].map(([v,l])=>(
                           <button key={v} onClick={()=>setBulkTarget(v)}
                             style={{padding:"8px 16px",borderRadius:10,border:`1px solid ${bulkTarget===v?T.accent:T.borderMd}`,background:bulkTarget===v?`rgba(37,99,235,0.2)`:T.overlay,color:bulkTarget===v?T.accentLt:T.muted,fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:13,transition:"all .15s"}}>
                             {l}
@@ -16428,7 +16511,7 @@ export default function App() {
                 <h2 style={{fontSize:22,fontWeight:900,letterSpacing:-.5,margin:0}}>H&S Documentation <HelpTip dark={false} text="Upload policies, procedures, risk assessments and guidance documents. Use the Assign button on each document to nominate staff for required reading — they'll be prompted to confirm they've read it in their portal."/></h2>
                 <button onClick={()=>setShowBulkDocAssign(v=>!v)}
                   style={{background:showBulkDocAssign?`rgba(239,68,68,0.1)`:`rgba(37,99,235,0.1)`,color:showBulkDocAssign?"#f87171":T.accentLt,border:showBulkDocAssign?"1px solid rgba(239,68,68,0.25)":`1px solid rgba(37,99,235,0.25)`,borderRadius:10,padding:"9px 18px",cursor:"pointer",fontFamily:font,fontWeight:700,fontSize:13,whiteSpace:"nowrap"}}>
-                  {showBulkDocAssign?"✕ Cancel":"👥 Bulk Assign"}
+                  {showBulkDocAssign?"✕ Cancel":E("👥 ","")+"Bulk Assign"}
                 </button>
               </div>
               <p style={{color:T.muted,marginBottom:16,fontSize:13}}>Upload documents and assign them for required reading.</p>
@@ -16659,7 +16742,7 @@ export default function App() {
             <FireSafetyTab fireSafety={fireSafety} setFireSafety={setFireSafety} staff={staff} onUploadFraDoc={dbUploadFraDocument} onDeleteFraDoc={dbDeleteFraDocument} Z={T} font={font}/>
           )}
           {atab==="account" && (
-            <AccountTab user={user} passwords={passwords} setPasswords={setPasswords} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} onSaveTheme={k=>dbSaveTheme(user.id,k)} Z={T} font={font}/>
+            <AccountTab user={user} passwords={passwords} setPasswords={setPasswords} darkMode={darkMode} setDarkMode={setDarkMode} theme={theme} setTheme={setTheme} onSaveTheme={k=>dbSaveTheme(user.id,k)} emojiMode={emojiMode} onSaveEmojiMode={v=>{setEmojiMode(v);dbSaveEmojiMode(user.id,v);}} Z={T} font={font}/>
           )}
         </div>
         <style>{`
@@ -16729,6 +16812,7 @@ export default function App() {
         `}</style>
 
       </div>
+      </EmojiCtx.Provider>
     );
   }
 
