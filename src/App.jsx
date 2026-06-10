@@ -2096,9 +2096,9 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
                           <div class="meta-card"><div class="label">Completed</div><div class="value">${d}</div></div>
                           <div class="meta-card"><div class="label">Compliance</div><div class="value" style="color:${statusColor}">${pct}%</div></div>
                         </div>
-                        <h2>{E("📚 ","")}Training</h2>
+                        <h2>Training</h2>
                         ${a===0?'<div class="no-data">No modules assigned</div>':`<table><thead><tr><th>Module</th><th>Status</th><th>Score</th><th>Date</th><th>Certificate</th></tr></thead><tbody>${trainingRows}</tbody></table>`}
-                        ${docRows?`<h2>{E("📄 ","")}Document Acknowledgements</h2><table><thead><tr><th>Document</th><th>Type</th><th>Status</th></tr></thead><tbody>${docRows}</tbody></table>`:""}
+                        ${docRows?`<h2>Document Acknowledgements</h2><table><thead><tr><th>Document</th><th>Type</th><th>Status</th></tr></thead><tbody>${docRows}</tbody></table>`:""}
                       </div>`;
                     }).join("");
 
