@@ -37,6 +37,8 @@ const sb = (() => {
     delete: () => ({
       eq:  (col, val) => q("DELETE", table, { filter: `${col}=eq.${encodeURIComponent(val)}` }),
       neq: (col, val) => q("DELETE", table, { filter: `${col}=neq.${encodeURIComponent(val)}` }),
+      gte: (col, val) => q("DELETE", table, { filter: `${col}=gte.${encodeURIComponent(val)}` }),
+      all: ()         => q("DELETE", table, { filter: `id=gte.0` }),
     }),
   });
   const storage = {
@@ -13886,13 +13888,16 @@ export default function App() {
   // ── Sync helpers — call these wherever state currently changes ───────────────
 
   async function dbSaveAssigns(newAssigns) {
-    const rows = [];
-    Object.entries(newAssigns).forEach(([uid, mids]) => {
-      (mids || []).forEach(mid => rows.push({ user_id: String(uid), module_id: String(mid) }));
-    });
-    // Delete all then reinsert — training_assigns has no single unique key to upsert on
-    await sb.from("training_assigns").delete().neq("user_id", "");
-    if (rows.length) await sb.from("training_assigns").insert(rows);
+    // Delete existing rows for each affected user, then reinsert their current assignments.
+    // This avoids needing a "delete all" filter and handles mixed string/number IDs safely.
+    for (const [uid, mids] of Object.entries(newAssigns)) {
+      await sb.from("training_assigns").delete().eq("user_id", String(uid));
+      if (mids && mids.length) {
+        const rows = mids.map(mid => ({ user_id: String(uid), module_id: String(mid) }));
+        const { error } = await sb.from("training_assigns").insert(rows);
+        if (error) console.error("training_assigns insert error:", error);
+      }
+    }
   }
 
   async function dbSaveCompletion(userId, moduleId, rec) {
@@ -15442,8 +15447,10 @@ export default function App() {
     const toggleAssign = (uid, mid) => {
       setAssigns(p=>{
         const c=p[uid]||[];
-        const next = {...p,[uid]:c.includes(mid)?c.filter(x=>x!==mid):[...c,mid]};
-        dbSaveAssigns(next);
+        const updated = c.includes(mid)?c.filter(x=>x!==mid):[...c,mid];
+        const next = {...p,[uid]:updated};
+        // Only save the one affected user, not the entire assigns object
+        dbSaveAssigns({[uid]: updated});
         return next;
       });
     };
@@ -16280,10 +16287,14 @@ export default function App() {
                   if (!window.confirm(`Assign "${m?.title||mid}" to ${targetLabel}?`)) return;
                   setAssigns(p => {
                     const next = {...p};
+                    const affected = {};
                     targetStaff.forEach(u => {
-                      if (!(next[u.id]||[]).includes(mid)) next[u.id] = [...(next[u.id]||[]), mid];
+                      if (!(next[u.id]||[]).includes(mid)) {
+                        next[u.id] = [...(next[u.id]||[]), mid];
+                        affected[u.id] = next[u.id];
+                      }
                     });
-                    dbSaveAssigns(next);
+                    if (Object.keys(affected).length) dbSaveAssigns(affected);
                     return next;
                   });
                 };
@@ -16293,8 +16304,12 @@ export default function App() {
                   if (!window.confirm(`Remove "${m?.title||mid}" from ${targetLabel}? Staff who have already completed it will keep their completion record.`)) return;
                   setAssigns(p => {
                     const next = {...p};
-                    targetStaff.forEach(u => { next[u.id] = (next[u.id]||[]).filter(x=>x!==mid); });
-                    dbSaveAssigns(next);
+                    const affected = {};
+                    targetStaff.forEach(u => {
+                      next[u.id] = (next[u.id]||[]).filter(x=>x!==mid);
+                      affected[u.id] = next[u.id];
+                    });
+                    if (Object.keys(affected).length) dbSaveAssigns(affected);
                     return next;
                   });
                 };
@@ -16303,8 +16318,9 @@ export default function App() {
                   if (!window.confirm(`Assign ALL ${allModules.length} modules to ${targetLabel}? This will add every module to their training plan.`)) return;
                   setAssigns(p => {
                     const next = {...p};
-                    targetStaff.forEach(u => { next[u.id] = allModules.map(m=>m.id); });
-                    dbSaveAssigns(next);
+                    const affected = {};
+                    targetStaff.forEach(u => { next[u.id] = allModules.map(m=>m.id); affected[u.id] = next[u.id]; });
+                    if (Object.keys(affected).length) dbSaveAssigns(affected);
                     return next;
                   });
                 };
@@ -16361,7 +16377,7 @@ export default function App() {
                             style={{padding:"7px 16px",borderRadius:10,background:`linear-gradient(135deg,${T.accent},${T.blue})`,color:"#fff",border:"none",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:12}}>
                             ✓ Assign All Modules to {targetStaff.length} Staff
                           </button>
-                          <button onClick={()=>setAssigns(p=>{const n={...p};targetStaff.forEach(u=>{n[u.id]=[];});dbSaveAssigns(n);return n;})}
+                          <button onClick={()=>setAssigns(p=>{const n={...p};const affected={};targetStaff.forEach(u=>{n[u.id]=[];affected[u.id]=[];});dbSaveAssigns(affected);return n;})}
                             style={{padding:"7px 16px",borderRadius:10,background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",fontWeight:700,cursor:"pointer",fontFamily:font,fontSize:12}}>
                             ✕ Clear All Assignments
                           </button>
