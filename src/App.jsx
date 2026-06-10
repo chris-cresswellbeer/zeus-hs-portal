@@ -13576,7 +13576,11 @@ export default function App() {
         const { data: aRows } = await sb.from("training_assigns").select("*");
         if (aRows && aRows.length) {
           const map = {};
-          aRows.forEach(r => { map[r.user_id] = map[r.user_id] || []; map[r.user_id].push(r.module_id); });
+          aRows.forEach(r => {
+            const uid = String(r.user_id);
+            map[uid] = map[uid] || [];
+            map[uid].push(String(r.module_id));
+          });
           setAssigns(map);
         }
 
@@ -13884,9 +13888,10 @@ export default function App() {
   async function dbSaveAssigns(newAssigns) {
     const rows = [];
     Object.entries(newAssigns).forEach(([uid, mids]) => {
-      (mids || []).forEach(mid => rows.push({ user_id: Number(uid), module_id: mid }));
+      (mids || []).forEach(mid => rows.push({ user_id: String(uid), module_id: String(mid) }));
     });
-    await sb.from("training_assigns").delete().neq("user_id", 0);
+    // Delete all then reinsert — training_assigns has no single unique key to upsert on
+    await sb.from("training_assigns").delete().neq("user_id", "");
     if (rows.length) await sb.from("training_assigns").insert(rows);
   }
 
