@@ -8311,7 +8311,13 @@ function EquipmentTrackerTab({ equipment, setEquipment, staff, Z, font }) {
   function addService(){
     if(!serviceForm||!serviceForm.date||!serviceForm.type.trim()) return;
     const s = {...serviceForm};
-    setEquipment(p=>p.map(e=>e.id===activeId?{...e,serviceHistory:[s,...e.serviceHistory],lastService:s.date}:e));
+    const nextSvc = serviceForm.nextService || "";
+    setEquipment(p=>p.map(e=>e.id===activeId?{
+      ...e,
+      serviceHistory:[s,...e.serviceHistory],
+      lastService:s.date,
+      ...(nextSvc ? {nextService:nextSvc} : {}),
+    }:e));
     setServiceForm(null);
     saveFlash("✓ Service record added");
   }
@@ -8868,6 +8874,7 @@ function EquipmentTrackerTab({ equipment, setEquipment, staff, Z, font }) {
                 <div style={{fontSize:12,fontWeight:700,color:Z.muted,marginBottom:12,textTransform:"uppercase",letterSpacing:.5}}>New Service Record</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
                   <div><label style={labelSt}>SERVICE DATE *</label><input type="date" value={serviceForm.date} onChange={e=>setServiceForm(p=>({...p,date:e.target.value}))} style={inputSt}/></div>
+                  <div><label style={labelSt}>NEXT SERVICE DUE</label><input type="date" value={serviceForm.nextService||""} onChange={e=>setServiceForm(p=>({...p,nextService:e.target.value}))} style={inputSt}/></div>
                   <div><label style={labelSt}>SERVICE TYPE *</label><input value={serviceForm.type} onChange={e=>setServiceForm(p=>({...p,type:e.target.value}))} placeholder="e.g. Annual Full Service" style={inputSt}/></div>
                   <div><label style={labelSt}>ENGINEER / COMPANY</label><input value={serviceForm.engineer} onChange={e=>setServiceForm(p=>({...p,engineer:e.target.value}))} placeholder="e.g. Premier Lift Services" style={inputSt}/></div>
                   <div><label style={labelSt}>COST (€)</label><input type="number" value={serviceForm.cost} onChange={e=>setServiceForm(p=>({...p,cost:e.target.value}))} placeholder="0" style={inputSt}/></div>
@@ -14258,7 +14265,7 @@ export default function App() {
   const [csvError, setCsvError] = useState("");
   const [staffSearch, setStaffSearch] = useState("");
   const [staffDeptFilter, setStaffDeptFilter] = useState("all");
-  const [staffStatusFilter, setStaffStatusFilter] = useState("active");
+  const [staffStatusFilter, setStaffStatusFilter] = useState("all");
   const [addErr,  setAddErr]    = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [bulkTarget, setBulkTarget] = useState("individual");
@@ -16439,6 +16446,8 @@ export default function App() {
     };
 
     const removeStaff = (uid) => {
+      const u = allUsers.find(x=>x.id===uid);
+      if (!window.confirm(`Are you sure you want to remove ${u?.name||"this staff member"}?\n\nThis will permanently delete their account, training assignments, and all associated records. This cannot be undone.`)) return;
       setAllUsers(p=>p.filter(u=>u.id!==uid));
       dbDeleteUser(uid);
       dbDeleteUserProfile(uid);
@@ -17181,7 +17190,7 @@ export default function App() {
                   }
                   return true;
                 });
-                const activeFilters = (staffFilterManager!=="all"?1:0)+(staffFilterSearch?1:0)+(staffFilterProgress!=="all"?1:0);
+                const activeFilters = (staffFilterManager!=="all"?1:0)+(staffFilterSearch?1:0)+(staffFilterProgress!=="all"?1:0)+(staffStatusFilter!=="all"?1:0);
                 return (
                   <>
                     <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:"14px 18px",marginBottom:14,border:`1px solid ${T.border}`,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
@@ -17191,6 +17200,13 @@ export default function App() {
                         <input value={staffFilterSearch} onChange={e=>setStaffFilterSearch(e.target.value)} placeholder="Search name, email, job title..."
                           style={{...selStyle,paddingLeft:36,width:"100%",boxSizing:"border-box"}}/>
                       </div>
+                      {/* Status filter */}
+                      <select value={staffStatusFilter} onChange={e=>setStaffStatusFilter(e.target.value)} style={selStyle}>
+                        <option value="all">All Status</option>
+                        <option value="active">✓ Active</option>
+                        <option value="inactive">⏸ Inactive</option>
+                        <option value="leaver">👋 Leavers</option>
+                      </select>
                       {/* Manager filter */}
                       <select value={staffFilterManager} onChange={e=>setStaffFilterManager(e.target.value)} style={selStyle}>
                         <option value="all">All Managers</option>
@@ -17207,7 +17223,7 @@ export default function App() {
                       </select>
                       {/* Clear */}
                       {activeFilters>0 && (
-                        <button onClick={()=>{setStaffFilterManager("all");setStaffFilterSearch("");setStaffFilterProgress("all");}}
+                        <button onClick={()=>{setStaffFilterManager("all");setStaffFilterSearch("");setStaffFilterProgress("all");setStaffStatusFilter("all");}}
                           style={{background:"rgba(239,68,68,0.1)",color:"#f87171",border:"1px solid rgba(239,68,68,0.2)",borderRadius:10,padding:"8px 14px",cursor:"pointer",fontSize:12,fontWeight:700,fontFamily:font,whiteSpace:"nowrap"}}>
                           ✕ Clear {activeFilters} filter{activeFilters!==1?"s":""}
                         </button>
@@ -17259,8 +17275,15 @@ export default function App() {
                         const barColor=pct===100?T.green:pct>=50?T.accent:"#ef4444";
                         const lastActive=lastLoginMap[u.id];
                         return (
-                          <div key={u.id} style={{display:"grid",gridTemplateColumns:"2fr 2fr 2fr 2fr 2fr 120px 160px",padding:"14px 20px",borderTop:i>0?`1px solid ${T.border}`:"none",alignItems:"center",columnGap:0}}>
-                            <div style={{display:"flex",alignItems:"center",gap:10,paddingRight:12,minWidth:0}}><Avatar name={u.name} size={32}/><span style={{fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.name}</span></div>
+                          <div key={u.id} style={{display:"grid",gridTemplateColumns:"2fr 2fr 2fr 2fr 2fr 120px 160px",padding:"14px 20px",borderTop:i>0?`1px solid ${T.border}`:"none",alignItems:"center",columnGap:0,opacity:u.status==="leaver"?0.6:1}}>
+                            <div style={{display:"flex",alignItems:"center",gap:10,paddingRight:12,minWidth:0}}>
+                              <Avatar name={u.name} size={32}/>
+                              <div style={{minWidth:0}}>
+                                <span style={{fontWeight:700,fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"block"}}>{u.name}</span>
+                                {u.status==="inactive" && <span style={{fontSize:9,fontWeight:700,color:"#f59e0b",background:"rgba(245,158,11,0.12)",padding:"1px 6px",borderRadius:4,border:"1px solid rgba(245,158,11,0.25)"}}>INACTIVE</span>}
+                                {u.status==="leaver"   && <span style={{fontSize:9,fontWeight:700,color:"#94a3b8",background:"rgba(148,163,184,0.12)",padding:"1px 6px",borderRadius:4,border:"1px solid rgba(148,163,184,0.25)"}}>LEAVER</span>}
+                              </div>
+                            </div>
                             <span style={{color:T.muted,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",paddingRight:12}}>{u.email}</span>
                             <span style={{color:T.muted,fontSize:12,whiteSpace:"nowrap",paddingRight:12,display:"flex",alignItems:"center",gap:6}}>{u.jobTitle||<span style={{color:T.muted}}>—</span>}{u.isWarehouseWorker&&<span style={{fontSize:9,fontWeight:700,color:"#f59e0b",background:"rgba(245,158,11,0.1)",padding:"1px 5px",borderRadius:99,border:"1px solid rgba(245,158,11,0.25)",flexShrink:0}}>🏗</span>}</span>
                             <span style={{color:T.muted,fontSize:12,whiteSpace:"nowrap",paddingRight:12}}>{u.manager||<span style={{color:T.muted}}>—</span>}</span>
