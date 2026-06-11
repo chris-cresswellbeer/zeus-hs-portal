@@ -22,7 +22,10 @@ const sb = (() => {
   const q = async (method, table, opts = {}) => {
     const { filter, body, upsertOn } = opts;
     let url = rest(table);
-    if (filter) url += "?" + filter;
+    const filters = [];
+    if (filter) filters.push(filter);
+    if (method === "POST" && upsertOn) filters.push(`on_conflict=${encodeURIComponent(upsertOn)}`);
+    if (filters.length) url += "?" + filters.join("&");
     const headers = { ...h };
     if (method === "POST" && upsertOn) headers["Prefer"] = "resolution=merge-duplicates,return=minimal";
     else if (method === "POST") headers["Prefer"] = "return=minimal";
@@ -14182,7 +14185,7 @@ export default function App() {
   const [showAdminReportForm, setShowAdminReportForm] = useState(false);
   const [stab,    setStab]    = useState("dashboard");
   const [cert,    setCert]    = useState(null);
-  const [target,  setTarget]  = useState(1);
+  const [target,  setTarget]  = useState("1");
   const [docs,    setDocs]    = useState(HS_DOCS);
   const [docName, setDocName] = useState("");
   const [previewDoc, setPreviewDoc] = useState(null);
@@ -14333,6 +14336,11 @@ export default function App() {
             map[uid].push(String(r.module_id));
           });
           setAssigns(map);
+        } else {
+          // Normalise INIT_ASSIGN keys to strings
+          const normalised = {};
+          Object.entries(INIT_ASSIGN).forEach(([k,v]) => { normalised[String(k)] = v; });
+          setAssigns(normalised);
         }
 
         // Training completions
@@ -14645,8 +14653,6 @@ export default function App() {
   // ── Sync helpers — call these wherever state currently changes ───────────────
 
   async function dbSaveAssigns(newAssigns) {
-    // Delete existing rows for each affected user, then reinsert their current assignments.
-    // This avoids needing a "delete all" filter and handles mixed string/number IDs safely.
     for (const [uid, mids] of Object.entries(newAssigns)) {
       await sb.from("training_assigns").delete().eq("user_id", String(uid));
       if (mids && mids.length) {
@@ -14746,21 +14752,23 @@ export default function App() {
   }
 
   async function dbSaveTheme(userId, themeKey) {
+    const sid = String(userId);
     const profiles = Array.isArray(window.__userProfiles) ? window.__userProfiles : [];
-    const existing = profiles.find(r => r.user_id === userId);
+    const existing = profiles.find(r => String(r.user_id) === sid);
     const merged = { ...(existing?.data || {}), theme: themeKey };
-    window.__userProfiles = profiles.map(r => r.user_id===userId ? {...r, data:merged} : r);
-    if (!existing) window.__userProfiles.push({ user_id: userId, data: merged });
-    await sb.from("user_profiles").upsert({ user_id: userId, data: merged }, { onConflict: "user_id" });
+    window.__userProfiles = profiles.map(r => String(r.user_id)===sid ? {...r, data:merged} : r);
+    if (!existing) window.__userProfiles.push({ user_id: sid, data: merged });
+    await sb.from("user_profiles").upsert({ user_id: sid, data: merged }, { onConflict: "user_id" });
   }
 
   async function dbSaveEmojiMode(userId, enabled) {
+    const sid = String(userId);
     const profiles = Array.isArray(window.__userProfiles) ? window.__userProfiles : [];
-    const existing = profiles.find(r => r.user_id === userId);
+    const existing = profiles.find(r => String(r.user_id) === sid);
     const merged = { ...(existing?.data || {}), emojiMode: enabled };
-    window.__userProfiles = profiles.map(r => r.user_id===userId ? {...r, data:merged} : r);
-    if (!existing) window.__userProfiles.push({ user_id: userId, data: merged });
-    await sb.from("user_profiles").upsert({ user_id: userId, data: merged }, { onConflict: "user_id" });
+    window.__userProfiles = profiles.map(r => String(r.user_id)===sid ? {...r, data:merged} : r);
+    if (!existing) window.__userProfiles.push({ user_id: sid, data: merged });
+    await sb.from("user_profiles").upsert({ user_id: sid, data: merged }, { onConflict: "user_id" });
   }
 
   async function dbSaveUser(user) {
@@ -14772,11 +14780,11 @@ export default function App() {
   }
 
   async function dbSaveUserProfile(user) {
-    await sb.from("user_profiles").upsert({ user_id: user.id, data: user }, { onConflict: "user_id" });
+    await sb.from("user_profiles").upsert({ user_id: String(user.id), data: user }, { onConflict: "user_id" });
   }
 
   async function dbDeleteUserProfile(userId) {
-    await sb.from("user_profiles").delete().eq("user_id", userId);
+    await sb.from("user_profiles").delete().eq("user_id", String(userId));
   }
 
   async function dbSaveContractor(c) { await sb.from("contractors").upsert({id:c.id,data:c},{onConflict:"id"}); }
@@ -14938,7 +14946,7 @@ export default function App() {
     dbRecordLogin(u.id, ts);
     // Restore saved theme for this user
     const profiles = Array.isArray(window.__userProfiles) ? window.__userProfiles : [];
-    const profile = profiles.find(r => r.user_id === u.id);
+    const profile = profiles.find(r => String(r.user_id) === String(u.id));
     if (profile?.data?.theme) {
       setTheme(profile.data.theme);
       setDarkMode(["dark","slate","forest","graphite"].includes(profile.data.theme));
@@ -16202,16 +16210,16 @@ export default function App() {
   // ══════════════════════════════════════════════════════════════════════════
   if (view==="admin") {
     const staff = allUsers.filter(u=>u.id!==1); // show all users except the primary admin account
-    const tUser = allUsers.find(u=>u.id===target);
-    const tAssigned = assigns[target]||[];
+    const tUser = allUsers.find(u=>String(u.id)===String(target));
+    const tAssigned = assigns[String(target)]||[];
 
     const toggleAssign = (uid, mid) => {
+      const suid = String(uid);
       setAssigns(p=>{
-        const c=p[uid]||[];
+        const c=p[suid]||[];
         const updated = c.includes(mid)?c.filter(x=>x!==mid):[...c,mid];
-        const next = {...p,[uid]:updated};
-        // Only save the one affected user, not the entire assigns object
-        dbSaveAssigns({[uid]: updated});
+        const next = {...p,[suid]:updated};
+        dbSaveAssigns({[suid]: updated});
         return next;
       });
     };
@@ -16580,6 +16588,41 @@ export default function App() {
                     const issues = expiredWardens2.length+overdueExts2.length+(fraOverdue2?1:0)+(daysSinceDrill2!==null&&daysSinceDrill2>365?1:0);
                     const sub = issues>0?`${issues} item${issues!==1?"s":""} need attention`:(daysSinceDrill2!==null?`Last drill ${daysSinceDrill2}d ago`:"");
                     return card(E("🔥",""),"Fire Safety",wardens2.length,sub,null,issues>0,()=>setAtab("firesafety"));
+                  })()}
+                  {(()=>{
+                    const fa = firstAidData||{};
+                    const faAiders = fa.aiders||[];
+                    const faCustomZones = fa.customZones||[];
+                    const faAllZones = [...FA_ZONES, ...faCustomZones];
+                    const minPerShift = fa.assessment?.minPerShift||1;
+                    // Build combined aider list (manual + cert-detected), same logic as FirstAidRegisterTab
+                    const faCertAiders = [];
+                    Object.entries(extCerts||{}).forEach(([uid2, certs2])=>{
+                      if(certs2.first_aid){ const u2=staffList.find(s=>String(s.id)===String(uid2)); if(u2) faCertAiders.push({id:`cert_${uid2}`,expiryDate:certs2.first_aid.expiryDate||"",shifts:certs2.first_aid.shifts||[],zones:certs2.first_aid.zones||[]}); }
+                    });
+                    const manualIds = new Set(faAiders.filter(a=>a.staffId).map(a=>String(a.staffId)));
+                    const allFaAiders = [...faAiders, ...faCertAiders.filter(c=>!manualIds.has(String(c.staffId||c.id.replace("cert_",""))))];
+                    const validAiders = allFaAiders.filter(a=>{ if(!a.expiryDate) return false; return Math.ceil((new Date(a.expiryDate)-new Date())/86400000)>=0; });
+                    const expiredCount = allFaAiders.length - validAiders.length;
+                    // Count coverage gaps
+                    const SHIFTS3 = ["Day Shift (08:30–16:00)","Late Shift (16:00–02:00)","Office Hours (08:30–17:30)"];
+                    let gapCount = 0;
+                    faAllZones.forEach(zone=>{
+                      SHIFTS3.forEach(shift=>{
+                        const count = validAiders.filter(a=>{
+                          const shiftsOk = !a.shifts?.length || a.shifts.includes("All Shifts") || a.shifts.includes(shift);
+                          const zonesOk  = !a.zones?.length  || a.zones.includes(zone);
+                          return shiftsOk && zonesOk;
+                        }).length;
+                        if(count < minPerShift) gapCount++;
+                      });
+                    });
+                    const sub = validAiders.length===0 ? "No qualified first aiders" :
+                      gapCount>0 ? `${gapCount} zone/shift gap${gapCount!==1?"s":""}` :
+                      expiredCount>0 ? `${expiredCount} cert${expiredCount!==1?"s":""} expired` :
+                      "All shifts covered";
+                    const isAlert = validAiders.length===0 || gapCount>0 || expiredCount>0;
+                    return card(E("🩺",""),"First Aid",validAiders.length,sub,null,isAlert,()=>setAtab("firstaid"));
                   })()}
                 </div>
 
@@ -17113,7 +17156,7 @@ export default function App() {
                           </select>
                         )}
                         {bulkTarget==="individual" && (
-                          <select value={target} onChange={e=>setTarget(Number(e.target.value))} style={selStyle2}>
+                          <select value={target} onChange={e=>setTarget(e.target.value)} style={selStyle2}>
                             {staff.map(u=><option key={u.id} value={u.id}>{u.name}</option>)}
                           </select>
                         )}
@@ -17159,7 +17202,7 @@ export default function App() {
                         {allModules.map(m=>{
                           let on, partialCount=0;
                           if (bulkTarget==="individual") {
-                            on = (assigns[target]||[]).includes(m.id);
+                            on = (assigns[String(target)]||[]).includes(m.id);
                           } else {
                             partialCount = targetStaff.filter(u=>(assigns[u.id]||[]).includes(m.id)).length;
                             on = partialCount === targetStaff.length;
