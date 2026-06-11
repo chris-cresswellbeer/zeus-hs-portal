@@ -1781,7 +1781,7 @@ function generateStaffPDF(u, allModules, assigns, comps, docs, docAssignments, d
   }).join("");
 
   // Document acknowledgements
-  const assignedDocs = docs.filter(doc=>(docAssignments[doc.id]||[]).includes(u.id));
+  const assignedDocs = docs.filter(doc=>(docAssignments[String(doc.id)]||[]).includes(String(u.id)));
   const docRows = assignedDocs.map(doc=>{
     const ack=(docAcknowledgements[u.id]||{})[doc.id];
     return `<tr style="background:${ack?"#f0fff4":"#fff2f2"}">
@@ -2094,7 +2094,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
                           <td style="font-family:monospace;font-size:11px">${c?.certId||"—"}</td>
                         </tr>`;
                       }).join("");
-                      const docRows = (docs||[]).filter(doc=>(docAssignments[doc.id]||[]).includes(u.id)).map(doc=>{
+                      const docRows = (docs||[]).filter(doc=>(docAssignments[String(doc.id)]||[]).includes(String(u.id))).map(doc=>{
                         const ack=(docAcknowledgements[u.id]||{})[doc.id];
                         return `<tr style="background:${ack?"#f0fff4":"#fff2f2"}"><td>${doc.title}</td><td>${doc.type||"—"}</td><td style="color:${ack?"#15803d":"#dc2626"};font-weight:600">${ack?`✓ ${ack.date}`:"⏳ Pending"}</td></tr>`;
                       }).join("");
@@ -11697,7 +11697,7 @@ function StaffActionsTab({ user, incidents, investigations, setInvestigations, a
 
   // ── Unread documents ──────────────────────────────────────────────────────
   const pendingDocs = (docs||[]).filter(d=>
-    (docAssignments[d.id]||[]).includes(user.id) && !(docAcknowledgements[user.id]||{})[d.id]
+    (docAssignments[String(d.id)]||[]).includes(String(user.id)) && !(docAcknowledgements[user.id]||{})[d.id]
   );
 
   // ── Open DSE issues ───────────────────────────────────────────────────────
@@ -12082,7 +12082,7 @@ function DocCard({ d, staff, assignedIds, assignedStaff, readCount, unreadCount,
                 const n={};
                 Object.keys(p).forEach(uid=>{
                   n[uid]={...p[uid]};
-                  if(n[uid][d.id]) { delete n[uid][d.id]; sb.from("doc_acknowledgements").delete().match({user_id:Number(uid),doc_id:d.id}); }
+                  if(n[uid][d.id]) { delete n[uid][d.id]; sb.from("doc_acknowledgements").delete().match({user_id:String(uid),doc_id:String(d.id)}); }
                 });
                 return n;
               });
@@ -12918,7 +12918,7 @@ function DocAssignPanel({ d, staff, assignedIds, docAcknowledgements, setDocAssi
     (u.jobTitle||"").toLowerCase().includes(docSearch.toLowerCase())
   );
   const assignedCount = assignedIds.length;
-  const readCount = assignedIds.filter(uid=>(docAcknowledgements[uid]||{})[d.id]).length;
+  const readCount = assignedIds.filter(uid=>(docAcknowledgements[String(uid)]||{})[String(d.id)]).length;
   return (
     <div style={{borderTop:`1px solid ${T.border}`,padding:"14px 20px",background:T.overlaySm}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:8}}>
@@ -12927,8 +12927,8 @@ function DocAssignPanel({ d, staff, assignedIds, docAcknowledgements, setDocAssi
           {assignedCount>0 && <span style={{fontSize:11,fontWeight:700,color:T.accentLt,background:"rgba(37,99,235,0.12)",border:`1px solid rgba(37,99,235,0.25)`,borderRadius:20,padding:"2px 8px"}}>{assignedCount} assigned · {readCount} read</span>}
         </div>
         <div style={{display:"flex",gap:6}}>
-          <button onClick={()=>setDocAssignments(p=>{const next={...p,[d.id]:staff.map(u=>u.id)};dbSaveDocAssignments(d.id,next[d.id]);return next;})} style={{padding:"5px 12px",borderRadius:8,border:`1px solid ${T.borderMd}`,background:T.headerBgMd,cursor:"pointer",fontFamily:font,fontSize:11,fontWeight:700,color:T.muted}}>✓ All</button>
-          {assignedCount>0 && <button onClick={()=>setDocAssignments(p=>{const next={...p,[d.id]:[]};dbSaveDocAssignments(d.id,[]);return next;})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid rgba(239,68,68,0.2)",background:"rgba(239,68,68,0.06)",cursor:"pointer",fontFamily:font,fontSize:11,fontWeight:700,color:"#f87171"}}>✕ Clear</button>}
+          <button onClick={()=>setDocAssignments(p=>{const ids=staff.map(u=>String(u.id));const next={...p,[String(d.id)]:ids};dbSaveDocAssignments(d.id,ids);return next;})} style={{padding:"5px 12px",borderRadius:8,border:`1px solid ${T.borderMd}`,background:T.headerBgMd,cursor:"pointer",fontFamily:font,fontSize:11,fontWeight:700,color:T.muted}}>✓ All</button>
+          {assignedCount>0 && <button onClick={()=>setDocAssignments(p=>{const next={...p,[String(d.id)]:[]};dbSaveDocAssignments(d.id,[]);return next;})} style={{padding:"5px 12px",borderRadius:8,border:"1px solid rgba(239,68,68,0.2)",background:"rgba(239,68,68,0.06)",cursor:"pointer",fontFamily:font,fontSize:11,fontWeight:700,color:"#f87171"}}>✕ Clear</button>}
         </div>
       </div>
       <div style={{position:"relative",marginBottom:8}}>
@@ -12939,10 +12939,10 @@ function DocAssignPanel({ d, staff, assignedIds, docAcknowledgements, setDocAssi
       <div style={{maxHeight:220,overflowY:"auto",borderRadius:8,border:`1px solid ${T.border}`}}>
         {filteredForDoc.length===0 && <div style={{padding:"12px 14px",color:T.muted,fontSize:12,textAlign:"center"}}>No staff match your search</div>}
         {filteredForDoc.map((u,i)=>{
-          const isAssigned = assignedIds.includes(u.id);
-          const ack = (docAcknowledgements[u.id]||{})[d.id];
+          const isAssigned = assignedIds.includes(String(u.id));
+          const ack = (docAcknowledgements[String(u.id)]||{})[String(d.id)];
           return (
-            <div key={u.id} onClick={()=>setDocAssignments(p=>{const cur=p[d.id]||[];const next={...p,[d.id]:isAssigned?cur.filter(x=>x!==u.id):[...cur,u.id]};dbSaveDocAssignments(d.id,next[d.id]);return next;})}
+            <div key={u.id} onClick={()=>setDocAssignments(p=>{const cur=p[String(d.id)]||[];const newIds=isAssigned?cur.filter(x=>x!==String(u.id)):[...cur,String(u.id)];const next={...p,[String(d.id)]:newIds};dbSaveDocAssignments(d.id,newIds);return next;})}
               style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderTop:i>0?`1px solid ${T.border}`:"none",cursor:"pointer",background:isAssigned?"rgba(37,99,235,0.06)":"transparent",transition:"background .15s"}}>
               <div style={{width:16,height:16,borderRadius:4,border:`2px solid ${isAssigned?T.accent:T.borderMd}`,background:isAssigned?T.accent:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                 {isAssigned && <span style={{color:"#fff",fontSize:10,fontWeight:900,lineHeight:1}}>✓</span>}
@@ -14380,7 +14380,7 @@ export default function App() {
         const { data: ackRows } = await sb.from("doc_acknowledgements").select("*");
         if (ackRows && ackRows.length) {
           const map = {};
-          ackRows.forEach(r => { map[r.user_id] = map[r.user_id] || {}; map[r.user_id][r.doc_id] = { date: r.date }; });
+          ackRows.forEach(r => { const auid=String(r.user_id); const adid=String(r.doc_id); map[auid] = map[auid] || {}; map[auid][adid] = { date: r.date }; });
           setDocAcknowledgements(map);
         }
 
@@ -14388,7 +14388,7 @@ export default function App() {
         const { data: daRows } = await sb.from("doc_assignments").select("*");
         if (daRows && daRows.length) {
           const map = {};
-          daRows.forEach(r => { map[r.doc_id] = map[r.doc_id] || []; map[r.doc_id].push(r.user_id); });
+          daRows.forEach(r => { const did=String(r.doc_id); map[did] = map[did] || []; map[did].push(String(r.user_id)); });
           setDocAssignments(map);
         }
 
@@ -14691,12 +14691,12 @@ export default function App() {
   }
 
   async function dbAcknowledgeDoc(userId, docId, date) {
-    await sb.from("doc_acknowledgements").upsert({ user_id: userId, doc_id: docId, date }, { onConflict: "user_id,doc_id" });
+    await sb.from("doc_acknowledgements").upsert({ user_id: String(userId), doc_id: String(docId), date }, { onConflict: "user_id,doc_id" });
   }
 
   async function dbSaveDocAssignments(docId, userIds) {
-    await sb.from("doc_assignments").delete().eq("doc_id", docId);
-    if (userIds.length) await sb.from("doc_assignments").insert(userIds.map(uid => ({ doc_id: docId, user_id: uid })));
+    await sb.from("doc_assignments").delete().eq("doc_id", String(docId));
+    if (userIds.length) await sb.from("doc_assignments").insert(userIds.map(uid => ({ doc_id: String(docId), user_id: String(uid) })));
   }
 
   async function dbSaveDoc(doc, file) {
@@ -15582,8 +15582,8 @@ export default function App() {
     const expiredCerts  = myCertTypes.filter(ct=>{ const c=myExtCerts[ct.id]; return c.expiryDate && new Date(c.expiryDate)<new Date(); });
     const expiringCerts = myCertTypes.filter(ct=>{ const c=myExtCerts[ct.id]; if(!c.expiryDate) return false; const d=Math.ceil((new Date(c.expiryDate)-new Date())/86400000); return d>=0&&d<=90; });
     // Documents needing acknowledgement
-    const myDocAssigns = Object.entries(docAssignments||{}).filter(([,uids])=>uids.includes(user.id)).map(([did])=>did);
-    const unreadDocs = myDocAssigns.filter(did=>!(docAcknowledgements[user.id]||{})[did]);
+    const myDocAssigns = Object.entries(docAssignments||{}).filter(([,uids])=>uids.includes(String(user.id))).map(([did])=>did);
+    const unreadDocs = myDocAssigns.filter(did=>!(docAcknowledgements[String(user.id)]||{})[did]);
     // Overall health score — includes DSE as one item
     const totalItems = myMods.length + myCertTypes.length + 1; // +1 for DSE
     const goodItems  = upToDate.length + myCertTypes.filter(ct=>!expiredCerts.find(e=>e.id===ct.id)&&!expiringCerts.find(e=>e.id===ct.id)).length + (dseCompleted&&!dseExpired?1:0);
@@ -15627,7 +15627,7 @@ export default function App() {
                 else if (ex && ex.status==="expiring") notifications.push({type:"module",urgent:false,title:`Expiring soon: ${m.title}`,detail:ex.label+" · Renews every "+m.renewalLabel,nav:{tab:"training"}});
               });
               // Unread documents
-              docs.filter(d=>(docAssignments[d.id]||[]).includes(user.id)&&!(docAcknowledgements[user.id]||{})[d.id])
+              docs.filter(d=>(docAssignments[String(d.id)]||[]).includes(String(user.id))&&!(docAcknowledgements[user.id]||{})[d.id])
                 .forEach(d=>notifications.push({type:"document",urgent:true,title:`Read & confirm: ${d.title}`,detail:"Required reading — confirmation pending",nav:{tab:"documents"}}));
               // DSE not completed
               if(!(dseReports[user.id]||[]).length) notifications.push({type:"dse",urgent:false,title:"Complete your DSE workstation assessment",detail:"DSE Regulations 1992 — required for all screen users",nav:{tab:"dse"}});
@@ -16048,8 +16048,8 @@ export default function App() {
 
               {/* Required reading section */}
               {(()=>{
-                const required = docs.filter(d=>(docAssignments[d.id]||[]).includes(user.id));
-                const allOther = docs.filter(d=>!(docAssignments[d.id]||[]).includes(user.id));
+                const required = docs.filter(d=>(docAssignments[String(d.id)]||[]).includes(String(user.id)));
+                const allOther = docs.filter(d=>!(docAssignments[String(d.id)]||[]).includes(String(user.id)));
                 const unread = required.filter(d=>!(docAcknowledgements[user.id]||{})[d.id]);
 
                 return (
@@ -17614,10 +17614,11 @@ export default function App() {
                             setDocAssignments(p=>{
                               const n={...p};
                               bulkDocSelectedDocs.forEach(did=>{
-                                const current=n[did]||[];
-                                const toAdd=targetStaff2.map(u=>u.id).filter(id=>!current.includes(id));
-                                n[did]=[...current,...toAdd];
-                                dbSaveDocAssignments(did, n[did]);
+                                const sdid=String(did);
+                                const current=n[sdid]||[];
+                                const toAdd=targetStaff2.map(u=>String(u.id)).filter(id=>!current.includes(id));
+                                n[sdid]=[...current,...toAdd];
+                                dbSaveDocAssignments(did, n[sdid]);
                               });
                               return n;
                             });
@@ -17703,9 +17704,9 @@ export default function App() {
                     {docs.filter(d=>docFolder==="all"||(d.type||"Document")===docFolder).map(d=>{
                       const extIcons={PDF:"📕",DOCX:"📘",DOC:"📘",XLSX:"📗",XLS:"📗",PPTX:"📙",PPT:"📙",PNG:"🖼️",JPG:"🖼️",JPEG:"🖼️",TXT:"📄",CSV:"📊"};
                       const icon=extIcons[d.ext]||"📄";
-                      const assignedIds = docAssignments[d.id] || [];
-                      const assignedStaff = staff.filter(u=>assignedIds.includes(u.id));
-                      const readCount = assignedStaff.filter(u=>(docAcknowledgements[u.id]||{})[d.id]).length;
+                      const assignedIds = docAssignments[String(d.id)] || [];
+                      const assignedStaff = staff.filter(u=>assignedIds.includes(String(u.id)));
+                      const readCount = assignedStaff.filter(u=>(docAcknowledgements[String(u.id)]||{})[String(d.id)]).length;
                       const unreadCount = assignedStaff.length - readCount;
 
                       return (
