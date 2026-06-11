@@ -12582,7 +12582,7 @@ function FirstAidRegisterTab({ staff, extCerts, firstAidData, setFirstAidData, Z
                         <button onClick={()=>deleteItem(a.id,"aiders")} style={{background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:8,padding:"5px 12px",color:"#f87171",cursor:"pointer",fontSize:12,fontFamily:font,fontWeight:600}}>Delete</button>
                       </div>
                     )}
-                    {a._fromCert && <div style={{fontSize:11,color:"#93c5fd",marginLeft:"auto",cursor:"pointer"}} onClick={()=>{}}>Set zones/shifts in Training → Assign Training → External Certificates</div>}
+                    {a._fromCert && <div style={{fontSize:11,color:"#93c5fd",marginLeft:"auto"}}>Set zones/shifts in Training → Assign Training → External Certificates</div>}
                   </div>
                   {a.zones?.length>0 && (
                     <div style={{marginTop:8,paddingTop:8,borderTop:`1px solid ${Z.border}`,display:"flex",gap:4,flexWrap:"wrap"}}>
@@ -15545,11 +15545,52 @@ export default function App() {
   // STAFF PORTAL
   // ══════════════════════════════════════════════════════════════════════════
   if (view==="staff" && user) {
-    const myIds = assigns[user.id]||[];
+    const myIds = assigns[String(user.id)]||[];
     const myMods = allModules.filter(m=>myIds.includes(m.id));
     const myC = comps[user.id]||{};
     const done = myMods.filter(m=>myC[m.id]);
     const pct = myMods.length ? Math.round(done.length/myMods.length*100) : 0;
+
+    // ── Training breakdown ──────────────────────────────────────────────────
+    const notStarted  = myMods.filter(m=>!myC[m.id]);
+    const completed   = myMods.filter(m=>myC[m.id]);
+    const expired     = completed.filter(m=>{ if(!m.renewalMonths) return false; const ex=getExpiryStatus(myC[m.id].date,m.renewalMonths); return ex?.status==="expired"; });
+    const expiring    = completed.filter(m=>{ if(!m.renewalMonths) return false; const ex=getExpiryStatus(myC[m.id].date,m.renewalMonths); return ex?.status==="expiring"; });
+    const upToDate    = completed.filter(m=>{ if(!m.renewalMonths) return true; const ex=getExpiryStatus(myC[m.id].date,m.renewalMonths); return !ex||ex.status==="valid"; });
+    // Modules needing attention (not started + expired)
+    const actionNeeded = [...notStarted, ...expired];
+    // Next due = soonest expiring module or oldest not-started
+    const nextUp = notStarted.length ? notStarted[0] : expiring.length ? expiring[0] : null;
+
+    // ── DSE tracking ────────────────────────────────────────────────────────
+    const myDseReports   = dseReports[user.id]||[];
+    const lastDseReport  = myDseReports[myDseReports.length-1];
+    const lastDseRi      = myDseReports.length-1;
+    const myAdminResps   = adminResponses[user.id]||{};
+    const dseCompleted   = !!lastDseReport;
+    // DSE renewal — recommended annually
+    const DSE_RENEWAL_MONTHS = 12;
+    const dseExpiryStatus = dseCompleted ? getExpiryStatus(lastDseReport.date, DSE_RENEWAL_MONTHS) : null;
+    const dseExpired  = dseExpiryStatus?.status==="expired";
+    const dseExpiring = dseExpiryStatus?.status==="expiring";
+    const dseIssueCount   = lastDseReport?.issueCount||0;
+    const dseResolvedCount = lastDseReport ? lastDseReport.issues.filter((_,ii)=>myAdminResps[`${lastDseRi}_${ii}`]?.resolved).length : 0;
+    const dseNeedsAction  = !dseCompleted || dseExpired;
+    // External certs
+    const myExtCerts = extCerts[user.id]||{};
+    const myCertTypes = EXT_CERT_TYPES.filter(ct=>myExtCerts[ct.id]);
+    const expiredCerts  = myCertTypes.filter(ct=>{ const c=myExtCerts[ct.id]; return c.expiryDate && new Date(c.expiryDate)<new Date(); });
+    const expiringCerts = myCertTypes.filter(ct=>{ const c=myExtCerts[ct.id]; if(!c.expiryDate) return false; const d=Math.ceil((new Date(c.expiryDate)-new Date())/86400000); return d>=0&&d<=90; });
+    // Documents needing acknowledgement
+    const myDocAssigns = Object.entries(docAssignments||{}).filter(([,uids])=>uids.includes(user.id)).map(([did])=>did);
+    const unreadDocs = myDocAssigns.filter(did=>!(docAcknowledgements[user.id]||{})[did]);
+    // Overall health score — includes DSE as one item
+    const totalItems = myMods.length + myCertTypes.length + 1; // +1 for DSE
+    const goodItems  = upToDate.length + myCertTypes.filter(ct=>!expiredCerts.find(e=>e.id===ct.id)&&!expiringCerts.find(e=>e.id===ct.id)).length + (dseCompleted&&!dseExpired?1:0);
+    const healthPct  = totalItems ? Math.round(goodItems/totalItems*100) : 100;
+    const healthColor = healthPct===100?"#10b981":healthPct>=70?"#f59e0b":"#ef4444";
+    const healthLabel = healthPct===100?"Fully Compliant":healthPct>=70?"Mostly Compliant":"Needs Attention";
+    const totalActionNeeded = actionNeeded.length + (dseNeedsAction?1:0);
 
     return (
       <EmojiCtx.Provider value={emojiMode}>
@@ -15654,51 +15695,203 @@ export default function App() {
 
           {stab==="dashboard" && (
             <div>
-              <div style={{marginBottom:20}}>
-                <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:4}}>
-                  <h1 style={{fontSize:26,fontWeight:900,letterSpacing:-.5,margin:0}}>Welcome back, {user.name.split(" ")[0]} <HelpTip dark={true} text="Your personal H&S summary. The tiles show outstanding training, documents awaiting your confirmation, and any open actions assigned to you. Overdue items are highlighted — complete them to keep your record up to date."/></h1>
-                  <button onClick={()=>setShowQuickReport(true)}
-                    style={{display:"flex",alignItems:"center",gap:8,background:"linear-gradient(135deg,#f59e0b,#d97706)",color:"#fff",border:"none",borderRadius:12,padding:"11px 20px",cursor:"pointer",fontFamily:font,fontWeight:800,fontSize:13,boxShadow:"0 4px 16px rgba(245,158,11,0.4)",flexShrink:0,whiteSpace:"nowrap"}}>
-                    ⚠ Report a Hazard
-                  </button>
+              {/* Header */}
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:12,marginBottom:4}}>
+                <h1 style={{fontSize:26,fontWeight:900,letterSpacing:-.5,margin:0}}>Welcome back, {user.name.split(" ")[0]} <HelpTip dark={true} text="Your personal H&S summary. The tiles show outstanding training, documents awaiting your confirmation, and any open actions assigned to you. Overdue items are highlighted — complete them to keep your record up to date."/></h1>
+                <button onClick={()=>setShowQuickReport(true)}
+                  style={{display:"flex",alignItems:"center",gap:8,background:"linear-gradient(135deg,#f59e0b,#d97706)",color:"#fff",border:"none",borderRadius:12,padding:"11px 20px",cursor:"pointer",fontFamily:font,fontWeight:800,fontSize:13,boxShadow:"0 4px 16px rgba(245,158,11,0.4)",flexShrink:0,whiteSpace:"nowrap"}}>
+                  ⚠ Report a Hazard
+                </button>
+              </div>
+              <p style={{color:T.muted,margin:"0 0 24px",fontSize:13}}>{user.jobTitle||""}{user.jobTitle?" · ":""}{user.email}</p>
+
+              {/* Health score banner */}
+              <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:"18px 24px",marginBottom:20,border:`1px solid ${healthColor}44`,display:"flex",alignItems:"center",gap:20,flexWrap:"wrap"}}>
+                <div style={{width:56,height:56,borderRadius:"50%",background:`${healthColor}18`,border:`3px solid ${healthColor}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{fontSize:22,fontWeight:900,color:healthColor}}>{healthPct}%</span>
                 </div>
-                <p style={{color:T.muted,margin:"0 0 28px",fontSize:13}}>{user.jobTitle||""}{user.jobTitle?" · ":""}{user.email}</p>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:14,marginBottom:28}}>
-                <StatCard icon="📚" val={myMods.length} label="Assigned Modules"    accent={T.accentLt} Z={T}/>
-                <StatCard icon="✅" val={done.length}    label="Completed"          accent={T.green} Z={T}/>
-                <StatCard icon="⏳" val={myMods.length-done.length} label="Pending" accent={T.amber} Z={T}/>
-                <StatCard icon={E("📊","📊")} val={`${pct}%`}     label="Overall Progress"   accent="#a78bfa" Z={T}/>
-              </div>
-              <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:24,marginBottom:24,border:`1px solid ${T.border}`}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                  <h3 style={{margin:0,fontSize:14,fontWeight:700,letterSpacing:.5}}>OVERALL COMPLETION</h3>
-                  <span style={{fontWeight:900,fontSize:22,fontFamily:"'Barlow Condensed',sans-serif",color:T.accentLt}}>{pct}%</span>
+                <div style={{flex:1,minWidth:120}}>
+                  <div style={{fontWeight:800,fontSize:16,color:healthColor,marginBottom:2}}>{healthLabel}</div>
+                  <div style={{fontSize:12,color:T.muted}}>Your overall H&S training compliance score</div>
+                  <div style={{marginTop:8,height:6,background:T.overlay,borderRadius:99,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${healthPct}%`,background:`linear-gradient(90deg,${healthColor},${healthColor}aa)`,borderRadius:99,transition:"width .6s"}}/>
+                  </div>
                 </div>
-                <Bar pct={pct} color={`linear-gradient(90deg,${T.accent},${T.accentLt})`}/>
-                <p style={{color:T.muted,fontSize:12,marginTop:8,marginBottom:0}}>{done.length} of {myMods.length} modules complete</p>
+                {totalActionNeeded>0 && (
+                  <div style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:10,padding:"8px 16px",textAlign:"center",flexShrink:0}}>
+                    <div style={{fontSize:22,fontWeight:900,color:"#f87171"}}>{totalActionNeeded}</div>
+                    <div style={{fontSize:11,color:"#f87171",fontWeight:700}}>Need Attention</div>
+                  </div>
+                )}
               </div>
-              <h3 style={{fontSize:14,fontWeight:700,letterSpacing:.5,marginBottom:14}}>CONTINUE TRAINING</h3>
-              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
+
+              {/* Stat tiles */}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:12,marginBottom:24}}>
+                {[
+                  { label:"Assigned",   value:myMods.length,          color:T.accentLt,    sub:"modules total" },
+                  { label:"Up to Date", value:upToDate.length,         color:"#10b981",     sub:"completed & valid" },
+                  { label:"Not Started",value:notStarted.length,       color:notStarted.length>0?"#f59e0b":"#10b981", sub:"awaiting completion" },
+                  { label:"Expired",    value:expired.length,          color:expired.length>0?"#ef4444":"#10b981",    sub:"need renewal" },
+                  { label:"Expiring",   value:expiring.length,         color:expiring.length>0?"#f59e0b":"#10b981",   sub:"within 90 days" },
+                  { label:"Documents",  value:unreadDocs.length,       color:unreadDocs.length>0?"#f59e0b":"#10b981", sub:"need acknowledgement" },
+                ].map((s,i)=>(
+                  <div key={i} style={{background:T.overlay,borderRadius:12,padding:"14px 16px",border:`1px solid ${s.value>0&&s.color!=="#10b981"?s.color+"44":T.borderMd}`}}>
+                    <div style={{fontSize:22,fontWeight:900,color:s.color,lineHeight:1,marginBottom:3}}>{s.value}</div>
+                    <div style={{fontSize:12,fontWeight:700,color:T.white}}>{s.label}</div>
+                    <div style={{fontSize:10,color:T.muted,marginTop:1}}>{s.sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Alerts — expired / expiring */}
+              {(expired.length>0||expiring.length>0||expiredCerts.length>0||expiringCerts.length>0||unreadDocs.length>0||dseNeedsAction||dseExpiring) && (
+                <div style={{background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:14,padding:"16px 20px",marginBottom:20}}>
+                  <div style={{fontWeight:800,fontSize:13,color:"#f87171",marginBottom:10}}>⚠ Action Required</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {!dseCompleted && (
+                      <div style={{display:"flex",alignItems:"center",gap:12,background:"rgba(139,92,246,0.1)",borderRadius:8,padding:"8px 12px",cursor:"pointer"}} onClick={()=>{ setDseAnswers({}); setDseComments({}); setDseSection(0); setDseSubmitted(false); setDseActive(true); }}>
+                        <span style={{fontSize:20}}>🖥️</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:700,color:T.white}}>DSE Workstation Self-Assessment</div>
+                          <div style={{fontSize:11,color:"#c4b5fd"}}>Required — DSE Regulations 1992 · not yet completed</div>
+                        </div>
+                        <button style={{background:"linear-gradient(135deg,#8b5cf6,#7c3aed)",border:"none",borderRadius:8,padding:"5px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:font,whiteSpace:"nowrap"}}>Start →</button>
+                      </div>
+                    )}
+                    {dseExpired && (
+                      <div style={{display:"flex",alignItems:"center",gap:12,background:"rgba(239,68,68,0.08)",borderRadius:8,padding:"8px 12px",cursor:"pointer"}} onClick={()=>{ setDseAnswers({}); setDseComments({}); setDseSection(0); setDseSubmitted(false); setDseActive(true); }}>
+                        <span style={{fontSize:20}}>🖥️</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:700,color:T.white}}>DSE Workstation Self-Assessment</div>
+                          <div style={{fontSize:11,color:"#f87171"}}>Annual re-assessment due — last completed {lastDseReport.date}</div>
+                        </div>
+                        <button style={{background:"linear-gradient(135deg,#ef4444,#dc2626)",border:"none",borderRadius:8,padding:"5px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:font,whiteSpace:"nowrap"}}>Retake →</button>
+                      </div>
+                    )}
+                    {dseExpiring && !dseExpired && (
+                      <div style={{display:"flex",alignItems:"center",gap:12,background:"rgba(245,158,11,0.08)",borderRadius:8,padding:"8px 12px"}}>
+                        <span style={{fontSize:20}}>🖥️</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:700,color:T.white}}>DSE Workstation Self-Assessment</div>
+                          <div style={{fontSize:11,color:"#f59e0b"}}>{dseExpiryStatus?.label} — annual re-assessment due soon</div>
+                        </div>
+                      </div>
+                    )}
+                    {expired.map(m=>(
+                      <div key={m.id} style={{display:"flex",alignItems:"center",gap:12,background:"rgba(239,68,68,0.08)",borderRadius:8,padding:"8px 12px",cursor:"pointer"}} onClick={()=>startMod(m)}>
+                        <span style={{fontSize:20}}>{m.icon}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:700,color:T.white}}>{m.title}</div>
+                          <div style={{fontSize:11,color:"#f87171"}}>Certificate expired — renewal required</div>
+                        </div>
+                        <button style={{background:"linear-gradient(135deg,#ef4444,#dc2626)",border:"none",borderRadius:8,padding:"5px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:font,whiteSpace:"nowrap"}}>Retake →</button>
+                      </div>
+                    ))}
+                    {expiring.map(m=>{ const ex=getExpiryStatus(myC[m.id].date,m.renewalMonths); return (
+                      <div key={m.id} style={{display:"flex",alignItems:"center",gap:12,background:"rgba(245,158,11,0.08)",borderRadius:8,padding:"8px 12px",cursor:"pointer"}} onClick={()=>startMod(m)}>
+                        <span style={{fontSize:20}}>{m.icon}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:700,color:T.white}}>{m.title}</div>
+                          <div style={{fontSize:11,color:"#f59e0b"}}>{ex?.label} — plan your renewal</div>
+                        </div>
+                        <button style={{background:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.3)",borderRadius:8,padding:"5px 14px",color:"#f59e0b",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:font,whiteSpace:"nowrap"}}>Renew →</button>
+                      </div>
+                    );})}
+                    {expiredCerts.map(ct=>(
+                      <div key={ct.id} style={{display:"flex",alignItems:"center",gap:12,background:"rgba(239,68,68,0.08)",borderRadius:8,padding:"8px 12px"}}>
+                        <span style={{fontSize:20}}>{ct.icon}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:700,color:T.white}}>{ct.label} Certificate</div>
+                          <div style={{fontSize:11,color:"#f87171"}}>External certificate expired — speak to your manager</div>
+                        </div>
+                      </div>
+                    ))}
+                    {expiringCerts.map(ct=>{ const d=Math.ceil((new Date(myExtCerts[ct.id].expiryDate)-new Date())/86400000); return (
+                      <div key={ct.id} style={{display:"flex",alignItems:"center",gap:12,background:"rgba(245,158,11,0.08)",borderRadius:8,padding:"8px 12px"}}>
+                        <span style={{fontSize:20}}>{ct.icon}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:700,color:T.white}}>{ct.label} Certificate</div>
+                          <div style={{fontSize:11,color:"#f59e0b"}}>Expires in {d} day{d!==1?"s":""} — arrange renewal with your manager</div>
+                        </div>
+                      </div>
+                    );})}
+                    {unreadDocs.length>0 && (
+                      <div style={{display:"flex",alignItems:"center",gap:12,background:"rgba(245,158,11,0.08)",borderRadius:8,padding:"8px 12px",cursor:"pointer"}} onClick={()=>setStab("documents")}>
+                        <span style={{fontSize:20}}>📄</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,fontWeight:700,color:T.white}}>{unreadDocs.length} document{unreadDocs.length!==1?"s":""} need your acknowledgement</div>
+                          <div style={{fontSize:11,color:"#f59e0b"}}>Go to Documents to review and confirm</div>
+                        </div>
+                        <button style={{background:"rgba(245,158,11,0.15)",border:"1px solid rgba(245,158,11,0.3)",borderRadius:8,padding:"5px 14px",color:"#f59e0b",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:font,whiteSpace:"nowrap"}}>Review →</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Next up */}
+              {nextUp && (
+                <div style={{marginBottom:20}}>
+                  <div style={{fontSize:12,fontWeight:700,color:T.muted,letterSpacing:.8,textTransform:"uppercase",marginBottom:10}}>Up Next</div>
+                  <div onClick={()=>startMod(nextUp)} style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:14,padding:"16px 20px",border:`1px solid ${T.accent}55`,cursor:"pointer",display:"flex",alignItems:"center",gap:16}}>
+                    <span style={{fontSize:32}}>{nextUp.icon}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:800,fontSize:15,color:T.white,marginBottom:2}}>{nextUp.title}</div>
+                      <div style={{fontSize:12,color:T.muted}}>{nextUp.category} · {nextUp.duration} · <span style={{color:nextUp.level==="Mandatory"?"#f87171":T.accentLt}}>{nextUp.level}</span></div>
+                    </div>
+                    <button style={{background:`linear-gradient(135deg,${T.accent},${T.blue})`,border:"none",borderRadius:10,padding:"9px 20px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:font,whiteSpace:"nowrap"}}>Start →</button>
+                  </div>
+                </div>
+              )}
+
+              {/* All modules — compact list */}
+              <div style={{marginBottom:8,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{fontSize:12,fontWeight:700,color:T.muted,letterSpacing:.8,textTransform:"uppercase"}}>All Assigned Modules</div>
+                <button onClick={()=>setStab("training")} style={{background:"none",border:"none",color:T.accentLt,fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:font}}>View all →</button>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {/* DSE row */}
+                {(()=>{
+                  const dseStatusColor = !dseCompleted?"#8b5cf6":dseExpired?"#ef4444":dseExpiring?"#f59e0b":"#10b981";
+                  const dseStatusLabel = !dseCompleted?"Not completed":dseExpired?"Re-assessment due":dseExpiring?dseExpiryStatus?.label:"Completed";
+                  return (
+                    <div onClick={()=>{ setDseAnswers({}); setDseComments({}); setDseSection(0); setDseSubmitted(false); setDseActive(true); }}
+                      style={{background:T.overlay,border:`1px solid ${dseExpired?"rgba(239,68,68,0.25)":T.borderMd}`,borderRadius:10,padding:"10px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:12,transition:"background .15s"}}
+                      onMouseEnter={e=>e.currentTarget.style.background=T.navyMd}
+                      onMouseLeave={e=>e.currentTarget.style.background=T.overlay}>
+                      <span style={{fontSize:22,flexShrink:0}}>🖥️</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:700,fontSize:13,color:T.white}}>DSE Workstation Self-Assessment</div>
+                        <div style={{fontSize:11,color:T.muted}}>Display Screen Equipment · DSE Regulations 1992 · Annual</div>
+                      </div>
+                      {dseCompleted && dseIssueCount>0 && <span style={{fontSize:11,color:T.muted}}>{dseResolvedCount}/{dseIssueCount} issues</span>}
+                      {dseCompleted && <span style={{fontSize:11,color:T.muted}}>{lastDseReport.date}</span>}
+                      <span style={{fontSize:11,fontWeight:700,color:dseStatusColor,background:`${dseStatusColor}18`,border:`1px solid ${dseStatusColor}33`,borderRadius:6,padding:"2px 8px",whiteSpace:"nowrap",flexShrink:0}}>{dseStatusLabel}</span>
+                    </div>
+                  );
+                })()}
                 {myMods.map(m=>{
                   const isDone = !!myC[m.id];
+                  const ex = isDone&&m.renewalMonths ? getExpiryStatus(myC[m.id].date,m.renewalMonths) : null;
+                  const isExpired  = ex?.status==="expired";
+                  const isExpiring = ex?.status==="expiring";
+                  const statusColor = !isDone?"#f59e0b":isExpired?"#ef4444":isExpiring?"#f59e0b":"#10b981";
+                  const statusLabel = !isDone?"Not started":isExpired?"Expired":isExpiring?ex.label:"Completed";
                   return (
-                    <div key={m.id} onClick={()=>startMod(m)} style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:22,cursor:"pointer",border:`1px solid ${isDone?"rgba(16,185,129,0.3)":T.border}`,transition:"transform .2s,box-shadow .2s"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",marginBottom:10}}>
-                        <span style={{fontSize:32}}>{m.icon}</span>
-                        <Pill label={isDone?"✓ Completed":"Pending"} col={isDone?"green":"amber"}/>
+                    <div key={m.id} onClick={()=>startMod(m)} style={{background:T.overlay,border:`1px solid ${isExpired?"rgba(239,68,68,0.25)":T.borderMd}`,borderRadius:10,padding:"10px 16px",cursor:"pointer",display:"flex",alignItems:"center",gap:12,transition:"background .15s"}}
+                      onMouseEnter={e=>e.currentTarget.style.background=T.navyMd}
+                      onMouseLeave={e=>e.currentTarget.style.background=T.overlay}>
+                      <span style={{fontSize:22,flexShrink:0}}>{m.icon}</span>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:700,fontSize:13,color:T.white,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.title}</div>
+                        <div style={{fontSize:11,color:T.muted}}>{m.category} · {m.duration}</div>
                       </div>
-                      <h4 style={{margin:"0 0 4px",fontSize:15,fontWeight:800}}>{m.title}</h4>
-                      <p style={{color:T.muted,fontSize:12,margin:0}}>{m.category} · {m.duration}</p>
-                      {isDone && <p style={{color:T.green,fontSize:12,marginTop:6,fontWeight:700}}>Score: {myC[m.id].score}%</p>}
-                      {isDone && m.renewalMonths && (() => {
-                        const ex = getExpiryStatus(myC[m.id].date, m.renewalMonths);
-                        if (!ex) return null;
-                        return <p style={{fontSize:10,fontWeight:700,color:ex.color,margin:"3px 0 0"}}>{ex.status==="expired"?"⚠ Expired":ex.status==="expiring"?`⏳ ${ex.label}`:"✓ Valid"}</p>;
-                      })()}
+                      {isDone && <span style={{fontSize:11,color:T.muted}}>{myC[m.id].score}%</span>}
+                      <span style={{fontSize:11,fontWeight:700,color:statusColor,background:`${statusColor}18`,border:`1px solid ${statusColor}33`,borderRadius:6,padding:"2px 8px",whiteSpace:"nowrap",flexShrink:0}}>{statusLabel}</span>
                     </div>
                   );
                 })}
+                {myMods.length===0 && <div style={{color:T.muted,fontSize:14,padding:"24px 0",textAlign:"center"}}>No training modules assigned yet. Check back soon.</div>}
               </div>
             </div>
           )}
@@ -16268,7 +16461,7 @@ export default function App() {
           <div style={{marginRight:isMobile?8:28,padding:"12px 0",flexShrink:0}}><ZeusLogo darkMode={darkMode}/></div>
           {!isMobile && <><div style={{width:1,height:28,background:T.headerBgMd,marginRight:8}}/><Pill label="ADMIN" col="navy"/><div style={{width:1,height:20,background:T.headerBgMd,margin:"0 12px"}}/></>}
           {!isMobile && (()=>{
-            const TRAINING_TABS=["assign","modules","create","reports","firstaid"]; const trainingActive=TRAINING_TABS.includes(atab);
+            const TRAINING_TABS=["assign","modules","create","reports"]; const trainingActive=TRAINING_TABS.includes(atab);
             const ME_TABS=["machinery","equipment"]; const meActive=ME_TABS.includes(atab);
             return (<>
               <button onClick={()=>setAtab("dashboard")} style={navBtn(atab==="dashboard",T.gold)}>Dashboard</button>
@@ -16276,25 +16469,27 @@ export default function App() {
               <div style={{position:"relative",display:"inline-block"}} onMouseEnter={e=>e.currentTarget.querySelector(".training-dd").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".training-dd").style.display="none"}>
                 <button style={{...navBtn(trainingActive,T.gold),display:"flex",alignItems:"center",gap:5}}>Training<span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span></button>
                 <div className="training-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:160,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
-                  {[["assign","Assign Training"],["modules","Training Library"],["create","Create Module"],["reports","Reports"],["firstaid","First Aid Register"]].map(([id,label])=>(<button key={id} onClick={()=>setAtab(id)} style={{display:"block",width:"100%",textAlign:"left",padding:"10px 18px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",color:atab===id?T.gold:T.white,fontWeight:atab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:font,transition:"background .15s",letterSpacing:.3}}>{label}</button>))}
+                  {[["assign","Assign Training"],["modules","Training Library"],["create","Create Module"],["reports","Reports"]].map(([id,label])=>(<button key={id} onClick={()=>setAtab(id)} style={{display:"block",width:"100%",textAlign:"left",padding:"10px 18px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",color:atab===id?T.gold:T.white,fontWeight:atab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:font,transition:"background .15s",letterSpacing:.3}}>{label}</button>))}
                 </div>
               </div>
-              {(()=>{ const DOC_TABS=["documents","coshh"]; const docActive=DOC_TABS.includes(atab); return (
-                <div style={{position:"relative",display:"inline-block"}} onMouseEnter={e=>e.currentTarget.querySelector(".doc-dd").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".doc-dd").style.display="none"}>
-                  <button style={{...navBtn(docActive,T.gold),display:"flex",alignItems:"center",gap:5}}>Documents<span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span></button>
-                  <div className="doc-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:180,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
-                    {[["documents","H&S Documents"],["coshh","COSHH Register"]].map(([id,label])=>(<button key={id} onClick={()=>setAtab(id)} style={{display:"block",width:"100%",textAlign:"left",padding:"10px 18px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",color:atab===id?T.gold:T.white,fontWeight:atab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:font,transition:"background .15s",letterSpacing:.3}}>{label}</button>))}
-                  </div>
-                </div>
-              ); })()}
-              {["incidents","ra"].map(t=>(<button key={t} onClick={()=>setAtab(t)} style={navBtn(atab===t,T.gold)}>{{incidents:"Incidents",ra:"Risk Assessments"}[t]}</button>))}
-              <button onClick={()=>setAtab("inspections")} style={navBtn(atab==="inspections",T.gold)}>Inspections</button>
               <button onClick={()=>setAtab("firesafety")} style={navBtn(atab==="firesafety",T.gold)}>Fire Safety</button>
+              <button onClick={()=>setAtab("firstaid")} style={navBtn(atab==="firstaid",T.gold)}>First Aid</button>
+              <button onClick={()=>setAtab("incidents")} style={navBtn(atab==="incidents",T.gold)}>Incidents</button>
+              <button onClick={()=>setAtab("ra")} style={navBtn(atab==="ra",T.gold)}>Risk Assessments</button>
+              <button onClick={()=>setAtab("inspections")} style={navBtn(atab==="inspections",T.gold)}>Inspections</button>
               {(()=>{ const CON_TABS=["contractors","permits"]; const conActive=CON_TABS.includes(atab); return (
                 <div style={{position:"relative",display:"inline-block"}} onMouseEnter={e=>e.currentTarget.querySelector(".con-dd").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".con-dd").style.display="none"}>
                   <button style={{...navBtn(conActive,T.gold),display:"flex",alignItems:"center",gap:5}}>Contractors<span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span></button>
                   <div className="con-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:180,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
                     {[["contractors","Contractors"],["permits","Permits"]].map(([id,label])=>(<button key={id} onClick={()=>setAtab(id)} style={{display:"block",width:"100%",textAlign:"left",padding:"10px 18px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",color:atab===id?T.gold:T.white,fontWeight:atab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:font,transition:"background .15s",letterSpacing:.3}}>{label}</button>))}
+                  </div>
+                </div>
+              ); })()}
+              {(()=>{ const DOC_TABS=["documents","coshh"]; const docActive=DOC_TABS.includes(atab); return (
+                <div style={{position:"relative",display:"inline-block"}} onMouseEnter={e=>e.currentTarget.querySelector(".doc-dd").style.display="block"} onMouseLeave={e=>e.currentTarget.querySelector(".doc-dd").style.display="none"}>
+                  <button style={{...navBtn(docActive,T.gold),display:"flex",alignItems:"center",gap:5}}>Documents<span style={{fontSize:9,opacity:.7,marginTop:1}}>▼</span></button>
+                  <div className="doc-dd" style={{display:"none",position:"absolute",top:"100%",left:0,zIndex:200,minWidth:180,background:`linear-gradient(135deg,${T.navyDk},${T.navyMd})`,border:`1px solid ${T.borderMd}`,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,0.35)",overflow:"hidden",paddingTop:4,paddingBottom:4}}>
+                    {[["documents","H&S Documents"],["coshh","COSHH Register"]].map(([id,label])=>(<button key={id} onClick={()=>setAtab(id)} style={{display:"block",width:"100%",textAlign:"left",padding:"10px 18px",background:atab===id?`rgba(245,158,11,0.12)`:"transparent",border:"none",color:atab===id?T.gold:T.white,fontWeight:atab===id?700:500,fontSize:13,cursor:"pointer",fontFamily:font,transition:"background .15s",letterSpacing:.3}}>{label}</button>))}
                   </div>
                 </div>
               ); })()}
@@ -16427,17 +16622,17 @@ export default function App() {
               ["users", E("👥 ","")+"Staff"],
               ["assign", E("📋 ","")+"Assign Training"],
               ["modules", E("📚 ","")+"Training Library"],
-              ["firstaid","First Aid Register"],
               ["create","➕ Create Module"],
               ["reports", E("📊 ","")+"Reports"],
-              ["documents","📄 H&S Documents"],
-              ["coshh","🧪 COSHH Register"],
+              ["firesafety", E("🔥 ","")+"Fire Safety"],
+              ["firstaid","First Aid Register"],
               ["incidents", E("⚠️ ","")+"Incidents"],
               ["ra","🔍 Risk Assessments"],
               ["inspections","🏗️ Inspections"],
-              ["firesafety", E("🔥 ","")+"Fire Safety"],
               ["contractors","🪪 Contractors"],
               ["permits", E("📋 ","")+"Permits"],
+              ["documents","📄 H&S Documents"],
+              ["coshh","🧪 COSHH Register"],
               ["machinery","🔧 Machinery Competence"],
               ["equipment","📦 Equipment Register"],
               ["account","👤 My Account"],
