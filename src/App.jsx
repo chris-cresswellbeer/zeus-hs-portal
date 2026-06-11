@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 
 // ─── Supabase Configuration ───────────────────────────────────────────────────
 // Replace these two values with your own from:
-// Supabase Dashboard → Project Settings → API
+// Supabase Dashboard → Project Settings → APId
 const SUPABASE_URL  = "https://aoahugfyswgcisfiosyn.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFvYWh1Z2Z5c3dnY2lzZmlvc3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5NjY1NzMsImV4cCI6MjA5NTU0MjU3M30.9mlm3pVxqwTgCdrdVF2ek1mBHro28P-MTaVjdAUvCIs";
 
