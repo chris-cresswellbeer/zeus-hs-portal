@@ -3044,7 +3044,7 @@ function ReportsTab({ staff, assigns, comps, docs, docAssignments, docAcknowledg
                 const extIcons={PDF:"📕",DOCX:"📘",DOC:"📘",XLSX:"📗",XLS:"📗",PPTX:"📙",PPT:"📙",PNG:"🖼️",JPG:"🖼️",JPEG:"🖼️",TXT:"📄",CSV:"📊"};
                 const icon=extIcons[d.ext]||"📄";
                 const assignedIds = docAssignments[d.id]||[];
-                const assignedStaff = staff.filter(u=>assignedIds.includes(u.id));
+                const assignedStaff = staff.filter(u=>assignedIds.includes(String(u.id)));
                 const readStaff   = assignedStaff.filter(u=>(docAcknowledgements[u.id]||{})[d.id]);
                 const unreadStaff = assignedStaff.filter(u=>!(docAcknowledgements[u.id]||{})[d.id]);
                 const pct = assignedStaff.length ? Math.round(readStaff.length/assignedStaff.length*100) : 0;
@@ -14348,8 +14348,8 @@ export default function App() {
         if (cRows && cRows.length) {
           const map = {};
           cRows.forEach(r => {
-            map[r.user_id] = map[r.user_id] || {};
-            map[r.user_id][r.module_id] = { score: r.score, date: r.date, certId: r.cert_id, answers: r.answers };
+            const tc_uid=String(r.user_id); map[tc_uid] = map[tc_uid] || {};
+            map[tc_uid][String(r.module_id)] = { score: r.score, date: r.date, certId: r.cert_id, answers: r.answers };
           });
           setComps(map);
         }
@@ -14409,7 +14409,7 @@ export default function App() {
         const { data: dseRows } = await sb.from("dse_reports").select("*");
         if (dseRows && dseRows.length) {
           const map = {};
-          dseRows.forEach(r => { map[r.user_id] = map[r.user_id] || []; map[r.user_id][r.report_idx] = r.data; });
+          dseRows.forEach(r => { const duid=String(r.user_id); map[duid] = map[duid] || []; map[duid][r.report_idx] = r.data; });
           setDseReports(map);
         }
 
@@ -14418,8 +14418,8 @@ export default function App() {
         if (resRows && resRows.length) {
           const map = {};
           resRows.forEach(r => {
-            map[r.user_id] = map[r.user_id] || {};
-            map[r.user_id][`${r.report_idx}_${r.issue_idx}`] = { comment: r.comment, resolved: r.resolved };
+            const ar_uid=String(r.user_id); map[ar_uid] = map[ar_uid] || {};
+            map[ar_uid][`${r.report_idx}_${r.issue_idx}`] = { comment: r.comment, resolved: r.resolved };
           });
           setAdminResponses(map);
         }
@@ -14428,7 +14428,7 @@ export default function App() {
         const { data: llRows } = await sb.from("last_logins").select("*");
         if (llRows && llRows.length) {
           const map = {};
-          llRows.forEach(r => { map[r.user_id] = r.last_login; });
+          llRows.forEach(r => { map[String(r.user_id)] = r.last_login; });
           setLastLoginMap(map);
         }
 
@@ -14436,7 +14436,7 @@ export default function App() {
         const { data: pwRows } = await sb.from("user_passwords").select("*");
         if (pwRows && pwRows.length) {
           const map = {};
-          pwRows.forEach(r => { map[r.user_id] = r.password; });
+          pwRows.forEach(r => { map[String(r.user_id)] = r.password; });
           setPasswords(map);
         }
 
@@ -14464,8 +14464,8 @@ export default function App() {
         if (ecRows && ecRows.length) {
           const map = {};
           ecRows.forEach(r => {
-            map[r.user_id] = map[r.user_id] || {};
-            map[r.user_id][r.cert_type] = r.data;
+            const ec_uid=String(r.user_id); map[ec_uid] = map[ec_uid] || {};
+            map[ec_uid][r.cert_type] = r.data;
           });
           setExtCerts(map);
         }
@@ -14509,7 +14509,7 @@ export default function App() {
         const { data: mcRows } = await sb.from("machine_completions").select("*");
         if (mcRows && mcRows.length) {
           const map = {};
-          mcRows.forEach(r => { map[r.user_id] = map[r.user_id] || {}; map[r.user_id][r.machine_id] = r.data; });
+          mcRows.forEach(r => { const mcuid=String(r.user_id); map[mcuid] = map[mcuid] || {}; map[mcuid][r.machine_id] = r.data; });
           setMachineComps(map);
         }
 
@@ -14729,7 +14729,7 @@ export default function App() {
   async function dbSaveDseReport(userId, reports) {
     await sb.from("dse_reports").delete().eq("user_id", userId);
     if (reports.length) {
-      await sb.from("dse_reports").insert(reports.map((r, i) => ({ user_id: userId, report_idx: i, data: r })));
+      await sb.from("dse_reports").insert(reports.map((r, i) => ({ user_id: String(userId), report_idx: i, data: r })));
     }
   }
 
@@ -14741,14 +14741,14 @@ export default function App() {
   }
 
   async function dbRecordLogin(userId, ts) {
-    await sb.from("last_logins").upsert({ user_id: userId, last_login: ts }, { onConflict: "user_id" });
+    await sb.from("last_logins").upsert({ user_id: String(userId), last_login: ts }, { onConflict: "user_id" });
   }
 
   async function dbSavePassword(userId, password) {
     // Always store hashed — hash it here if it's not already a 64-char hex hash
     const isAlreadyHashed = /^[0-9a-f]{64}$/.test(password);
     const hashed = isAlreadyHashed ? password : await hashPassword(password);
-    await sb.from("user_passwords").upsert({ user_id: userId, password: hashed }, { onConflict: "user_id" });
+    await sb.from("user_passwords").upsert({ user_id: String(userId), password: hashed }, { onConflict: "user_id" });
   }
 
   async function dbSaveTheme(userId, themeKey) {
@@ -14809,7 +14809,7 @@ export default function App() {
   }
 
   async function dbSaveExtCert(userId, certType, data) {
-    await sb.from("ext_certs").upsert({ user_id: userId, cert_type: certType, data }, { onConflict: "user_id,cert_type" });
+    await sb.from("ext_certs").upsert({ user_id: String(userId), cert_type: certType, data }, { onConflict: "user_id,cert_type" });
   }
 
   async function dbDeleteExtCert(userId, certType) {
@@ -14825,7 +14825,7 @@ export default function App() {
   }
 
   async function dbSaveMachineComp(userId, machineId, data) {
-    await sb.from("machine_completions").upsert({ user_id: userId, machine_id: machineId, data }, { onConflict: "user_id,machine_id" });
+    await sb.from("machine_completions").upsert({ user_id: String(userId), machine_id: String(machineId), data }, { onConflict: "user_id,machine_id" });
   }
 
   async function dbSaveEquipment(items) {
@@ -16512,7 +16512,7 @@ export default function App() {
               });
               if(overdueStaff.length) notifications.push({type:"module",urgent:true,title:`${overdueStaff.length} staff with overdue mandatory training`,detail:overdueStaff.map(u=>u.name.split(" ")[0]).slice(0,4).join(", ")+(overdueStaff.length>4?` +${overdueStaff.length-4} more`:"...tap to view"),nav:{tab:"reports"}});
               // Unread required documents
-              const unreadDoc = staff.filter(u=>docs.some(d=>(docAssignments[d.id]||[]).includes(u.id)&&!(docAcknowledgements[u.id]||{})[d.id]));
+              const unreadDoc = staff.filter(u=>docs.some(d=>(docAssignments[String(d.id)]||[]).includes(String(u.id))&&!(docAcknowledgements[u.id]||{})[d.id]));
               if(unreadDoc.length) notifications.push({type:"document",urgent:false,title:`${unreadDoc.length} staff with unread required documents`,detail:"Check Documents tab for details",nav:{tab:"reports"}});
               // DSE assessments not submitted
               const noDse = staff.filter(u=>!(dseReports[u.id]||[]).length);
@@ -16954,10 +16954,10 @@ export default function App() {
                         {bulkResetScope==="selected" && (
                           <div style={{maxHeight:160,overflowY:"auto",border:`1px solid ${T.border}`,borderRadius:8,marginBottom:14}}>
                             {staff.map((u,i)=>(
-                              <div key={u.id} onClick={()=>setBulkResetSelected(p=>p.includes(u.id)?p.filter(x=>x!==u.id):[...p,u.id])}
-                                style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderTop:i>0?`1px solid ${T.border}`:"none",cursor:"pointer",background:bulkResetSelected.includes(u.id)?"rgba(239,68,68,0.06)":"transparent"}}>
-                                <div style={{width:16,height:16,borderRadius:4,border:`2px solid ${bulkResetSelected.includes(u.id)?"#ef4444":T.borderMd}`,background:bulkResetSelected.includes(u.id)?"#ef4444":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                                  {bulkResetSelected.includes(u.id)&&<span style={{color:"#fff",fontSize:10,fontWeight:900}}>✓</span>}
+                              <div key={u.id} onClick={()=>setBulkResetSelected(p=>p.includes(String(u.id))?p.filter(x=>x!==String(u.id)):[...p,String(u.id)])}
+                                style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderTop:i>0?`1px solid ${T.border}`:"none",cursor:"pointer",background:bulkResetSelected.includes(String(u.id))?"rgba(239,68,68,0.06)":"transparent"}}>
+                                <div style={{width:16,height:16,borderRadius:4,border:`2px solid ${bulkResetSelected.includes(String(u.id))?"#ef4444":T.borderMd}`,background:bulkResetSelected.includes(String(u.id))?"#ef4444":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                                  {bulkResetSelected.includes(String(u.id))&&<span style={{color:"#fff",fontSize:10,fontWeight:900}}>✓</span>}
                                 </div>
                                 <Avatar name={u.name} size={20}/>
                                 <div style={{flex:1,minWidth:0}}>
@@ -17558,7 +17558,7 @@ export default function App() {
                 const managers = [...new Set(staff.map(u=>u.manager||"").filter(Boolean))].sort();
                 const targetStaff2 = bulkDocTarget==="all" ? staff
                   : bulkDocTarget==="team" ? staff.filter(u=>u.manager===bulkDocManager)
-                  : staff.filter(u=>bulkDocSelectedStaff.includes(u.id));
+                  : staff.filter(u=>bulkDocSelectedStaff.includes(String(u.id)));
                 const inp3 = {background:T.overlay,border:`1px solid ${T.borderMd}`,borderRadius:9,padding:"8px 12px",color:T.white,fontSize:13,outline:"none",fontFamily:font,cursor:"pointer"};
                 return (
                   <div style={{background:`linear-gradient(135deg,${T.navyMd},${T.navy})`,borderRadius:16,padding:20,marginBottom:20,border:`1px solid ${T.accent}44`}}>
@@ -17580,10 +17580,10 @@ export default function App() {
                         {bulkDocTarget==="individual" && (
                           <div style={{maxHeight:150,overflowY:"auto",border:`1px solid ${T.border}`,borderRadius:8,marginBottom:10}}>
                             {staff.map((u,i)=>(
-                              <div key={u.id} onClick={()=>setBulkDocSelectedStaff(p=>p.includes(u.id)?p.filter(x=>x!==u.id):[...p,u.id])}
+                              <div key={u.id} onClick={()=>setBulkDocSelectedStaff(p=>p.includes(String(u.id))?p.filter(x=>x!==String(u.id)):[...p,u.id])}
                                 style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderTop:i>0?`1px solid ${T.border}`:"none",cursor:"pointer",background:bulkDocSelectedStaff.includes(u.id)?"rgba(37,99,235,0.08)":"transparent"}}>
                                 <div style={{width:15,height:15,borderRadius:3,border:`2px solid ${bulkDocSelectedStaff.includes(u.id)?T.accent:T.borderMd}`,background:bulkDocSelectedStaff.includes(u.id)?T.accent:"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                                  {bulkDocSelectedStaff.includes(u.id)&&<span style={{color:"#fff",fontSize:9,fontWeight:900}}>✓</span>}
+                                  {bulkDocSelectedStaff.includes(String(u.id))&&<span style={{color:"#fff",fontSize:9,fontWeight:900}}>✓</span>}
                                 </div>
                                 <span style={{fontSize:12,color:T.white}}>{u.name}</span>
                                 <span style={{fontSize:11,color:T.muted,marginLeft:"auto"}}>{u.jobTitle||""}</span>
