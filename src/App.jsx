@@ -14493,10 +14493,19 @@ export default function App() {
         // Risk assessments (custom/edited ones override INIT_RAS)
         const { data: raRows } = await sb.from("risk_assessments").select("*");
         if (raRows && raRows.length) {
-          setRas(prev => prev.map(r => {
-            const saved = raRows.find(x => x.id === r.id);
-            return saved ? { ...r, ...saved.data } : r;
-          }));
+          setRas(prev => {
+            // Merge saved data into existing seed RAs
+            const merged = prev.map(r => {
+              const saved = raRows.find(x => x.id === r.id);
+              return saved ? { ...r, ...saved.data } : r;
+            });
+            // Append any RAs created by admin that aren't in the seed list
+            const existingIds = new Set(prev.map(r => r.id));
+            const newRas = raRows
+              .filter(x => !existingIds.has(x.id) && x.data)
+              .map(x => x.data);
+            return [...merged, ...newRas];
+          });
         }
 
         // Custom modules
